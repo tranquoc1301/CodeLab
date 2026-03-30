@@ -4,7 +4,7 @@ export const API = {
   BASE_URL,
   ENDPOINTS: {
     PROBLEMS: '/problems/',
-    PROBLEM_DETAIL: (id: string | number) => `/problems/${id}`,
+    PROBLEM_BY_SLUG: (slug: string) => `/problems/by-slug/${slug}`,
     SUBMISSIONS: '/submissions/',
     AUTH_LOGIN: '/auth/login',
     AUTH_REGISTER: '/auth/register',

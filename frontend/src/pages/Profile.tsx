@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useAuthStore } from '../store/auth';
-import api from '../api';
+import { useAuthStore } from '@/store/auth';
+import api from '@/api';
 import {
   Card,
   CardContent,
@@ -8,8 +8,8 @@ import {
   CardHeader,
   CardTitle,
   Skeleton,
-} from '../components/ui';
-import { API, COPY, DEFAULTS } from '../config';
+} from '@/components/ui';
+import { API, COPY, DEFAULTS } from '@/config';
 
 function ProfileSkeleton() {
   return (

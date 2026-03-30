@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Editor from '@monaco-editor/react';
 import { useThemeStore } from '../store/theme';
 import { cn } from '../lib/utils';
@@ -10,20 +11,28 @@ interface CodeEditorProps {
   onChange: (value: string | undefined) => void;
 }
 
-const languageMap: Record<Language, string> = {
+/**
+ * Maps internal Language types to Monaco editor language identifiers.
+ */
+const LANGUAGE_MAP: Record<Language, string> = {
   python: 'python',
   java: 'java',
   cpp: 'cpp',
-};
+  c: 'c',
+} as const;
 
-export default function CodeEditor({ language, value, onChange }: CodeEditorProps) {
+/**
+ * Monaco Editor wrapper with theme support.
+ * Memoized to prevent unnecessary re-renders when parent state changes.
+ */
+const CodeEditor = memo(function CodeEditor({ language, value, onChange }: CodeEditorProps) {
   const theme = useThemeStore((s) => s.theme);
 
   return (
     <div className={cn('rounded-lg border overflow-hidden shadow-sm')}>
       <Editor
         height={EDITOR.HEIGHT}
-        language={languageMap[language]}
+        language={LANGUAGE_MAP[language]}
         value={value}
         theme={EDITOR.THEME[theme]}
         onChange={onChange}
@@ -34,4 +43,6 @@ export default function CodeEditor({ language, value, onChange }: CodeEditorProp
       />
     </div>
   );
-}
+});
+
+export default CodeEditor;

@@ -11,7 +11,19 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.database import Base
-from app.models import User, Problem, Submission
+from app.models import (
+    Problem,
+    Topic,
+    ProblemTopic,
+    Example,
+    ProblemConstraint,
+    ProblemHint,
+    ProblemFollowUp,
+    CodeSnippet,
+    ProblemSolution,
+    User,
+    Submission,
+)
 
 config = context.config
 
