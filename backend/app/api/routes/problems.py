@@ -26,7 +26,7 @@ router = APIRouter(prefix="/problems", tags=["problems"])
 @router.get("/paginated", response_model=ProblemCursorResponse)
 async def list_problems_paginated(
     difficulty: str | None = Query(None, description="Filter by difficulty: Easy, Medium, Hard"),
-    topic: str | None = Query(None, description="Filter by topic slug"),
+    topics: list[str] | None = Query(None, description="Filter by topic slugs (OR logic, multiple allowed)"),
     sort_by: str = Query("newest", description="Sort order: newest, oldest, frontend_id, title"),
     cursor: str | None = Query(None, description="Cursor for pagination"),
     limit: int = Query(20, ge=1, le=100, description="Number of items per page"),
@@ -36,7 +36,7 @@ async def list_problems_paginated(
     
     cache_params = {
         "difficulty": difficulty,
-        "topic": topic,
+        "topics": topics,
         "sort_by": sort_by,
         "cursor": cursor,
         "limit": limit,
@@ -54,8 +54,8 @@ async def list_problems_paginated(
     
     if difficulty:
         query = query.where(Problem.difficulty == difficulty)
-    if topic:
-        query = query.join(ProblemTopic).join(Topic).where(Topic.slug == topic)
+    if topics:
+        query = query.join(ProblemTopic).join(Topic).where(Topic.slug.in_(topics))
     
     if cursor_data:
         last_id = cursor_data.get("id")
@@ -113,8 +113,8 @@ async def list_problems_paginated(
     count_query = select(func.count(Problem.id))
     if difficulty:
         count_query = count_query.where(Problem.difficulty == difficulty)
-    if topic:
-        count_query = count_query.join(ProblemTopic).join(Topic).where(Topic.slug == topic)
+    if topics:
+        count_query = count_query.join(ProblemTopic).join(Topic).where(Topic.slug.in_(topics))
     count_result = await db.execute(count_query)
     total_count = count_result.scalar() or 0
     
@@ -140,6 +140,12 @@ async def list_problems_paginated(
         await set_cached(cache_key, response.model_dump(mode="json"))
     
     return response
+
+
+@router.get("/topics", response_model=list[TopicResponse])
+async def list_topics(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Topic).order_by(Topic.name))
+    return result.scalars().all()
 
 
 @router.get("/", response_model=list[ProblemListResponse])

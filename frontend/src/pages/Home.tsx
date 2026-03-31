@@ -14,10 +14,12 @@ import {
   LoadMoreControl,
 } from "@/components/ui";
 import { DifficultyBadge } from "@/components/DifficultyBadge";
+import { TopicFilter } from "@/components/TopicFilter";
 import { cn } from "@/lib/utils";
 import { ROUTES, COPY } from "@/config";
 import type { ProblemSummary } from "@/types";
 import { useProblemCursorList } from "@/hooks/useProblemCursorList";
+import { useTopics } from "@/hooks/useTopics";
 
 function ProblemCardSkeleton() {
   return (
@@ -158,6 +160,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [difficulty, setDifficulty] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
   const showAuthRequiredPrompt = useCallback(
     (problemSlug: string) => {
@@ -187,9 +190,15 @@ export default function Home() {
     totalCount,
   } = useProblemCursorList({
     difficulty: difficulty === "all" ? undefined : difficulty,
+    topics: selectedTopics.length > 0 ? selectedTopics : undefined,
     sortBy,
     initialLimit: 20,
   });
+
+  const {
+    topics: availableTopics,
+    isLoading: topicsLoading,
+  } = useTopics();
 
   const filteredProblems = search
     ? problems.filter((p) =>
@@ -215,6 +224,16 @@ export default function Home() {
     }
   };
 
+  const handleToggleTopic = useCallback((slug: string) => {
+    setSelectedTopics((prev) =>
+      prev.includes(slug) ? prev.filter((t) => t !== slug) : [...prev, slug],
+    );
+  }, []);
+
+  const handleClearTopics = useCallback(() => {
+    setSelectedTopics([]);
+  }, []);
+
   const handleFilterChange = useCallback(
     (newDifficulty: string, newSortBy: string) => {
       setDifficulty(newDifficulty);
@@ -223,6 +242,9 @@ export default function Home() {
     },
     [],
   );
+
+  const hasActiveFilters =
+    difficulty !== "all" || selectedTopics.length > 0 || search;
 
   return (
     <div className="py-6 space-y-6">
@@ -235,6 +257,15 @@ export default function Home() {
           <p className="text-muted-foreground mt-1">{COPY.HOME.SUBTITLE}</p>
         </div>
       </div>
+
+      {/* Topic Filter */}
+      <TopicFilter
+        topics={availableTopics}
+        selectedTopics={selectedTopics}
+        onToggle={handleToggleTopic}
+        onClearAll={handleClearTopics}
+        isLoading={topicsLoading}
+      />
 
       {/* Search and filters */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -280,6 +311,8 @@ export default function Home() {
         {filteredProblems.length === 1 ? "" : "s"}
         {search && ` matching "${search}"`}
         {difficulty !== "all" && ` with ${difficulty} difficulty`}
+        {selectedTopics.length > 0 &&
+          ` in ${selectedTopics.length} topic${selectedTopics.length > 1 ? "s" : ""}`}
         {totalCount != null && !search && ` of ${totalCount} total`}
       </p>
 
@@ -309,16 +342,19 @@ export default function Home() {
             <p className="text-muted-foreground text-lg">
               {search ? `No problems matching "${search}"` : COPY.HOME.EMPTY}
             </p>
-            <Button
-              variant="link"
-              onClick={() => {
-                setSearch("");
-                setDifficulty("all");
-              }}
-              className="mt-2"
-            >
-              Clear filters
-            </Button>
+            {hasActiveFilters && (
+              <Button
+                variant="link"
+                onClick={() => {
+                  setSearch("");
+                  setDifficulty("all");
+                  setSelectedTopics([]);
+                }}
+                className="mt-2"
+              >
+                Clear all filters
+              </Button>
+            )}
           </div>
         )}
       </div>

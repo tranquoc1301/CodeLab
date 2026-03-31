@@ -5,6 +5,7 @@ export const API = {
   ENDPOINTS: {
     PROBLEMS: '/problems/',
     PROBLEMS_PAGINATED: '/problems/paginated',
+    TOPICS: '/problems/topics',
     PROBLEM_BY_SLUG: (slug: string) => `/problems/by-slug/${slug}`,
     SUBMISSIONS: '/submissions/',
     AUTH_LOGIN: '/auth/login',

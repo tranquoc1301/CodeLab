@@ -6,7 +6,7 @@ import type { ProblemCursorResponse, ProblemSummary } from '@/types';
 
 interface UseProblemCursorListOptions {
   difficulty?: string;
-  topic?: string;
+  topics?: string[];
   sortBy?: string;
   initialLimit?: number;
 }
@@ -29,7 +29,7 @@ export function useProblemCursorList(
 ): UseProblemCursorListReturn {
   const {
     difficulty,
-    topic,
+    topics,
     sortBy = 'newest',
     initialLimit = 20,
   } = options;
@@ -47,12 +47,14 @@ export function useProblemCursorList(
   const buildQueryParams = useCallback((cursorParam: string | null) => {
     const params = new URLSearchParams();
     if (difficulty) params.append('difficulty', difficulty);
-    if (topic) params.append('topic', topic);
+    if (topics && topics.length > 0) {
+      topics.forEach(t => params.append('topics', t));
+    }
     params.append('sort_by', sortBy);
     params.append('limit', String(initialLimit));
     if (cursorParam) params.append('cursor', cursorParam);
     return params.toString();
-  }, [difficulty, topic, sortBy, initialLimit]);
+  }, [difficulty, topics, sortBy, initialLimit]);
 
   const fetchProblems = useCallback(async (cursorParam: string | null): Promise<ProblemCursorResponse> => {
     if (abortControllerRef.current) {
@@ -99,7 +101,7 @@ export function useProblemCursorList(
         abortControllerRef.current.abort();
       }
     };
-  }, [difficulty, topic, sortBy, initialLimit, fetchProblems]);
+  }, [difficulty, topics, sortBy, initialLimit, fetchProblems]);
 
   const loadMore = useCallback(async () => {
     if (!cursor || isLoadingMore || !hasNext) return;
