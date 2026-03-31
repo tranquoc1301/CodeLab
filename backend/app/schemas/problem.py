@@ -183,3 +183,23 @@ class ProblemListResponse(BaseModel):
     topics: list[TopicResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+class ProblemListItem(BaseModel):
+    id: int
+    problem_id: int
+    frontend_id: int
+    title: str
+    slug: str
+    difficulty: str
+    created_at: datetime
+    topics: list[TopicResponse] = []
+
+    model_config = {"from_attributes": True}
+
+
+class ProblemCursorResponse(BaseModel):
+    items: list[ProblemListItem]
+    next_cursor: str | None = None
+    has_next: bool
+    total_count: int | None = None

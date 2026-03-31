@@ -1,8 +1,6 @@
 import { useState, useCallback, memo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Search, Tag, ChevronDown } from "lucide-react";
-import api from "@/api";
 import { useAuth } from "@/store/auth";
 import { setStoredIntent } from "@/store/authGuard";
 import {
@@ -13,11 +11,13 @@ import {
   Button,
   Input,
   toast,
+  LoadMoreControl,
 } from "@/components/ui";
 import { DifficultyBadge } from "@/components/DifficultyBadge";
 import { cn } from "@/lib/utils";
-import { API, ROUTES, COPY, DEFAULTS } from "@/config";
-import type { Problem } from "@/types";
+import { ROUTES, COPY } from "@/config";
+import type { ProblemSummary } from "@/types";
+import { useProblemCursorList } from "@/hooks/useProblemCursorList";
 
 function ProblemCardSkeleton() {
   return (
@@ -33,6 +33,61 @@ function ProblemCardSkeleton() {
         <Skeleton className="h-6 w-16 rounded-full" />
       </div>
     </Card>
+  );
+}
+
+function ProblemCard({
+  problem,
+  onClick,
+  onKeyDown,
+  isAuthenticated,
+}: {
+  problem: ProblemSummary;
+  onClick: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  isAuthenticated: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onKeyDown={onKeyDown}
+      className="text-left w-full group"
+      aria-label={`${problem.title}. Press Enter to ${isAuthenticated ? "view" : "log in and view"}`}
+    >
+      <Card className="p-5 transition-all hover:border-primary/30 hover:shadow-md hover:ring-2 hover:ring-primary/20 cursor-pointer">
+        <CardContent className="p-0">
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-semibold group-hover:text-primary transition-colors truncate">
+                {problem.title}
+              </h2>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {problem.topics?.slice(0, 3).map((topic) => (
+                  <Badge
+                    key={topic.id}
+                    variant="outline"
+                    className="font-normal"
+                  >
+                    <Tag className="h-3 w-3 mr-1" />
+                    {topic.name}
+                  </Badge>
+                ))}
+                {problem.topics?.length > 3 && (
+                  <Badge
+                    variant="outline"
+                    className="font-normal text-muted-foreground"
+                  >
+                    +{problem.topics.length - 3}
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <DifficultyBadge difficulty={problem.difficulty} />
+          </div>
+        </CardContent>
+      </Card>
+    </button>
   );
 }
 
@@ -121,28 +176,27 @@ export default function Home() {
     [navigate],
   );
 
-  const { data: problems, isLoading } = useQuery<Problem[]>({
-    queryKey: ["problems", difficulty, sortBy],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (difficulty !== "all") params.append("difficulty", difficulty);
-      params.append("limit", "50");
-      const res = await api.get(
-        `${API.ENDPOINTS.PROBLEMS}?${params.toString()}`,
-      );
-      return res.data;
-    },
+  const {
+    problems,
+    isLoading,
+    isLoadingMore,
+    hasNext,
+    error,
+    loadMore,
+    refresh,
+    totalCount,
+  } = useProblemCursorList({
+    difficulty: difficulty === "all" ? undefined : difficulty,
+    sortBy,
+    initialLimit: 20,
   });
 
-  // Client-side search filtering (could be moved to server for large datasets)
-  const filteredProblems = problems?.filter((p) =>
-    p.title.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredProblems = search
+    ? problems.filter((p) =>
+        p.title.toLowerCase().includes(search.toLowerCase()),
+      )
+    : problems;
 
-  /**
-   * Handles problem card click with authentication check.
-   * Shows login prompt if user is not authenticated.
-   */
   const handleProblemClick = (problemSlug: string) => {
     if (!isAuthenticated) {
       showAuthRequiredPrompt(problemSlug);
@@ -151,16 +205,24 @@ export default function Home() {
     navigate(ROUTES.problemDetail(problemSlug));
   };
 
-  /**
-   * Enables keyboard navigation (Enter/Space) for problem cards.
-   * Improves accessibility for screen reader users.
-   */
-  const handleProblemKeyDown = (e: React.KeyboardEvent, problemSlug: string) => {
+  const handleProblemKeyDown = (
+    e: React.KeyboardEvent,
+    problemSlug: string,
+  ) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       handleProblemClick(problemSlug);
     }
   };
+
+  const handleFilterChange = useCallback(
+    (newDifficulty: string, newSortBy: string) => {
+      setDifficulty(newDifficulty);
+      setSortBy(newSortBy);
+      setSearch("");
+    },
+    [],
+  );
 
   return (
     <div className="py-6 space-y-6">
@@ -197,7 +259,7 @@ export default function Home() {
               { value: "Medium", label: COPY.FILTERS.MEDIUM },
               { value: "Hard", label: COPY.FILTERS.HARD },
             ]}
-            onChange={setDifficulty}
+            onChange={(val) => handleFilterChange(val, sortBy)}
           />
           <FilterDropdown
             label="Sort"
@@ -207,71 +269,46 @@ export default function Home() {
               { value: "oldest", label: COPY.HOME.SORT_OLDEST },
               { value: "title", label: COPY.HOME.SORT_TITLE },
             ]}
-            onChange={setSortBy}
+            onChange={(val) => handleFilterChange(difficulty, val)}
           />
         </div>
       </div>
 
       {/* Results count */}
       <p className="text-sm text-muted-foreground">
-        {filteredProblems?.length || 0} problem
-        {filteredProblems?.length === 1 ? "" : "s"}
+        {filteredProblems.length} problem
+        {filteredProblems.length === 1 ? "" : "s"}
         {search && ` matching "${search}"`}
         {difficulty !== "all" && ` with ${difficulty} difficulty`}
+        {totalCount != null && !search && ` of ${totalCount} total`}
       </p>
 
       {/* Problem list */}
-      <div className="grid gap-3">
+      <div
+        className="grid gap-3"
+        role="feed"
+        aria-label="Problem list"
+        aria-busy={isLoadingMore}
+      >
         {isLoading
-          ? Array.from({ length: DEFAULTS.SKELETON_COUNT }).map((_, i) => (
+          ? Array.from({ length: 5 }).map((_, i) => (
               <ProblemCardSkeleton key={i} />
             ))
-          : filteredProblems?.map((problem) => (
-              <button
+          : filteredProblems.map((problem) => (
+              <ProblemCard
                 key={problem.id}
-                type="button"
+                problem={problem}
                 onClick={() => handleProblemClick(problem.slug)}
                 onKeyDown={(e) => handleProblemKeyDown(e, problem.slug)}
-                className="text-left w-full group"
-                aria-label={`${problem.title}. Press Enter to ${isAuthenticated ? "view" : "log in and view"}`}
-              >
-                <Card className="p-5 transition-all hover:border-primary/30 hover:shadow-md hover:ring-2 hover:ring-primary/20 cursor-pointer">
-                  <CardContent className="p-0">
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="flex-1 min-w-0">
-                        <h2 className="text-lg font-semibold group-hover:text-primary transition-colors truncate">
-                          {problem.title}
-                        </h2>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {problem.topics?.slice(0, 3).map((topic) => (
-                            <Badge
-                              key={topic.id}
-                              variant="outline"
-                              className="font-normal"
-                            >
-                              <Tag className="h-3 w-3 mr-1" />
-                              {topic.name}
-                            </Badge>
-                          ))}
-                          {problem.topics?.length > 3 && (
-                            <Badge
-                              variant="outline"
-                              className="font-normal text-muted-foreground"
-                            >
-                              +{problem.topics.length - 3}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <DifficultyBadge difficulty={problem.difficulty} />
-                    </div>
-                  </CardContent>
-                </Card>
-              </button>
+                isAuthenticated={isAuthenticated}
+              />
             ))}
-        {filteredProblems?.length === 0 && !isLoading && (
+
+        {!isLoading && filteredProblems.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-muted-foreground text-lg">{COPY.HOME.EMPTY}</p>
+            <p className="text-muted-foreground text-lg">
+              {search ? `No problems matching "${search}"` : COPY.HOME.EMPTY}
+            </p>
             <Button
               variant="link"
               onClick={() => {
@@ -285,6 +322,19 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Load More Control */}
+      {!isLoading && (
+        <LoadMoreControl
+          hasNext={hasNext}
+          isLoadingMore={isLoadingMore}
+          error={error}
+          onLoadMore={loadMore}
+          onRetry={refresh}
+          loadedCount={problems.length}
+          totalCount={totalCount}
+        />
+      )}
     </div>
   );
 }

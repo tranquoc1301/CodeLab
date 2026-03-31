@@ -25,3 +25,5 @@ export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
 export { Toaster } from "./sonner";
 export { toast } from "sonner";
 export { ConstraintText } from "./constraint-text";
+export { LoadMoreControl } from "./load-more";
+export { LoadMoreControl } from "./load-more";

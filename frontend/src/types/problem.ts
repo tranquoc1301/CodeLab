@@ -42,3 +42,39 @@ export interface Problem {
   code_snippets: CodeSnippet[];
   created_at: string;
 }
+
+export interface ProblemSummary {
+  id: number;
+  problem_id: number;
+  frontend_id: number;
+  title: string;
+  slug: string;
+  difficulty: string;
+  topics: Topic[];
+  created_at: string;
+}
+
+export interface ProblemCursorResponse {
+  items: ProblemSummary[];
+  next_cursor: string | null;
+  has_next: boolean;
+  total_count: number | null;
+}
+
+export interface ProblemSummary {
+  id: number;
+  problem_id: number;
+  frontend_id: number;
+  title: string;
+  slug: string;
+  difficulty: string;
+  topics: Topic[];
+  created_at: string;
+}
+
+export interface ProblemCursorResponse {
+  items: ProblemSummary[];
+  next_cursor: string | null;
+  has_next: boolean;
+  total_count: number | null;
+}

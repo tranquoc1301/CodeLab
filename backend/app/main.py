@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import auth, problems, submissions
 from app.database import Base, engine
+from app.services.cache import close_redis
 
 app = FastAPI(title="Coding Platform API", version="1.0.0")
 
@@ -22,6 +23,11 @@ app.include_router(submissions.router, prefix="/api")
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    await close_redis()
 
 
 @app.get("/")

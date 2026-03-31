@@ -184,6 +184,12 @@ COMMENT ON COLUMN submissions.judge0_token IS 'Judge0 async job tracking token';
 CREATE INDEX ix_problems_difficulty ON problems (difficulty);
 CREATE INDEX ix_problems_title ON problems USING gin (to_tsvector('english', title));
 
+-- Keyset pagination indexes
+CREATE INDEX ix_problems_created_at ON problems (created_at);
+CREATE INDEX ix_problems_frontend_id ON problems (frontend_id);
+CREATE INDEX ix_problems_difficulty_created_at ON problems (difficulty, created_at);
+CREATE INDEX ix_problems_title_btree ON problems (title);
+
 -- Topics
 CREATE INDEX ix_topics_name ON topics (name);
 
