@@ -29,7 +29,10 @@ export const FilterDropdown = function FilterDropdown({
   useEffect(() => {
     if (!open) return;
     const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     };
@@ -49,8 +52,7 @@ export const FilterDropdown = function FilterDropdown({
     [onChange],
   );
 
-  const selectedLabel =
-    options.find((o) => o.value === value)?.label || label;
+  const selectedLabel = options.find((o) => o.value === value)?.label || label;
 
   const heightClass = size === "sm" ? "h-9" : "h-10";
 

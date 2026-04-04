@@ -150,9 +150,9 @@ export default function Home() {
             label="Sort"
             value={sortBy}
             options={[
-              { value: "newest", label: COPY.HOME.SORT_NEWEST },
-              { value: "oldest", label: COPY.HOME.SORT_OLDEST },
               { value: "title", label: COPY.HOME.SORT_TITLE },
+              { value: "oldest", label: COPY.HOME.SORT_OLDEST },
+              { value: "newest", label: COPY.HOME.SORT_NEWEST },
             ]}
             onChange={(val) => handleFilterChange(difficulty, val)}
           />

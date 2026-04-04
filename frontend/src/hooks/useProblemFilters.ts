@@ -17,7 +17,7 @@ interface UseProblemFiltersReturn {
 export function useProblemFilters(): UseProblemFiltersReturn {
   const [search, setSearch] = useState("");
   const [difficulty, setDifficulty] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
+  const [sortBy, setSortBy] = useState("oldest");
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
   const handleToggleTopic = useCallback((slug: string) => {

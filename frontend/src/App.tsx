@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import { useEffect } from "react";
 import { useAuth } from "./store/auth";
 import { Header } from "./components/header";
@@ -28,7 +34,7 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
       .catch(() => {
         console.error("Failed to fetch user data");
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- setUser is a stable Zustand setter
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setUser is a stable Zustand setter
   }, [token]);
 
   useEffect(() => {
@@ -48,27 +54,35 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AuthInitializer>
-          <div className="min-h-screen bg-background flex flex-col">
-            <Header />
-            <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-              <Routes>
-                <Route path={ROUTES.HOME} element={<Home />} />
-                <Route
-                  path={ROUTES.PROBLEM_DETAIL}
-                  element={<ProblemDetail />}
-                />
-                <Route path={ROUTES.SUBMISSIONS} element={<Submissions />} />
-                <Route path={ROUTES.LOGIN} element={<Login />} />
-                <Route path={ROUTES.REGISTER} element={<Register />} />
-                <Route path={ROUTES.PROFILE} element={<Profile />} />
-              </Routes>
-            </main>
-            <Footer />
-          </div>
-          <Toaster />
-        </AuthInitializer>
+        <AppLayout />
       </BrowserRouter>
     </QueryClientProvider>
+  );
+}
+
+function AppLayout() {
+  const location = useLocation();
+  const isProblemDetailPage = location.pathname.startsWith("/problems/");
+
+  return (
+    <AuthInitializer>
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main
+          className={`flex-1 mx-auto w-full px-4 py-3 sm:px-6 lg:px-8 ${!isProblemDetailPage ? "max-w-7xl" : ""}`}
+        >
+          <Routes>
+            <Route path={ROUTES.HOME} element={<Home />} />
+            <Route path={ROUTES.PROBLEM_DETAIL} element={<ProblemDetail />} />
+            <Route path={ROUTES.SUBMISSIONS} element={<Submissions />} />
+            <Route path={ROUTES.LOGIN} element={<Login />} />
+            <Route path={ROUTES.REGISTER} element={<Register />} />
+            <Route path={ROUTES.PROFILE} element={<Profile />} />
+          </Routes>
+        </main>
+        <Footer />
+      </div>
+      <Toaster />
+    </AuthInitializer>
   );
 }

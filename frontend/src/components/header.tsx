@@ -61,7 +61,10 @@ export function Header() {
   useEffect(() => {
     if (!userMenuOpen) return;
     const handleClick = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      ) {
         setUserMenuOpen(false);
       }
     };
@@ -92,7 +95,7 @@ export function Header() {
       <header
         className={cn(
           "sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur",
-          "supports-[backdrop-filter]:bg-background/60",
+          "supports-backdrop-filter:bg-background/60",
         )}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-6">
