@@ -1,183 +1,34 @@
-import { useState, useCallback, memo } from "react";
+import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Tag, ChevronDown } from "lucide-react";
+import { Search } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { setStoredIntent } from "@/store/authGuard";
-import {
-  Card,
-  CardContent,
-  Badge,
-  Skeleton,
-  Button,
-  Input,
-  toast,
-  LoadMoreControl,
-} from "@/components/ui";
-import { DifficultyBadge } from "@/components/DifficultyBadge";
+import { Button, Input, toast, LoadMoreControl } from "@/components/ui";
 import { TopicFilter } from "@/components/TopicFilter";
-import { cn } from "@/lib/utils";
 import { ROUTES, COPY } from "@/config";
-import type { ProblemSummary } from "@/types";
 import { useProblemCursorList } from "@/hooks/useProblemCursorList";
 import { useTopics } from "@/hooks/useTopics";
-
-function ProblemCardSkeleton() {
-  return (
-    <Card className="p-5">
-      <div className="flex justify-between items-start gap-4">
-        <div className="flex-1 space-y-3">
-          <Skeleton className="h-5 w-3/4" />
-          <div className="flex gap-1.5">
-            <Skeleton className="h-5 w-16" />
-            <Skeleton className="h-5 w-20" />
-          </div>
-        </div>
-        <Skeleton className="h-6 w-16 rounded-full" />
-      </div>
-    </Card>
-  );
-}
-
-function ProblemCard({
-  problem,
-  onClick,
-  onKeyDown,
-  isAuthenticated,
-}: {
-  problem: ProblemSummary;
-  onClick: () => void;
-  onKeyDown: (e: React.KeyboardEvent) => void;
-  isAuthenticated: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      onKeyDown={onKeyDown}
-      className="text-left w-full group"
-      aria-label={`${problem.title}. Press Enter to ${isAuthenticated ? "view" : "log in and view"}`}
-    >
-      <Card className="p-5 transition-all hover:border-primary/30 hover:shadow-md hover:ring-2 hover:ring-primary/20 cursor-pointer">
-        <CardContent className="p-0">
-          <div className="flex justify-between items-start gap-4">
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-semibold group-hover:text-primary transition-colors truncate">
-                {problem.title}
-              </h2>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {problem.topics?.slice(0, 3).map((topic) => (
-                  <Badge
-                    key={topic.id}
-                    variant="outline"
-                    className="font-normal"
-                  >
-                    <Tag className="h-3 w-3 mr-1" />
-                    {topic.name}
-                  </Badge>
-                ))}
-                {problem.topics?.length > 3 && (
-                  <Badge
-                    variant="outline"
-                    className="font-normal text-muted-foreground"
-                  >
-                    +{problem.topics.length - 3}
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <DifficultyBadge difficulty={problem.difficulty} />
-          </div>
-        </CardContent>
-      </Card>
-    </button>
-  );
-}
-
-export const FilterDropdown = memo(function FilterDropdown({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className={cn(
-          "flex h-10 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm",
-          "hover:bg-accent transition-colors",
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span className={value === "all" ? "text-muted-foreground" : ""}>
-          {options.find((o) => o.value === value)?.label || label}
-        </span>
-        <ChevronDown
-          className={cn("h-4 w-4 text-muted-foreground", open && "rotate-180")}
-        />
-      </button>
-      {open && (
-        <div
-          className="absolute z-10 mt-1 w-full min-w-[140px] rounded-md border bg-popover p-1 shadow-lg"
-          role="listbox"
-        >
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-              }}
-              className={cn(
-                "flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent",
-                value === option.value && "bg-accent",
-              )}
-              role="option"
-              aria-selected={value === option.value}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-});
+import { useProblemFilters } from "@/hooks/useProblemFilters";
+import { FilterDropdown } from "@/components/shared/FilterDropdown";
+import { ProblemCard } from "@/components/pages/home/ProblemCard";
+import { ProblemCardSkeleton } from "@/components/pages/home/ProblemCardSkeleton";
 
 export default function Home() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const [search, setSearch] = useState("");
-  const [difficulty, setDifficulty] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
-  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
-  const showAuthRequiredPrompt = useCallback(
-    (problemSlug: string) => {
-      toast(COPY.TOAST.LOGIN_REQUIRED, {
-        description: COPY.TOAST.LOGIN_REQUIRED_DESC,
-        action: {
-          label: COPY.NAV.LOGIN,
-          onClick: () => {
-            setStoredIntent(ROUTES.problemDetail(problemSlug));
-            navigate(ROUTES.LOGIN);
-          },
-        },
-        duration: 6000,
-      });
-    },
-    [navigate],
-  );
+  // Hooks
+  const {
+    search,
+    difficulty,
+    sortBy,
+    selectedTopics,
+    setSearch,
+    handleToggleTopic,
+    handleClearTopics,
+    handleFilterChange,
+    hasActiveFilters,
+  } = useProblemFilters();
 
   const {
     problems,
@@ -195,56 +46,59 @@ export default function Home() {
     initialLimit: 20,
   });
 
-  const {
-    topics: availableTopics,
-    isLoading: topicsLoading,
-  } = useTopics();
+  const { topics: availableTopics, isLoading: topicsLoading } = useTopics();
 
+  // Computed
   const filteredProblems = search
     ? problems.filter((p) =>
         p.title.toLowerCase().includes(search.toLowerCase()),
       )
     : problems;
 
-  const handleProblemClick = (problemSlug: string) => {
-    if (!isAuthenticated) {
-      showAuthRequiredPrompt(problemSlug);
-      return;
-    }
-    navigate(ROUTES.problemDetail(problemSlug));
-  };
-
-  const handleProblemKeyDown = (
-    e: React.KeyboardEvent,
-    problemSlug: string,
-  ) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      handleProblemClick(problemSlug);
-    }
-  };
-
-  const handleToggleTopic = useCallback((slug: string) => {
-    setSelectedTopics((prev) =>
-      prev.includes(slug) ? prev.filter((t) => t !== slug) : [...prev, slug],
-    );
-  }, []);
-
-  const handleClearTopics = useCallback(() => {
-    setSelectedTopics([]);
-  }, []);
-
-  const handleFilterChange = useCallback(
-    (newDifficulty: string, newSortBy: string) => {
-      setDifficulty(newDifficulty);
-      setSortBy(newSortBy);
-      setSearch("");
+  // Handlers
+  const showAuthRequiredPrompt = useCallback(
+    (problemSlug: string) => {
+      toast(COPY.TOAST.LOGIN_REQUIRED, {
+        description: COPY.TOAST.LOGIN_REQUIRED_DESC,
+        action: {
+          label: COPY.NAV.LOGIN,
+          onClick: () => {
+            setStoredIntent(ROUTES.problemDetail(problemSlug));
+            navigate(ROUTES.LOGIN);
+          },
+        },
+        duration: 6000,
+      });
     },
-    [],
+    [navigate],
   );
 
-  const hasActiveFilters =
-    difficulty !== "all" || selectedTopics.length > 0 || search;
+  const handleProblemClick = useCallback(
+    (problemSlug: string) => {
+      if (!isAuthenticated) {
+        showAuthRequiredPrompt(problemSlug);
+        return;
+      }
+      navigate(ROUTES.problemDetail(problemSlug));
+    },
+    [isAuthenticated, navigate, showAuthRequiredPrompt],
+  );
+
+  const handleProblemKeyDown = useCallback(
+    (e: React.KeyboardEvent, problemSlug: string) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleProblemClick(problemSlug);
+      }
+    },
+    [handleProblemClick],
+  );
+
+  const handleClearAllFilters = useCallback(() => {
+    setSearch("");
+    handleFilterChange("all", sortBy);
+    handleClearTopics();
+  }, [setSearch, handleFilterChange, sortBy, handleClearTopics]);
 
   return (
     <div className="py-6 space-y-6">
@@ -345,11 +199,7 @@ export default function Home() {
             {hasActiveFilters && (
               <Button
                 variant="link"
-                onClick={() => {
-                  setSearch("");
-                  setDifficulty("all");
-                  setSelectedTopics([]);
-                }}
+                onClick={handleClearAllFilters}
                 className="mt-2"
               >
                 Clear all filters

@@ -113,6 +113,17 @@ export const COPY = {
     LOCKED_SOLUTION: "Sign in to view solution",
     AUTOSAVED: "Changes saved",
     SAVING: "Saving...",
+    RESET_CODE: "Reset Code",
+    RESET_CODE_CONFIRM: "Reset to default code?",
+    MAXIMIZE_EDITOR: "Maximize Editor",
+    RESTORE_LAYOUT: "Restore Layout",
+    COLLAPSE_DESC: "Collapse Description",
+    EXPAND_DESC: "Expand Description",
+    UNSAVED: "Unsaved changes",
+    KEYBOARD_SHORTCUTS: "Keyboard Shortcuts",
+    SHORTCUT_RUN: "Run Code",
+    SHORTCUT_SUBMIT: "Submit Code",
+    SHORTCUT_SAVE: "Save Code",
   },
 
   TOAST: {
@@ -156,14 +167,14 @@ export const COPY = {
   },
 
   LANGUAGE_LABELS: {
-    python: "Python",
+    python3: "Python3",
     java: "Java",
     cpp: "C++",
     c: "C",
   },
 
   CODE_TEMPLATES: {
-    python: '# Write your code here\nprint("Hello World")\n',
+    python3: '# Write your code here\nprint("Hello World")\n',
     java: '// Write your code here\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello World");\n    }\n}\n',
     cpp: '// Write your code here\n#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << "Hello World" << endl;\n    return 0;\n}\n',
     c: '// Write your code here\n#include <stdio.h>\n\nint main() {\n    printf("Hello World\\n");\n    return 0;\n}\n',

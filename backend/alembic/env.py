@@ -8,21 +8,23 @@ from alembic import context
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app.database import Base
+from app.core.database import Base
 from app.models import (
-    Problem,
-    Topic,
-    ProblemTopic,
-    Example,
-    ProblemConstraint,
-    ProblemHint,
-    ProblemFollowUp,
     CodeSnippet,
+    Example,
+    Problem,
+    ProblemConstraint,
+    ProblemFollowUp,
+    ProblemHint,
     ProblemSolution,
-    User,
+    ProblemTopic,
     Submission,
+    SubmissionTestResult,
+    Topic,
+    User,
 )
 
 config = context.config

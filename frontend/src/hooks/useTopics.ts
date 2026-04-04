@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import api from '@/api';
 import { API } from '@/config';
 import type { Topic } from '@/types';
@@ -10,31 +10,19 @@ interface UseTopicsReturn {
 }
 
 export function useTopics(): UseTopicsReturn {
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const { data, isLoading, error } = useQuery<Topic[]>({
+    queryKey: ['topics'],
+    queryFn: async () => {
+      const res = await api.get<Topic[]>(API.ENDPOINTS.TOPICS);
+      return res.data;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes - topics rarely change
+    gcTime: 10 * 60 * 1000,   // 10 minutes garbage collection
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-    setError(null);
-
-    api.get<Topic[]>(API.ENDPOINTS.TOPICS)
-      .then((res) => {
-        if (!cancelled) {
-          setTopics(res.data);
-          setIsLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled && err.name !== 'CanceledError' && err.name !== 'AbortError') {
-          setError(err);
-          setIsLoading(false);
-        }
-      });
-
-    return () => { cancelled = true; };
-  }, []);
-
-  return { topics, isLoading, error };
+  return {
+    topics: data ?? [],
+    isLoading,
+    error,
+  };
 }

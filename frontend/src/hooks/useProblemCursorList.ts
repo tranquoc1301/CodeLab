@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import api from '@/api';
 import { API } from '@/config';
 import type { ProblemCursorResponse, ProblemSummary } from '@/types';
@@ -34,7 +33,6 @@ export function useProblemCursorList(
     initialLimit = 20,
   } = options;
 
-  const queryClient = useQueryClient();
   const abortControllerRef = useRef<AbortController | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [accumulatedProblems, setAccumulatedProblems] = useState<ProblemSummary[]>([]);

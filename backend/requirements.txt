@@ -8,5 +8,6 @@ bcrypt
 httpx
 python-dotenv
 pydantic[email]>=2.0
+pydantic-settings>=2.0.0
 python-multipart
 redis>=5.0.0

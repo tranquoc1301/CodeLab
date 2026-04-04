@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Sun,
@@ -55,6 +55,19 @@ export function Header() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close user menu on click outside
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [userMenuOpen]);
 
   const navLinkClass = (isActive: boolean) =>
     cn(
@@ -115,7 +128,7 @@ export function Header() {
             <ThemeToggle />
 
             {isAuthenticated ? (
-              <div className="relative">
+              <div className="relative" ref={userMenuRef}>
                 <button
                   type="button"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -134,7 +147,7 @@ export function Header() {
                 </button>
                 {userMenuOpen && (
                   <div
-                    className="absolute right-0 mt-2 w-48 rounded-md border bg-popover p-1 shadow-lg animate-in fade-in zoom-in-95"
+                    className="absolute right-0 mt-2 w-48 rounded-md border bg-popover p-1 shadow-lg dropdown-enter"
                     role="menu"
                   >
                     <Link

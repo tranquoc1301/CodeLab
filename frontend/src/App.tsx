@@ -19,27 +19,28 @@ const queryClient = new QueryClient();
 function AuthInitializer({ children }: { children: React.ReactNode }) {
   const { token, setUser, checkTokenExpiration } = useAuth();
   const navigate = useNavigate();
-  
+
   useEffect(() => {
-    if (token) {
-      api.get(API.ENDPOINTS.AUTH_ME)
-        .then(res => setUser(res.data))
-        .catch(() => {
-          console.error("Failed to fetch user data");
-        });
-    }
-  }, [token, setUser]);
+    if (!token) return;
+    api
+      .get(API.ENDPOINTS.AUTH_ME)
+      .then((res) => setUser(res.data))
+      .catch(() => {
+        console.error("Failed to fetch user data");
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- setUser is a stable Zustand setter
+  }, [token]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (checkTokenExpiration()) {
-        navigate('/login');
+        navigate("/login");
       }
     }, 30000);
 
     return () => clearInterval(interval);
   }, [checkTokenExpiration, navigate]);
-  
+
   return <>{children}</>;
 }
 
@@ -50,10 +51,13 @@ export default function App() {
         <AuthInitializer>
           <div className="min-h-screen bg-background flex flex-col">
             <Header />
-            <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+            <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
               <Routes>
                 <Route path={ROUTES.HOME} element={<Home />} />
-                <Route path={ROUTES.PROBLEM_DETAIL} element={<ProblemDetail />} />
+                <Route
+                  path={ROUTES.PROBLEM_DETAIL}
+                  element={<ProblemDetail />}
+                />
                 <Route path={ROUTES.SUBMISSIONS} element={<Submissions />} />
                 <Route path={ROUTES.LOGIN} element={<Login />} />
                 <Route path={ROUTES.REGISTER} element={<Register />} />

@@ -1,5 +1,5 @@
 import { memo, useCallback, useState } from "react";
-import { Badge, Skeleton } from "@/components/ui";
+import { Skeleton } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { Topic } from "@/types";
 
@@ -74,13 +74,13 @@ export const TopicFilter = memo(function TopicFilter({
               key={topic.slug}
               type="button"
               onClick={() => handleToggle(topic.slug)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                isSelected
-                  ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
-                  : "border-input bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              )}
+               className={cn(
+                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all duration-150 ease-out",
+                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                 isSelected
+                   ? "border-primary bg-primary/10 text-primary hover:bg-primary/20"
+                   : "border-input bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+               )}
               role="checkbox"
               aria-checked={isSelected}
               aria-label={`Filter by ${topic.name}`}

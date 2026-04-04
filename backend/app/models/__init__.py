@@ -1,27 +1,30 @@
-from app.models.problem import (
-    Problem,
-    Topic,
-    ProblemTopic,
-    Example,
-    ProblemConstraint,
-    ProblemHint,
-    ProblemFollowUp,
-    CodeSnippet,
-    ProblemSolution,
-)
+from app.models.base import Base
+from app.models.submission import Submission, SubmissionTestResult
 from app.models.user import User
-from app.models.submission import Submission
+from app.models.problem import (
+    CodeSnippet,
+    Example,
+    Problem,
+    ProblemConstraint,
+    ProblemFollowUp,
+    ProblemHint,
+    ProblemSolution,
+    ProblemTopic,
+    Topic,
+)
 
 __all__ = [
-    "Problem",
-    "Topic",
-    "ProblemTopic",
-    "Example",
-    "ProblemConstraint",
-    "ProblemHint",
-    "ProblemFollowUp",
+    "Base",
     "CodeSnippet",
+    "Example",
+    "Problem",
+    "ProblemConstraint",
+    "ProblemFollowUp",
+    "ProblemHint",
     "ProblemSolution",
-    "User",
+    "ProblemTopic",
     "Submission",
+    "SubmissionTestResult",
+    "Topic",
+    "User",
 ]

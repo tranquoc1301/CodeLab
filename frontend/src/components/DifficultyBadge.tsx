@@ -6,9 +6,9 @@ interface DifficultyBadgeProps {
 }
 
 const DIFFICULTY_COLORS: Record<string, string> = {
-  Easy: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  Medium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  Hard: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  Easy: "bg-easy-bg text-easy",
+  Medium: "bg-medium-bg text-medium",
+  Hard: "bg-hard-bg text-hard",
 } as const;
 
 const DIFFICULTY_COLORS_FALLBACK = "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
@@ -19,7 +19,7 @@ export function DifficultyBadge({ difficulty, className }: DifficultyBadgeProps)
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors duration-150 ease-out",
         colorClass,
         className,
       )}

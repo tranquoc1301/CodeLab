@@ -1,65 +1,22 @@
-import { useQuery } from '@tanstack/react-query';
-import { useAuthStore } from '@/store/auth';
-import api from '@/api';
+import { useAuth } from '@/store/auth';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-  Skeleton,
 } from '@/components/ui';
-import { API, COPY, DEFAULTS } from '@/config';
-
-function ProfileSkeleton() {
-  return (
-    <div className="py-10 space-y-6">
-      <Skeleton className="h-9 w-32" />
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4 mb-6">
-            <Skeleton className="h-16 w-16 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-6 w-32" />
-              <Skeleton className="h-4 w-48" />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
-            {Array.from({ length: DEFAULTS.PROFILE_SKELETON_COUNT }).map((_, i) => (
-              <div key={i} className="space-y-1">
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-5 w-28" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+import { COPY, DEFAULTS } from '@/config';
 
 export default function Profile() {
-  const token = useAuthStore((s) => s.token);
+  const { isAuthenticated, user } = useAuth();
 
-  const { data: user, isLoading } = useQuery({
-    queryKey: ['me'],
-    queryFn: async () => {
-      const res = await api.get(API.ENDPOINTS.AUTH_ME);
-      return res.data;
-    },
-    enabled: !!token,
-  });
-
-  if (!token) {
+  if (!isAuthenticated) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <p className="text-muted-foreground text-lg">{COPY.PROFILE.LOGIN_REQUIRED}</p>
       </div>
     );
-  }
-
-  if (isLoading) {
-    return <ProfileSkeleton />;
   }
 
   return (

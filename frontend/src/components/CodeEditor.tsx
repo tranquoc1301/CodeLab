@@ -1,9 +1,9 @@
-import { memo } from 'react';
-import Editor from '@monaco-editor/react';
-import { useThemeStore } from '../store/theme';
-import { cn } from '../lib/utils';
-import { EDITOR } from '../config';
-import type { Language } from '../types/language';
+import { memo } from "react";
+import Editor from "@monaco-editor/react";
+import { useThemeStore } from "@/store/theme";
+import { cn } from "@/lib/utils";
+import { EDITOR } from "@/config";
+import type { Language } from "@/types/language";
 
 interface CodeEditorProps {
   language: Language;
@@ -15,23 +15,27 @@ interface CodeEditorProps {
  * Maps internal Language types to Monaco editor language identifiers.
  */
 const LANGUAGE_MAP: Record<Language, string> = {
-  python: 'python',
-  java: 'java',
-  cpp: 'cpp',
-  c: 'c',
+  python3: "python3",
+  java: "java",
+  cpp: "cpp",
+  c: "c",
 } as const;
 
 /**
  * Monaco Editor wrapper with theme support.
  * Memoized to prevent unnecessary re-renders when parent state changes.
  */
-const CodeEditor = memo(function CodeEditor({ language, value, onChange }: CodeEditorProps) {
+const CodeEditor = memo(function CodeEditor({
+  language,
+  value,
+  onChange,
+}: CodeEditorProps) {
   const theme = useThemeStore((s) => s.theme);
 
   return (
-    <div className={cn('rounded-lg border overflow-hidden shadow-sm')}>
+    <div className={cn("overflow-hidden h-full")}>
       <Editor
-        height={EDITOR.HEIGHT}
+        height="100%"
         language={LANGUAGE_MAP[language]}
         value={value}
         theme={EDITOR.THEME[theme]}

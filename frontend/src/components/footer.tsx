@@ -2,12 +2,15 @@ import { Link } from "react-router-dom";
 import { Code2, Heart, ExternalLink } from "lucide-react";
 import { cn } from "../lib/utils";
 import { ROUTES, COPY } from "../config";
+import { useAuth } from "../store/auth";
 
 interface FooterProps {
   className?: string;
 }
 
 export function Footer({ className }: FooterProps) {
+  const { isAuthenticated } = useAuth();
+
   return (
     <footer
       className={cn(
@@ -38,12 +41,14 @@ export function Footer({ className }: FooterProps) {
               >
                 Problems
               </Link>
-              <Link
-                to={ROUTES.SUBMISSIONS}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Submissions
-              </Link>
+              {isAuthenticated && (
+                <Link
+                  to={ROUTES.SUBMISSIONS}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Submissions
+                </Link>
+              )}
               <a
                 href="https://github.com"
                 target="_blank"
