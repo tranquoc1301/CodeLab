@@ -8,11 +8,16 @@ interface AuthState {
   user: User | null;
   showLoginModal: boolean;
   loginRedirectPath: string | null;
+  showAuthModal: boolean;
+  authModalTab: "login" | "register";
   setToken: (token: string) => void;
   setUser: (user: User) => void;
   logout: () => void;
   openLoginModal: (redirectPath?: string) => void;
   closeLoginModal: () => void;
+  openAuthModal: (tab?: "login" | "register") => void;
+  closeAuthModal: () => void;
+  setAuthModalTab: (tab: "login" | "register") => void;
   checkTokenExpiration: () => boolean;
 }
 
@@ -30,6 +35,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   showLoginModal: false,
   loginRedirectPath: null,
+  showAuthModal: false,
+  authModalTab: "login",
   setToken: (token: string) => {
     localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
     set({ token });
@@ -42,6 +49,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: null,
       showLoginModal: false,
       loginRedirectPath: null,
+      showAuthModal: false,
+      authModalTab: "login",
     });
   },
   openLoginModal: (redirectPath) => {
@@ -49,6 +58,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   closeLoginModal: () => {
     set({ showLoginModal: false, loginRedirectPath: null });
+  },
+  openAuthModal: (tab = "login") => {
+    set({ showAuthModal: true, authModalTab: tab });
+  },
+  closeAuthModal: () => {
+    set({ showAuthModal: false });
+  },
+  setAuthModalTab: (tab: "login" | "register") => {
+    set({ authModalTab: tab });
   },
   checkTokenExpiration: () => {
     const { token, logout } = get();
@@ -70,11 +88,16 @@ export const useAuth = () => {
     isAuthenticated,
     showLoginModal: state.showLoginModal,
     loginRedirectPath: state.loginRedirectPath,
+    showAuthModal: state.showAuthModal,
+    authModalTab: state.authModalTab,
     setToken: state.setToken,
     setUser: state.setUser,
     logout: state.logout,
     openLoginModal: state.openLoginModal,
     closeLoginModal: state.closeLoginModal,
+    openAuthModal: state.openAuthModal,
+    closeAuthModal: state.closeAuthModal,
+    setAuthModalTab: state.setAuthModalTab,
     checkTokenExpiration: state.checkTokenExpiration,
   };
 };

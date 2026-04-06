@@ -21,6 +21,9 @@ router = APIRouter(prefix="/problems", tags=["problems"])
 
 @router.get("/paginated", response_model=ProblemCursorResponse)
 async def list_problems_paginated(
+    search: str | None = Query(
+        None, description="Search by problem title (case-insensitive)"
+    ),
     difficulty: str | None = Query(
         None, description="Filter by difficulty: Easy, Medium, Hard"
     ),
@@ -35,6 +38,7 @@ async def list_problems_paginated(
     """List problems with cursor-based pagination and optional filters."""
     return await problem_service.get_problems_paginated(
         db=db,
+        search=search,
         difficulty=difficulty,
         topics=topics,
         sort_by=sort_by,

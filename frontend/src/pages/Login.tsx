@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { User, Lock, LogIn, AlertCircle } from "lucide-react";
+import { User, LogIn, AlertCircle } from "lucide-react";
 import api from "@/api";
 import { useAuth } from "@/store/auth";
 import { getAndClearIntent } from "@/store/authGuard";
@@ -18,6 +18,7 @@ import {
   Alert,
   AlertDescription,
 } from "@/components/ui";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 import { API, ROUTES, COPY } from "@/config";
 import type { User as UserData } from "@/types";
 
@@ -94,25 +95,20 @@ export default function Login({ minimal = false }: LoginProps) {
               required
               autoComplete="username"
               className="pl-10"
-              placeholder="Enter username"
+              placeholder={COPY.PLACEHOLDER.USERNAME}
             />
           </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="password-minimal">{COPY.FORM_LABELS.PASSWORD}</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="password-minimal"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              className="pl-10"
-              placeholder="Enter password"
-            />
-          </div>
+          <PasswordInput
+            id="password-minimal"
+            value={password}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+            placeholder={COPY.PLACEHOLDER.PASSWORD}
+          />
         </div>
         <Button
           type="submit"
@@ -127,9 +123,19 @@ export default function Login({ minimal = false }: LoginProps) {
   }
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4 py-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+    <div className="flex min-h-[80vh] items-center justify-center px-4 py-8 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent" />
+
+      <Card className="w-full max-w-md shadow-lg border-border/60">
+        <CardHeader className="space-y-1 text-center">
+          <div className="flex justify-center mb-2">
+            <div className="p-3 rounded-lg bg-primary/10">
+              <LogIn className="h-6 w-6 text-primary" aria-hidden />
+            </div>
+          </div>
           <CardTitle className="text-2xl">{COPY.LOGIN.TITLE}</CardTitle>
           <CardDescription>{COPY.LOGIN.DESCRIPTION}</CardDescription>
         </CardHeader>
@@ -153,30 +159,35 @@ export default function Login({ minimal = false }: LoginProps) {
                   required
                   autoComplete="username"
                   className="pl-10"
+                  placeholder={COPY.PLACEHOLDER.USERNAME}
                 />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">{COPY.FORM_LABELS.PASSWORD}</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                  className="pl-10"
-                />
-              </div>
+              <PasswordInput
+                id="password"
+                value={password}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                placeholder={COPY.PLACEHOLDER.PASSWORD}
+              />
+            </div>
+            <div className="flex items-center justify-end text-sm">
+              <button
+                type="button"
+                className="text-primary hover:underline font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+              >
+                Forgot password?
+              </button>
             </div>
             <Button
               type="submit"
               className="w-full gap-2"
               disabled={loginMutation.isPending}
             >
-              <LogIn className="h-4 w-4" />
+              <LogIn className="h-4 w-4" aria-hidden />
               {loginMutation.isPending
                 ? COPY.LOGIN.SIGNING_IN
                 : COPY.LOGIN.SIGN_IN}
@@ -188,7 +199,7 @@ export default function Login({ minimal = false }: LoginProps) {
             {COPY.LOGIN.NO_ACCOUNT}{" "}
             <Link
               to={ROUTES.REGISTER}
-              className="text-primary hover:underline font-medium"
+              className="text-primary hover:underline font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
             >
               {COPY.LOGIN.REGISTER_LINK}
             </Link>

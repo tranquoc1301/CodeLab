@@ -19,6 +19,7 @@ import Register from "./pages/Register";
 import Profile from "./pages/Profile";
 import Submissions from "./pages/Submissions";
 import api from "./api";
+import { AuthModal } from "./components/auth/AuthModal";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,7 @@ export default function App() {
 function AppLayout() {
   const location = useLocation();
   const isProblemDetailPage = location.pathname.startsWith("/problems/");
+  const { showAuthModal } = useAuth();
 
   return (
     <AuthInitializer>
@@ -80,9 +82,10 @@ function AppLayout() {
             <Route path={ROUTES.PROFILE} element={<Profile />} />
           </Routes>
         </main>
-        <Footer />
+        {!isProblemDetailPage && <Footer />}
       </div>
       <Toaster />
+      {showAuthModal && <AuthModal />}
     </AuthInitializer>
   );
 }

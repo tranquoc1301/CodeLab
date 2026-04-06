@@ -26,3 +26,4 @@ export { Toaster } from "./sonner";
 export { toast } from "sonner";
 export { ConstraintText } from "./constraint-text";
 export { LoadMoreControl } from "./load-more";
+export { BackToTop } from "./back-to-top";

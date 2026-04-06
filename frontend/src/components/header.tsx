@@ -6,7 +6,6 @@ import {
   Code2,
   List,
   FileCode,
-  Settings,
   LogOut,
   User,
   Menu,
@@ -37,12 +36,12 @@ function ThemeToggle() {
       size="icon"
       onClick={toggle}
       aria-label={COPY.ACCESSIBILITY.TOGGLE_THEME}
-      className="rounded-lg"
+      className="rounded-lg hover:bg-accent transition-colors"
     >
       {theme === "dark" ? (
-        <Sun className="h-5 w-5" />
+        <Sun className="h-5 w-5 transition-transform duration-200 hover:rotate-45" />
       ) : (
-        <Moon className="h-5 w-5" />
+        <Moon className="h-5 w-5 transition-transform duration-200 hover:-rotate-12" />
       )}
     </Button>
   );
@@ -74,9 +73,9 @@ export function Header() {
 
   const navLinkClass = (isActive: boolean) =>
     cn(
-      "text-sm font-medium px-3 py-2 rounded-md transition-colors",
+      "text-sm font-medium px-3 py-2 rounded-md transition-colors duration-200",
       isActive
-        ? "bg-primary/10 text-primary"
+        ? "bg-primary/15 text-primary font-semibold"
         : "text-muted-foreground hover:text-foreground hover:bg-accent",
     );
 
@@ -94,19 +93,34 @@ export function Header() {
     <>
       <header
         className={cn(
-          "sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur",
-          "supports-backdrop-filter:bg-background/60",
+          "sticky top-0 z-50 w-full",
+          // Glassmorphism effect
+          "glass",
+          // Floating style with spacing from edges
+          "mx-4 mt-4 rounded-xl",
+          // Responsive max-width
+          "max-w-[calc(100%-2rem)] lg:max-w-[calc(100%-2rem)]",
         )}
       >
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-6">
+        <div className="mx-auto flex h-14 items-center justify-between px-4 lg:px-6">
+          {/* Logo */}
           <Link
             to={ROUTES.HOME}
-            className="flex items-center gap-2 font-bold text-lg"
+            className="flex items-center gap-2 font-bold text-lg group"
           >
-            <Code2 className="h-6 w-6 text-primary" aria-hidden="true" />
-            <span className="hidden sm:inline">{COPY.APP_NAME}</span>
+            <div className="relative">
+              <Code2
+                className="h-6 w-6 text-primary transition-transform duration-200 group-hover:scale-110"
+                aria-hidden="true"
+              />
+              <div className="absolute inset-0 bg-primary/20 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+            </div>
+            <span className="hidden sm:inline font-heading">
+              {COPY.APP_NAME}
+            </span>
           </Link>
 
+          {/* Desktop Navigation */}
           <nav
             className="hidden md:flex items-center gap-1"
             role="navigation"
@@ -127,6 +141,7 @@ export function Header() {
             )}
           </nav>
 
+          {/* Actions */}
           <div className="flex items-center gap-2">
             <ThemeToggle />
 
@@ -135,27 +150,39 @@ export function Header() {
                 <button
                   type="button"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
+                    "hover:bg-accent transition-colors duration-200",
+                    userMenuOpen && "bg-accent",
+                  )}
                   aria-expanded={userMenuOpen}
                   aria-haspopup="true"
                 >
-                  <User className="h-4 w-4" />
+                  <div className="h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center">
+                    <User className="h-4 w-4 text-primary" />
+                  </div>
                   <span className="hidden sm:inline">{user?.username}</span>
                   <ChevronDown
                     className={cn(
-                      "h-4 w-4 transition-transform",
+                      "h-4 w-4 transition-transform duration-200",
                       userMenuOpen && "rotate-180",
                     )}
                   />
                 </button>
                 {userMenuOpen && (
                   <div
-                    className="absolute right-0 mt-2 w-48 rounded-md border bg-popover p-1 shadow-lg dropdown-enter"
+                    className="absolute right-0 mt-2 w-56 rounded-lg border bg-popover p-1 shadow-lg dropdown-enter"
                     role="menu"
                   >
+                    <div className="px-3 py-2 border-b border-border mb-1">
+                      <p className="text-sm font-medium">{user?.username}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {user?.email}
+                      </p>
+                    </div>
                     <Link
                       to={ROUTES.PROFILE}
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                      className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-accent transition-colors"
                       role="menuitem"
                       onClick={() => setUserMenuOpen(false)}
                     >
@@ -165,7 +192,7 @@ export function Header() {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                      className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-accent transition-colors text-destructive"
                       role="menuitem"
                     >
                       <LogOut className="h-4 w-4" />
@@ -179,12 +206,17 @@ export function Header() {
                 <Button variant="ghost" size="sm" asChild>
                   <Link to={ROUTES.LOGIN}>{COPY.NAV.LOGIN}</Link>
                 </Button>
-                <Button size="sm" className="hidden sm:flex" asChild>
+                <Button
+                  size="sm"
+                  className="hidden sm:flex glow-primary"
+                  asChild
+                >
                   <Link to={ROUTES.REGISTER}>{COPY.NAV.REGISTER}</Link>
                 </Button>
               </div>
             )}
 
+            {/* Mobile menu toggle */}
             <Button
               variant="ghost"
               size="icon"
@@ -197,7 +229,7 @@ export function Header() {
               }
             >
               {mobileMenuOpen ? (
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5 transition-transform duration-200" />
               ) : (
                 <Menu className="h-5 w-5" />
               )}
@@ -205,16 +237,17 @@ export function Header() {
           </div>
         </div>
 
+        {/* Mobile Navigation */}
         {mobileMenuOpen && (
           <nav
-            className="md:hidden border-t bg-background"
+            className="md:hidden border-t border-border/50"
             role="navigation"
             aria-label="Mobile navigation"
           >
             <div className="space-y-1 p-4">
               <Link
                 to={ROUTES.HOME}
-                className={navLinkClass(isProblemsActive)}
+                className={cn(navLinkClass(isProblemsActive), "block")}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <List className="h-4 w-4 mr-2 inline" />
@@ -223,7 +256,7 @@ export function Header() {
               {isAuthenticated && (
                 <Link
                   to={ROUTES.SUBMISSIONS}
-                  className={navLinkClass(isSubmissionsActive)}
+                  className={cn(navLinkClass(isSubmissionsActive), "block")}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <FileCode className="h-4 w-4 mr-2 inline" />
@@ -232,21 +265,24 @@ export function Header() {
               )}
               <Link
                 to={ROUTES.PROFILE}
-                className={navLinkClass(false)}
+                className={cn(navLinkClass(false), "block")}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <Settings className="h-4 w-4 mr-2 inline" />
-                {COPY.NAV.SETTINGS}
+                <User className="h-4 w-4 mr-2 inline" />
+                {COPY.NAV.PROFILE}
               </Link>
             </div>
           </nav>
         )}
       </header>
 
+      {/* Login Modal */}
       <Dialog open={showLoginModal} onOpenChange={closeLoginModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md glass">
           <DialogHeader>
-            <DialogTitle>{COPY.LOGIN.GATED_TITLE}</DialogTitle>
+            <DialogTitle className="font-heading">
+              {COPY.LOGIN.GATED_TITLE}
+            </DialogTitle>
             <DialogDescription>
               {COPY.LOGIN.GATED_DESCRIPTION}
             </DialogDescription>
@@ -257,7 +293,7 @@ export function Header() {
               {COPY.LOGIN.NO_ACCOUNT}{" "}
               <Link
                 to={ROUTES.REGISTER}
-                className="text-primary hover:underline"
+                className="text-primary hover:underline font-medium"
                 onClick={closeLoginModal}
               >
                 {COPY.LOGIN.REGISTER_LINK}

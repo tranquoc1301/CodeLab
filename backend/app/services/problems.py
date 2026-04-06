@@ -66,6 +66,7 @@ async def get_problem_navigation(
 
 async def get_problems_paginated(
     db: AsyncSession,
+    search: str | None = None,
     difficulty: str | None = None,
     topics: list[str] | None = None,
     sort_by: str = "newest",
@@ -76,6 +77,7 @@ async def get_problems_paginated(
     order_col, descending = parse_sort_params(sort_by)
 
     cache_params = {
+        "search": search,
         "difficulty": difficulty,
         "topics": topics,
         "sort_by": sort_by,
@@ -84,7 +86,7 @@ async def get_problems_paginated(
     }
     cache_key = generate_cache_key("problems:paginated", cache_params)
 
-    if not cursor:
+    if not cursor and not search:
         cached_response = await get_cached(cache_key)
         if cached_response:
             return ProblemCursorResponse.model_validate(cached_response)
@@ -92,6 +94,10 @@ async def get_problems_paginated(
     cursor_data = decode_cursor(cursor)
 
     query = select(Problem).options(selectinload(Problem.topics))
+
+    # Search filter - case-insensitive title match
+    if search:
+        query = query.where(Problem.title.ilike(f"%{search}%"))
 
     if difficulty:
         query = query.where(Problem.difficulty == difficulty)
@@ -120,7 +126,7 @@ async def get_problems_paginated(
     if has_next:
         problems = problems[:limit]
 
-    total_count = await _get_total_count(db, difficulty, topics)
+    total_count = await _get_total_count(db, search, difficulty, topics)
 
     next_cursor = None
     if has_next and problems:
@@ -256,11 +262,14 @@ def _apply_cursor_filter(query, cursor_data: dict, order_col: str, descending: b
 
 async def _get_total_count(
     db: AsyncSession,
+    search: str | None,
     difficulty: str | None,
     topics: list[str] | None,
 ) -> int:
     """Get total count of problems matching filters."""
     count_query = select(func.count(Problem.id))
+    if search:
+        count_query = count_query.where(Problem.title.ilike(f"%{search}%"))
     if difficulty:
         count_query = count_query.where(Problem.difficulty == difficulty)
     if topics:

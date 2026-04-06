@@ -4,6 +4,7 @@ import { API } from '@/config';
 import type { ProblemCursorResponse, ProblemSummary } from '@/types';
 
 interface UseProblemCursorListOptions {
+  search?: string;
   difficulty?: string;
   topics?: string[];
   sortBy?: string;
@@ -27,6 +28,7 @@ export function useProblemCursorList(
   options: UseProblemCursorListOptions = {}
 ): UseProblemCursorListReturn {
   const {
+    search,
     difficulty,
     topics,
     sortBy = 'newest',
@@ -44,15 +46,27 @@ export function useProblemCursorList(
 
   const buildQueryParams = useCallback((cursorParam: string | null) => {
     const params = new URLSearchParams();
+    
+    // Search parameter - server-side search
+    if (search && search.trim()) {
+      params.append('search', search.trim());
+    }
+    
+    // Difficulty filter
     if (difficulty) params.append('difficulty', difficulty);
+    
+    // Topic filters
     if (topics && topics.length > 0) {
       topics.forEach(t => params.append('topics', t));
     }
+    
+    // Sort and pagination
     params.append('sort_by', sortBy);
     params.append('limit', String(initialLimit));
     if (cursorParam) params.append('cursor', cursorParam);
+    
     return params.toString();
-  }, [difficulty, topics, sortBy, initialLimit]);
+  }, [search, difficulty, topics, sortBy, initialLimit]);
 
   const fetchProblems = useCallback(async (cursorParam: string | null): Promise<ProblemCursorResponse> => {
     if (abortControllerRef.current) {
@@ -99,7 +113,7 @@ export function useProblemCursorList(
         abortControllerRef.current.abort();
       }
     };
-  }, [difficulty, topics, sortBy, initialLimit, fetchProblems]);
+  }, [difficulty, topics, sortBy, initialLimit, search, fetchProblems]);
 
   const loadMore = useCallback(async () => {
     if (!cursor || isLoadingMore || !hasNext) return;
@@ -122,18 +136,28 @@ export function useProblemCursorList(
   }, [cursor, isLoadingMore, hasNext, fetchProblems]);
 
   const refresh = useCallback(() => {
+    // Abort any in-flight requests to prevent race conditions
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setAccumulatedProblems([]);
     setCursor(null);
     setHasNext(true);
     setError(null);
     setIsLoading(true);
 
-    fetchProblems(null)
-      .then((result) => {
-        setAccumulatedProblems(result.items);
-        setCursor(result.next_cursor);
-        setHasNext(result.has_next);
-        setTotalCount(result.total_count);
+    const params = buildQueryParams(null);
+    api.get<ProblemCursorResponse>(
+      `${API.ENDPOINTS.PROBLEMS_PAGINATED}?${params}`,
+      { signal: abortControllerRef.current.signal }
+    )
+      .then((response) => {
+        setAccumulatedProblems(response.data.items);
+        setCursor(response.data.next_cursor);
+        setHasNext(response.data.has_next);
+        setTotalCount(response.data.total_count);
         setIsLoading(false);
       })
       .catch((err) => {
@@ -142,14 +166,14 @@ export function useProblemCursorList(
           setIsLoading(false);
         }
       });
-  }, [fetchProblems]);
+  }, [buildQueryParams]);
 
   const isEmpty = accumulatedProblems.length === 0 && !isLoading;
 
   return {
     problems: accumulatedProblems,
     isLoading,
-    isFetching: isLoadingMore,
+    isFetching: isLoading || isLoadingMore,
     isLoadingMore,
     hasNext,
     error,

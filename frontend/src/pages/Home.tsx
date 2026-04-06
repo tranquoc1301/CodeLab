@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { useAuth } from "@/store/auth";
@@ -9,6 +9,7 @@ import { ROUTES, COPY } from "@/config";
 import { useProblemCursorList } from "@/hooks/useProblemCursorList";
 import { useTopics } from "@/hooks/useTopics";
 import { useProblemFilters } from "@/hooks/useProblemFilters";
+import { useDebounce } from "@/hooks/useDebounce";
 import { FilterDropdown } from "@/components/shared/FilterDropdown";
 import { ProblemCard } from "@/components/pages/home/ProblemCard";
 import { ProblemCardSkeleton } from "@/components/pages/home/ProblemCardSkeleton";
@@ -30,6 +31,9 @@ export default function Home() {
     hasActiveFilters,
   } = useProblemFilters();
 
+  // Debounce search input (300ms) to avoid excessive API calls
+  const debouncedSearch = useDebounce(search, 300);
+
   const {
     problems,
     isLoading,
@@ -40,6 +44,7 @@ export default function Home() {
     refresh,
     totalCount,
   } = useProblemCursorList({
+    search: debouncedSearch || undefined,
     difficulty: difficulty === "all" ? undefined : difficulty,
     topics: selectedTopics.length > 0 ? selectedTopics : undefined,
     sortBy,
@@ -47,13 +52,6 @@ export default function Home() {
   });
 
   const { topics: availableTopics, isLoading: topicsLoading } = useTopics();
-
-  // Computed
-  const filteredProblems = search
-    ? problems.filter((p) =>
-        p.title.toLowerCase().includes(search.toLowerCase()),
-      )
-    : problems;
 
   // Handlers
   const showAuthRequiredPrompt = useCallback(
@@ -100,6 +98,33 @@ export default function Home() {
     handleClearTopics();
   }, [setSearch, handleFilterChange, sortBy, handleClearTopics]);
 
+  // Clear search when no longer has value (user deleted all text)
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearch(e.target.value);
+    },
+    [setSearch],
+  );
+
+  // Memoize filter description for display (uses debounced search for accuracy)
+  const filterDescription = useMemo(() => {
+    const parts: string[] = [];
+    
+    if (debouncedSearch) {
+      parts.push(`matching "${debouncedSearch}"`);
+    }
+    if (difficulty !== "all") {
+      parts.push(`with ${difficulty} difficulty`);
+    }
+    if (selectedTopics.length > 0) {
+      parts.push(
+        `in ${selectedTopics.length} topic${selectedTopics.length > 1 ? "s" : ""}`
+      );
+    }
+    
+    return parts.length > 0 ? parts.join(" ") : null;
+  }, [debouncedSearch, difficulty, selectedTopics]);
+
   return (
     <div className="py-6 space-y-6">
       {/* Header */}
@@ -124,14 +149,20 @@ export default function Home() {
       {/* Search and filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <label 
+            htmlFor="problem-search" 
+            className="sr-only"
+          >
+            Search problems
+          </label>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
           <Input
+            id="problem-search"
             type="search"
             placeholder={COPY.HOME.SEARCH_PLACEHOLDER}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={handleSearchChange}
             className="pl-10"
-            aria-label="Search problems"
           />
         </div>
         <div className="flex gap-2">
@@ -161,12 +192,8 @@ export default function Home() {
 
       {/* Results count */}
       <p className="text-sm text-muted-foreground">
-        {filteredProblems.length} problem
-        {filteredProblems.length === 1 ? "" : "s"}
-        {search && ` matching "${search}"`}
-        {difficulty !== "all" && ` with ${difficulty} difficulty`}
-        {selectedTopics.length > 0 &&
-          ` in ${selectedTopics.length} topic${selectedTopics.length > 1 ? "s" : ""}`}
+        {problems.length} problem{problems.length === 1 ? "" : "s"}
+        {filterDescription && ` ${filterDescription}`}
         {totalCount != null && !search && ` of ${totalCount} total`}
       </p>
 
@@ -181,7 +208,7 @@ export default function Home() {
           ? Array.from({ length: 5 }).map((_, i) => (
               <ProblemCardSkeleton key={i} />
             ))
-          : filteredProblems.map((problem) => (
+          : problems.map((problem) => (
               <ProblemCard
                 key={problem.id}
                 problem={problem}
@@ -191,7 +218,7 @@ export default function Home() {
               />
             ))}
 
-        {!isLoading && filteredProblems.length === 0 && (
+        {!isLoading && problems.length === 0 && (
           <div className="text-center py-16">
             <p className="text-muted-foreground text-lg">
               {search ? `No problems matching "${search}"` : COPY.HOME.EMPTY}
