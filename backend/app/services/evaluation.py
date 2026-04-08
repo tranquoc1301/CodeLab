@@ -103,6 +103,137 @@ async def get_problem_snippet(
     return result[0] if result else None
 
 
+def _build_python_code(user_code: str, driver: dict) -> str:
+    """Build executable Python code by combining user code with driver.
+
+    Extracts imports from prefix_code, combines with user_code and driver_code.
+    """
+    prefix = driver.get("prefix_code", "")
+    driver_code = driver.get("driver_code", "")
+
+    # Extract imports from prefix (everything before "class Solution:")
+    import_match = re.match(r"(.*?)(?=class\s+Solution:)", prefix, re.DOTALL)
+    imports = import_match.group(1).strip() if import_match else ""
+
+    parts = []
+    if imports:
+        parts.append(imports)
+    parts.append(user_code)
+    if driver_code:
+        parts.append(driver_code)
+
+    return "\n\n".join(parts)
+
+
+def _build_cpp_code(user_code: str, driver: dict) -> str:
+    """Build executable C++ code by replacing Solution class with user code.
+
+    Finds the Solution class in driver_code and replaces it with user implementation.
+    Falls back to inserting before main() if Solution class not found.
+    """
+    driver_code = driver.get("driver_code", "")
+
+    # Find "class Solution {" and match to the closing "};"
+    sol_start = re.search(r"class\s+Solution\s*\{", driver_code)
+    if sol_start:
+        start_pos = sol_start.start()
+        # Find the matching closing "};" by counting braces
+        brace_count = 0
+        end_pos = sol_start.end()
+        for i in range(sol_start.start(), len(driver_code)):
+            if driver_code[i] == "{":
+                brace_count += 1
+            elif driver_code[i] == "}":
+                brace_count -= 1
+                if brace_count == 0:
+                    end_pos = i + 1
+                    if end_pos < len(driver_code) and driver_code[end_pos] == ";":
+                        end_pos += 1
+                    break
+        return driver_code[:start_pos] + user_code + driver_code[end_pos:]
+
+    # Fallback: insert before main()
+    main_idx = driver_code.find("int main()")
+    if main_idx > 0:
+        return driver_code[:main_idx] + "\n" + user_code + "\n" + driver_code[main_idx:]
+    return user_code + "\n\n" + driver_code
+
+
+def _build_java_code(user_code: str, driver: dict) -> str:
+    """Build executable Java code by replacing Solution class with user code.
+
+    Extracts method body from user code and inserts into driver Solution class.
+    """
+    prefix = driver.get("prefix_code", "")
+    driver_code = driver.get("driver_code", "")
+
+    java_user_code = user_code.strip()
+    # Extract content inside class Solution { ... }
+    class_match = re.match(
+        r"class\s+Solution\s*\{(.*)\}\s*$", java_user_code, re.DOTALL
+    )
+    java_user_code = class_match.group(1).strip() if class_match else java_user_code
+
+    # Prepend imports from prefix, find Solution class in driver
+    full_code = prefix + "\n" if prefix else ""
+    solution_start = driver_code.find("class Solution {")
+
+    if solution_start >= 0:
+        # Find closing brace of Solution class
+        brace_count = 0
+        solution_end = solution_start
+        for i in range(solution_start, len(driver_code)):
+            if driver_code[i] == "{":
+                brace_count += 1
+            elif driver_code[i] == "}":
+                brace_count -= 1
+                if brace_count == 0:
+                    solution_end = i + 1
+                    break
+
+        full_code += (
+            driver_code[:solution_start]
+            + "class Solution {\n"
+            + java_user_code
+            + "\n}"
+            + driver_code[solution_end:]
+        )
+    else:
+        full_code += driver_code
+
+    return full_code
+
+
+def _build_c_code(user_code: str, driver: dict) -> str:
+    """Build executable C code by replacing function stub with user code.
+
+    Replaces the empty function stub before main() with user implementation.
+    """
+    driver_code = driver.get("driver_code", "")
+
+    # Find main() or use end of file
+    main_idx = driver_code.find("int main()")
+    if main_idx < 0:
+        main_idx = len(driver_code)
+
+    before_main = driver_code[:main_idx]
+    # Find the last function definition (type name(...) { })
+    func_match = None
+    for m in re.finditer(
+        r"(\w[\w\s\*]+\s+\w+\s*\([^)]*\)\s*)\{\s*\}", before_main, re.DOTALL
+    ):
+        func_match = m
+
+    if func_match:
+        return (
+            before_main[: func_match.start()]
+            + user_code
+            + before_main[func_match.end() :]
+            + driver_code[main_idx:]
+        )
+    return before_main + user_code + "\n\n" + driver_code[main_idx:]
+
+
 def build_executable_code(
     user_code: str,
     language: str,
@@ -112,131 +243,20 @@ def build_executable_code(
     Combine user code with driver code to create the full executable.
 
     Uses DB-based drivers from problem_drivers table (prefix_code + driver_code).
+    Dispatches to language-specific builders for code construction.
     """
-    if driver:
-        prefix = driver.get("prefix_code", "")
-        driver_code = driver.get("driver_code", "")
+    if not driver:
+        return user_code
 
-        if language == "python3":
-            # The prefix_code contains imports + "class Solution:\n    def method(...):"
-            # The user_code is the full "class Solution:\n    def method(...):\n        impl"
-            # We need: imports from prefix + user_code + driver_code
-            # Extract imports (everything before "class Solution:")
-            import_match = re.match(r"(.*?)(?=class\s+Solution:)", prefix, re.DOTALL)
-            imports = import_match.group(1).strip() if import_match else ""
-            parts = []
-            if imports:
-                parts.append(imports)
-            parts.append(user_code)
-            if driver_code:
-                parts.append(driver_code)
-            return "\n\n".join(parts)
+    builders = {
+        "python3": _build_python_code,
+        "cpp": _build_cpp_code,
+        "java": _build_java_code,
+        "c": _build_c_code,
+    }
 
-        elif language == "cpp":
-            # Replace the empty Solution class in the driver with user's implementation.
-            # Find "class Solution {" and match to the closing "};" using brace counting.
-            sol_start = re.search(r"class\s+Solution\s*\{", driver_code)
-            if sol_start:
-                start_pos = sol_start.start()
-                # Find the matching closing "};" by counting braces
-                brace_count = 0
-                end_pos = sol_start.end()
-                for i in range(sol_start.start(), len(driver_code)):
-                    if driver_code[i] == "{":
-                        brace_count += 1
-                    elif driver_code[i] == "}":
-                        brace_count -= 1
-                        if brace_count == 0:
-                            # Found the closing }, check for ";"
-                            end_pos = i + 1
-                            if (
-                                end_pos < len(driver_code)
-                                and driver_code[end_pos] == ";"
-                            ):
-                                end_pos += 1
-                            break
-                return driver_code[:start_pos] + user_code + driver_code[end_pos:]
-            # Fallback: insert before main()
-            main_idx = driver_code.find("int main()")
-            if main_idx > 0:
-                return (
-                    driver_code[:main_idx]
-                    + "\n"
-                    + user_code
-                    + "\n"
-                    + driver_code[main_idx:]
-                )
-            return user_code + "\n\n" + driver_code
-
-        elif language == "java":
-            java_user_code = user_code.strip()
-            class_match = re.match(
-                r"class\s+Solution\s*\{(.*)\}\s*$",
-                java_user_code,
-                re.DOTALL,
-            )
-            if class_match:
-                java_user_code = class_match.group(1).strip()
-
-            # Prepend imports from prefix
-            full_code = ""
-            if prefix:
-                full_code = prefix + "\n"
-
-            solution_start = driver_code.find("class Solution {")
-            if solution_start >= 0:
-                brace_count = 0
-                solution_end = solution_start
-                for i in range(solution_start, len(driver_code)):
-                    if driver_code[i] == "{":
-                        brace_count += 1
-                    elif driver_code[i] == "}":
-                        brace_count -= 1
-                        if brace_count == 0:
-                            solution_end = i + 1
-                            break
-
-                before_solution = driver_code[:solution_start]
-                after_solution = driver_code[solution_end:]
-                full_code += (
-                    before_solution
-                    + "class Solution {\n"
-                    + java_user_code
-                    + "\n}"
-                    + after_solution
-                )
-            else:
-                full_code += driver_code
-            return full_code
-
-        elif language == "c":
-            # Replace the empty function stub in the driver with user's implementation.
-            # The stub is the last function definition before int main().
-            # Match: return_type func_name(params) { }
-            main_idx = driver_code.find("int main()")
-            if main_idx < 0:
-                main_idx = len(driver_code)
-
-            before_main = driver_code[:main_idx]
-            # Find the last function definition (type name(...) { })
-            func_match = None
-            for m in re.finditer(
-                r"(\w[\w\s\*]+\s+\w+\s*\([^)]*\)\s*)\{\s*\}",
-                before_main,
-                re.DOTALL,
-            ):
-                func_match = m
-
-            if func_match:
-                return (
-                    before_main[: func_match.start()]
-                    + user_code
-                    + before_main[func_match.end() :]
-                    + driver_code[main_idx:]
-                )
-            return before_main + user_code + "\n\n" + driver_code[main_idx:]
-
-    return user_code
+    builder = builders.get(language)
+    return builder(user_code, driver) if builder else user_code
 
 
 async def evaluate_submission(

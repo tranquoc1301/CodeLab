@@ -20,7 +20,12 @@ async def get_redis() -> redis.Redis:
     global redis_client
     if redis_client is None:
         settings = get_settings()
-        redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        # Support password in REDIS_URL (e.g., redis://:password@host:port)
+        redis_client = redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=5,
+        )
     return redis_client
 
 

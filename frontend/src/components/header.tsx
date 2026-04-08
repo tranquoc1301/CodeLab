@@ -99,7 +99,7 @@ export function Header() {
           // Floating style with spacing from edges
           "mx-4 mt-4 rounded-xl",
           // Responsive max-width
-          "max-w-[calc(100%-2rem)] lg:max-w-[calc(100%-2rem)]",
+          "max-w-[calc(100%-2rem)]",
         )}
       >
         <div className="mx-auto flex h-14 items-center justify-between px-4 lg:px-6">

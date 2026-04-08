@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 # --- Topics ---
 
+
 class TopicBase(BaseModel):
     name: str
     slug: str
@@ -21,6 +22,7 @@ class TopicResponse(TopicBase):
 
 # --- Code Snippets ---
 
+
 class CodeSnippetBase(BaseModel):
     language: str
     code: str
@@ -37,6 +39,7 @@ class CodeSnippetResponse(CodeSnippetBase):
 
 
 # --- Examples ---
+
 
 class ExampleBase(BaseModel):
     example_num: int
@@ -56,6 +59,7 @@ class ExampleResponse(ExampleBase):
 
 # --- Constraints ---
 
+
 class ProblemConstraintBase(BaseModel):
     sort_order: int = 0
     constraint_text: str
@@ -72,6 +76,7 @@ class ProblemConstraintResponse(ProblemConstraintBase):
 
 
 # --- Hints ---
+
 
 class ProblemHintBase(BaseModel):
     hint_num: int
@@ -90,6 +95,7 @@ class ProblemHintResponse(ProblemHintBase):
 
 # --- Follow-ups ---
 
+
 class ProblemFollowUpBase(BaseModel):
     sort_order: int = 0
     follow_up_text: str
@@ -107,6 +113,7 @@ class ProblemFollowUpResponse(ProblemFollowUpBase):
 
 # --- Solutions ---
 
+
 class ProblemSolutionBase(BaseModel):
     content: str
 
@@ -123,6 +130,7 @@ class ProblemSolutionResponse(ProblemSolutionBase):
 
 
 # --- Problems ---
+
 
 class ProblemCreate(BaseModel):
     problem_id: int
@@ -194,6 +202,7 @@ class ProblemListItem(BaseModel):
     difficulty: str
     created_at: datetime
     topics: list[TopicResponse] = []
+    is_solved: bool = False
 
     model_config = {"from_attributes": True}
 

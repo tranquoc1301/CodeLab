@@ -13,6 +13,9 @@ export const API = {
     AUTH_LOGIN: '/auth/login',
     AUTH_REGISTER: '/auth/register',
     AUTH_ME: '/auth/me',
+    AUTH_SEND_OTP: '/auth/send-otp',
+    AUTH_VERIFY_OTP: '/auth/verify-otp',
+    AUTH_RESET_PASSWORD: '/auth/reset-password',
   },
   HEADERS: {
     AUTH_PREFIX: 'Bearer ',

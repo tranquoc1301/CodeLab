@@ -45,14 +45,14 @@ export default function Login({ minimal = false }: LoginProps) {
     },
     onSuccess: async (data) => {
       setToken(data.access_token);
-      
+
       try {
         const userRes = await api.get(API.ENDPOINTS.AUTH_ME);
         setUser(userRes.data as UserData);
       } catch (err) {
         console.error("Failed to fetch user data:", err);
       }
-      
+
       closeLoginModal();
       const intentPath = getAndClearIntent();
       if (intentPath) {
@@ -104,7 +104,9 @@ export default function Login({ minimal = false }: LoginProps) {
           <PasswordInput
             id="password-minimal"
             value={password}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setPassword(e.target.value)
+            }
             required
             autoComplete="current-password"
             placeholder={COPY.PLACEHOLDER.PASSWORD}
@@ -125,9 +127,9 @@ export default function Login({ minimal = false }: LoginProps) {
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-4 py-8 relative overflow-hidden">
       {/* Decorative background elements */}
-      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent" />
+      <div className="absolute inset-0 -z-10 bg-linear-to-br from-primary/5 via-background to-accent/5" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/20 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-accent/20 to-transparent" />
 
       <Card className="w-full max-w-md shadow-lg border-border/60">
         <CardHeader className="space-y-1 text-center">
@@ -168,19 +170,21 @@ export default function Login({ minimal = false }: LoginProps) {
               <PasswordInput
                 id="password"
                 value={password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setPassword(e.target.value)
+                }
                 required
                 autoComplete="current-password"
                 placeholder={COPY.PLACEHOLDER.PASSWORD}
               />
             </div>
             <div className="flex items-center justify-end text-sm">
-              <button
-                type="button"
+              <Link
+                to={ROUTES.FORGOT_PASSWORD}
                 className="text-primary hover:underline font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
               >
                 Forgot password?
-              </button>
+              </Link>
             </div>
             <Button
               type="submit"

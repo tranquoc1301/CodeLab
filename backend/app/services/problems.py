@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.problem import Problem, ProblemTopic, Topic
+from app.models.submission import Submission
 from app.schemas.problem import (
     ProblemCursorResponse,
     ProblemListItem,
@@ -19,6 +20,28 @@ from app.services.cache import (
     set_cached,
 )
 from app.services.cursor import decode_cursor, encode_cursor, parse_sort_params
+
+
+def _build_problems_cache_key(
+    search: str | None,
+    difficulty: str | None,
+    topics: list[str] | None,
+    sort_by: str,
+    cursor: str | None,
+    limit: int,
+    user_id: int | None,
+) -> str:
+    """Build cache key for paginated problems query."""
+    cache_params = {
+        "search": search,
+        "difficulty": difficulty,
+        "topics": topics,
+        "sort_by": sort_by,
+        "cursor": cursor,
+        "limit": limit,
+        "user_id": user_id,
+    }
+    return generate_cache_key("problems:paginated", cache_params)
 
 
 async def get_problem_navigation(
@@ -72,21 +95,24 @@ async def get_problems_paginated(
     sort_by: str = "newest",
     cursor: str | None = None,
     limit: int = 20,
+    user_id: int | None = None,
 ) -> ProblemCursorResponse:
     """Get problems with cursor-based pagination and filters."""
     order_col, descending = parse_sort_params(sort_by)
+    cache_key = _build_problems_cache_key(
+        search=search,
+        difficulty=difficulty,
+        topics=topics,
+        sort_by=sort_by,
+        cursor=cursor,
+        limit=limit,
+        user_id=user_id,
+    )
 
-    cache_params = {
-        "search": search,
-        "difficulty": difficulty,
-        "topics": topics,
-        "sort_by": sort_by,
-        "cursor": cursor,
-        "limit": limit,
-    }
-    cache_key = generate_cache_key("problems:paginated", cache_params)
+    # Don't use cache for user-specific requests
+    use_cache = not cursor and not search and not user_id
 
-    if not cursor and not search:
+    if use_cache:
         cached_response = await get_cached(cache_key)
         if cached_response:
             return ProblemCursorResponse.model_validate(cached_response)
@@ -132,14 +158,34 @@ async def get_problems_paginated(
     if has_next and problems:
         next_cursor = _build_next_cursor(problems[-1], order_col, sort_by)
 
+    # Query solved status if user_id provided
+    solved_problem_ids: set[int] = set()
+    if user_id:
+        solved_query = (
+            select(Submission.problem_id)
+            .where(Submission.user_id == user_id)
+            .where(Submission.status == "Accepted")
+            .distinct()
+        )
+        result = await db.execute(solved_query)
+        solved_problem_ids = {row[0] for row in result.all()}
+
+    # Build response with is_solved status
+    items = []
+    for p in problems:
+        item = ProblemListItem.model_validate(p)
+        item.is_solved = p.id in solved_problem_ids
+        items.append(item)
+
     response = ProblemCursorResponse(
-        items=[ProblemListItem.model_validate(p) for p in problems],
+        items=items,
         next_cursor=next_cursor,
         has_next=has_next,
         total_count=total_count if not cursor else None,
     )
 
-    if not cursor:
+    # Only cache non-user-specific requests
+    if use_cache:
         await set_cached(cache_key, response.model_dump(mode="json"))
 
     return response

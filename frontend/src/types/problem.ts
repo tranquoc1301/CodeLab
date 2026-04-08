@@ -53,6 +53,7 @@ export interface ProblemSummary {
   difficulty: string;
   topics: Topic[];
   created_at: string;
+  is_solved?: boolean;
 }
 
 export interface ProblemCursorResponse {

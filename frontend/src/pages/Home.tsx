@@ -208,7 +208,7 @@ export default function Home() {
           ? Array.from({ length: 5 }).map((_, i) => (
               <ProblemCardSkeleton key={i} />
             ))
-          : problems.map((problem) => (
+            : problems.map((problem) => (
               <ProblemCard
                 key={problem.id}
                 problem={problem}

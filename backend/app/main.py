@@ -28,18 +28,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Coding Platform API", version="1.0.0", lifespan=lifespan)
 
-# Middleware (order matters - outermost first)
-app.add_middleware(RequestIDMiddleware)
-app.add_middleware(LoggingMiddleware)
+# CORS must be added FIRST (outermost middleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.CORS_ORIGINS or ["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
-# Error handler
+# Other middleware
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(LoggingMiddleware)
+
+# Error handler (innermost - runs first)
 app.middleware("http")(error_handler_middleware)
 
 # Routes

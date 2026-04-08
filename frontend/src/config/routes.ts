@@ -5,5 +5,6 @@ export const ROUTES = {
   SUBMISSIONS: '/submissions',
   LOGIN: '/login',
   REGISTER: '/register',
+  FORGOT_PASSWORD: '/forgot-password',
   PROFILE: '/profile',
 } as const;

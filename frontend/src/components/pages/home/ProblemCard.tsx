@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Tag } from "lucide-react";
+import { Tag, CheckCircle } from "lucide-react";
 import { Card, CardContent, Badge } from "@/components/ui";
 import { DifficultyBadge } from "@/components/DifficultyBadge";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ export const ProblemCard = memo(function ProblemCard({
   onKeyDown,
   isAuthenticated,
 }: ProblemCardProps) {
+  const isSolved = problem.is_solved ?? false;
   return (
     <button
       type="button"
@@ -44,6 +45,12 @@ export const ProblemCard = memo(function ProblemCard({
                 <h2 className="text-base sm:text-lg font-semibold group-hover:text-primary transition-colors duration-200 truncate">
                   {problem.title}
                 </h2>
+                {isSolved && (
+                  <CheckCircle 
+                    className="h-5 w-5 text-green-500 shrink-0 flex-shrink-0" 
+                    aria-label="Solved"
+                  />
+                )}
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {problem.topics?.slice(0, 3).map((topic) => (

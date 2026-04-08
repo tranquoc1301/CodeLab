@@ -155,6 +155,23 @@ COMMENT ON TABLE users IS 'Platform user accounts';
 COMMENT ON COLUMN users.hashed_password IS 'bcrypt hash — never expose via API';
 
 -- ============================================================
+-- TABLE: email_verifications
+-- ============================================================
+CREATE TABLE IF NOT EXISTS email_verifications (
+    id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email           VARCHAR(255) NOT NULL,
+    otp_code        VARCHAR(6) NOT NULL,
+    otp_type        VARCHAR(50) NOT NULL,
+    user_id         INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    expires_at      TIMESTAMPTZ NOT NULL,
+    is_used         BOOLEAN NOT NULL DEFAULT FALSE,
+    attempts        INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE email_verifications IS 'Email verification OTP storage';
+
+-- ============================================================
 -- TABLE: submissions
 -- ============================================================
 CREATE TABLE IF NOT EXISTS submissions (
@@ -220,6 +237,11 @@ CREATE INDEX ix_submissions_status ON submissions (status) WHERE status IS NOT N
 
 -- Users (unique indexes already created by UNIQUE constraints)
 CREATE INDEX ix_users_email ON users (email);
+
+-- Email Verifications
+CREATE INDEX ix_email_verifications_email ON email_verifications (email);
+CREATE INDEX ix_email_verifications_created_at ON email_verifications (created_at);
+CREATE INDEX ix_email_verifications_user_id ON email_verifications (user_id);
 
 -- ============================================================
 -- TRIGGER: auto-update updated_at

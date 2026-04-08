@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, oauth2_scheme
 from app.core.database import get_db
 from app.models.problem import Problem, Topic
 from app.models.user import User
@@ -17,6 +17,19 @@ from app.schemas.problem import (
 from app.services import problems as problem_service
 
 router = APIRouter(prefix="/problems", tags=["problems"])
+
+
+async def get_optional_current_user(
+    token: str | None = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Get current user if authenticated, otherwise return None."""
+    if token is None:
+        return None
+    try:
+        return await get_current_user(token=token, db=db)
+    except HTTPException:
+        return None
 
 
 @router.get("/paginated", response_model=ProblemCursorResponse)
@@ -34,8 +47,10 @@ async def list_problems_paginated(
     cursor: str | None = Query(None, description="Cursor for pagination"),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ) -> ProblemCursorResponse:
     """List problems with cursor-based pagination and optional filters."""
+    user_id = current_user.id if current_user else None
     return await problem_service.get_problems_paginated(
         db=db,
         search=search,
@@ -44,6 +59,7 @@ async def list_problems_paginated(
         sort_by=sort_by,
         cursor=cursor,
         limit=limit,
+        user_id=user_id,
     )
 
 

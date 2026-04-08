@@ -1,9 +1,16 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+
+if TYPE_CHECKING:
+    from app.models.submission import Submission
+    from app.models.email_verification import EmailVerification
 
 
 class User(Base):
@@ -32,5 +39,7 @@ class User(Base):
         lazy="dynamic",
     )
 
-
-from app.models.submission import Submission
+    verifications: Mapped[list[EmailVerification]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )

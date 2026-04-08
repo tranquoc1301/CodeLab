@@ -16,6 +16,7 @@ import Home from "./pages/Home";
 import ProblemDetail from "./pages/ProblemDetail";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 import Profile from "./pages/Profile";
 import Submissions from "./pages/Submissions";
 import api from "./api";
@@ -79,6 +80,7 @@ function AppLayout() {
             <Route path={ROUTES.SUBMISSIONS} element={<Submissions />} />
             <Route path={ROUTES.LOGIN} element={<Login />} />
             <Route path={ROUTES.REGISTER} element={<Register />} />
+            <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPassword />} />
             <Route path={ROUTES.PROFILE} element={<Profile />} />
           </Routes>
         </main>
