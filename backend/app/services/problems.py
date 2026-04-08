@@ -223,7 +223,6 @@ async def get_problem_by_slug(db: AsyncSession, slug: str) -> Problem | None:
             selectinload(Problem.examples),
             selectinload(Problem.constraints),
             selectinload(Problem.hints),
-            selectinload(Problem.follow_ups),
             selectinload(Problem.code_snippets),
             selectinload(Problem.solution),
         )

@@ -1,5 +1,3 @@
-"""Submission API endpoints."""
-
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -81,7 +79,8 @@ async def list_submissions(
     limit: int = Query(
         default=20, ge=1, le=100, description="Number of submissions to return"
     ),
-    offset: int = Query(default=0, ge=0, description="Number of submissions to skip"),
+    offset: int = Query(
+        default=0, ge=0, description="Number of submissions to skip"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[SubmissionResponse]:

@@ -65,12 +65,14 @@ async def import_problems():
                 topics = data.get("topics", [])
 
                 if not title or not frontend_id_str:
-                    print(f"  SKIP {json_file.name}: missing title or frontend_id")
+                    print(
+                        f"  SKIP {json_file.name}: missing title or frontend_id")
                     skipped += 1
                     continue
 
                 frontend_id = int(frontend_id_str)
-                problem_id = int(problem_id_str) if problem_id_str else frontend_id
+                problem_id = int(
+                    problem_id_str) if problem_id_str else frontend_id
                 slug = problem_slug or slugify(title)
 
                 # Normalize difficulty
@@ -102,7 +104,8 @@ async def import_problems():
                         "SELECT id FROM problems WHERE problem_id = $1", problem_id
                     )
                     if row is None:
-                        print(f"  ERROR {json_file.name}: could not get problem id")
+                        print(
+                            f"  ERROR {json_file.name}: could not get problem id")
                         errors += 1
                         continue
 
@@ -157,21 +160,6 @@ async def import_problems():
                         hint_text,
                     )
 
-                # Insert follow-ups
-                for i, fu_text in enumerate(follow_ups, 1):
-                    if not fu_text:
-                        continue
-                    await conn.execute(
-                        """
-                        INSERT INTO problem_follow_ups (problem_id, sort_order, follow_up_text)
-                        VALUES ($1, $2, $3)
-                        ON CONFLICT (problem_id, sort_order) DO NOTHING
-                        """,
-                        db_problem_id,
-                        i,
-                        fu_text,
-                    )
-
                 # Insert code snippets (only supported languages)
                 for lang, code in code_snippets.items():
                     # Map language keys
@@ -191,18 +179,6 @@ async def import_problems():
                         db_problem_id,
                         lang_key,
                         code,
-                    )
-
-                # Insert solution if available
-                if solutions and solutions.strip():
-                    await conn.execute(
-                        """
-                        INSERT INTO problem_solutions (problem_id, content)
-                        VALUES ($1, $2)
-                        ON CONFLICT (problem_id) DO UPDATE SET content = EXCLUDED.content
-                        """,
-                        db_problem_id,
-                        solutions,
                     )
 
                 # Insert topics
@@ -249,7 +225,8 @@ async def import_problems():
                 errors += 1
                 print(f"  ERROR {json_file.name}: {e}")
 
-        print(f"\nDone! Imported: {imported}, Skipped: {skipped}, Errors: {errors}")
+        print(
+            f"\nDone! Imported: {imported}, Skipped: {skipped}, Errors: {errors}")
 
     finally:
         await conn.close()

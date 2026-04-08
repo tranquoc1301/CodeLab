@@ -40,7 +40,7 @@ export const LoginPromptOverlay = memo(function LoginPromptOverlay({
           </button>
 
           <div className="flex items-start gap-4">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <div className="p-3 rounded-lg bg-warning/10">
                 <AlertCircle className="h-6 w-6 text-warning" aria-hidden />
               </div>

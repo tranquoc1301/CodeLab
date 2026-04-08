@@ -46,8 +46,8 @@ export const ProblemCard = memo(function ProblemCard({
                   {problem.title}
                 </h2>
                 {isSolved && (
-                  <CheckCircle 
-                    className="h-5 w-5 text-green-500 shrink-0 flex-shrink-0" 
+                  <CheckCircle
+                    className="h-5 w-5 text-green-500 shrink-0"
                     aria-label="Solved"
                   />
                 )}

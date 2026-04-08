@@ -96,12 +96,6 @@ class Problem(Base):
         lazy="selectin",
         order_by="ProblemHint.hint_num",
     )
-    follow_ups: Mapped[list["ProblemFollowUp"]] = relationship(
-        back_populates="problem",
-        cascade="all, delete-orphan",
-        lazy="selectin",
-        order_by="ProblemFollowUp.sort_order",
-    )
     code_snippets: Mapped[list["CodeSnippet"]] = relationship(
         back_populates="problem",
         cascade="all, delete-orphan",
@@ -187,29 +181,6 @@ class ProblemHint(Base):
     )
 
     problem: Mapped["Problem"] = relationship(back_populates="hints")
-
-
-class ProblemFollowUp(Base):
-    __tablename__ = "problem_follow_ups"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    problem_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("problems.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    follow_up_text: Mapped[str] = mapped_column(Text, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint(
-            "problem_id",
-            "sort_order",
-            name="uq_problem_follow_ups_problem_sort_order",
-        ),
-    )
-
-    problem: Mapped["Problem"] = relationship(back_populates="follow_ups")
 
 
 class CodeSnippet(Base):

@@ -5,29 +5,41 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
 
+    # Database - REQUIRED
+    DATABASE_URL: str = Field(..., description="PostgreSQL connection URL")
 
-    # Database - default for dev convenience, override for production
-    DATABASE_URL: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5433/codelab_v2"
+    # Security - REQUIRED
+    SECRET_KEY: str = Field(..., min_length=32, description="JWT secret key")
+
+    # JWT - REQUIRED
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=1440, description="Token expiry in minutes"
+    )
+    ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
+
+    # CORS - REQUIRED
+    CORS_ORIGINS: list[str] = Field(
+        default=["http://localhost:5173"], description="Allowed CORS origins"
     )
 
-    # Required - sensitive, enforce minimum length for security
-    SECRET_KEY: str = Field(default="", min_length=32)
+    # Redis - REQUIRED
+    REDIS_URL: str = Field(..., description="Redis connection URL")
+    REDIS_CACHE_TTL: int = Field(
+        default=60, description="Cache TTL in seconds")
 
-    JUDGE0_URL: str = "http://localhost:2358"
-    # Required for judge0 - empty string if not using judge0
-    JUDGE0_AUTH_TOKEN: str = ""
+    # Judge0 - OPTIONAL
+    JUDGE0_URL: str = Field(
+        default="http://localhost:2358", description="Judge0 server URL"
+    )
+    JUDGE0_AUTH_TOKEN: str = Field(default="", description="Judge0 API token")
 
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
-    REDIS_URL: str = "redis://localhost:6379/0"
-    REDIS_CACHE_TTL: int = 60
-    ALGORITHM: str = "HS256"
-    CORS_ORIGINS: list[str] = ["http://localhost:5173"]
-
-    # Required for email - empty string if not using Resend
-    RESEND_API_KEY: str = ""
-    RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
+    # Resend Email - OPTIONAL
+    RESEND_API_KEY: str = Field(default="", description="Resend API key")
+    RESEND_FROM_EMAIL: str = Field(
+        default="onboarding@resend.dev", description="Sender email for Resend"
+    )
 
     @field_validator("SECRET_KEY", mode="before")
     @classmethod

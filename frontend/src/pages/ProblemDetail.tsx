@@ -17,7 +17,6 @@ import {
   FileCode,
 } from "lucide-react";
 import CodeEditor from "@/components/CodeEditor";
-import { DifficultyBadge } from "@/components/DifficultyBadge";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/store/auth";
 import { getStoredPath, setStoredIntent } from "@/store/authGuard";
@@ -46,10 +45,7 @@ import { LoginPromptOverlay } from "@/components/pages/problem-detail/LoginPromp
 import { ProblemDescription } from "@/components/pages/problem-detail/ProblemDescription";
 import { ConsolePanel } from "@/components/pages/problem-detail/ConsolePanel";
 
-// ---------------------------------------------------------------------------
 // Login gate effect
-// ---------------------------------------------------------------------------
-
 function useLoginGate(isAuthenticated: boolean) {
   const [showLoginPrompt, setShowLoginPrompt] = useState(() => {
     const intentPath = getStoredPath();
@@ -61,10 +57,7 @@ function useLoginGate(isAuthenticated: boolean) {
   return { showLoginPrompt, setShowLoginPrompt };
 }
 
-// ---------------------------------------------------------------------------
 // Numeric slug redirect
-// ---------------------------------------------------------------------------
-
 function useNumericSlugRedirect(
   slug: string | undefined,
   navigate: ReturnType<typeof useNavigate>,
@@ -80,10 +73,7 @@ function useNumericSlugRedirect(
   }, [slug, navigate]);
 }
 
-// ---------------------------------------------------------------------------
 // Main component
-// ---------------------------------------------------------------------------
-
 export default function ProblemDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { isAuthenticated } = useAuth();
@@ -192,7 +182,7 @@ export default function ProblemDetail() {
   return (
     <ErrorBoundary>
       <div className="h-[calc(100dvh-4rem)] -mx-4 flex flex-col" ref={splitRef}>
-        {/* ── Top bar ─────────────────────────────────────────────── */}
+        {/* Top bar */}
         <div className="relative flex items-center justify-between px-3 py-2 border-b border-border/80 bg-background/95 backdrop-blur-sm z-20">
           {/* Left section: Back + Problem info + Navigation */}
           <div className="flex items-center gap-1.5 min-w-0">
@@ -207,15 +197,14 @@ export default function ProblemDetail() {
             </Button>
 
             <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-base font-bold text-foreground truncate">
+                Problem
+              </h1>
               {problem.frontend_id && (
-                <span className="text-xs font-mono text-muted-foreground shrink-0">
+                <span className="shrink-0 text-base font-mono text-muted-foreground">
                   #{problem.frontend_id}
                 </span>
               )}
-              <span className="text-sm font-semibold text-foreground truncate max-w-45 sm:max-w-xs">
-                {problem.title}
-              </span>
-              <DifficultyBadge difficulty={problem.difficulty} />
             </div>
 
             {/* Prev/Next */}
@@ -380,7 +369,7 @@ export default function ProblemDetail() {
           </div>
         </div>
 
-        {/* ── Main content with resizable split ───────────────────── */}
+        {/* Main content with resizable split */}
         <div className="flex-1 flex min-h-0">
           {/* Left: Problem Description */}
           <div
