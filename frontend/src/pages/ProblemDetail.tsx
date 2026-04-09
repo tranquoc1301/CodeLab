@@ -5,7 +5,6 @@ import {
   Play,
   CheckCircle,
   Loader2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   BookOpen,
@@ -27,6 +26,13 @@ import { useProblemCode } from "@/hooks/useProblemCode";
 import { useAutosave } from "@/hooks/useAutosave";
 import api from "@/api";
 import { Button } from "@/components/ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { API, COPY, DEFAULTS, ROUTES } from "@/config";
 import { getCodeTemplate } from "@/config/code";
 import type { Language, Problem } from "@/types";
@@ -236,27 +242,29 @@ export default function ProblemDetail() {
 
           {/* Right section: Language + Actions */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Language selector — more prominent */}
-            <div className="relative group">
-              <select
-                value={language}
-                onChange={(e) =>
-                  handleLanguageChange(e.target.value as Language)
-                }
-                className="h-8 pl-3 pr-8 text-xs font-medium rounded-lg bg-secondary border border-border text-secondary-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 appearance-none cursor-pointer hover:bg-accent transition-all"
-                aria-label="Programming language"
-              >
-                {Object.entries(COPY.LANGUAGE_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none"
-                aria-hidden
-              />
-            </div>
+             {/* Language selector — more prominent */}
+             <div className="relative group">
+               <Select
+                 value={language}
+                 onValueChange={(val) => handleLanguageChange(val as Language)}
+               >
+                 <SelectTrigger
+                   className="h-8 w-[110px] text-xs"
+                   aria-label="Programming language"
+                 >
+                   <SelectValue />
+                 </SelectTrigger>
+                 <SelectContent position="popper">
+                   {Object.entries(COPY.LANGUAGE_LABELS).map(
+                     ([value, label]) => (
+                       <SelectItem key={value} value={value}>
+                         {label}
+                       </SelectItem>
+                     ),
+                   )}
+                 </SelectContent>
+               </Select>
+             </div>
 
             {/* File indicator */}
             <div className="hidden md:flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground bg-secondary/50 rounded-md border border-border">

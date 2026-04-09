@@ -1,38 +1,46 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ── Design tokens (HSL) ─────────────────────────────────────── */
+/* NOTE: All color variables MUST be in HSL format for Tailwind v4 compatibility */
+/* OKLCH values are converted to HSL: oklch(L C H) -> hsl(H S% L%) */
 :root {
-  /* Base colors - Light mode */
-  --background: 0 0% 99%;
-  --foreground: 222.2 84% 4.9%;
+  /* Base colors - Light mode (converted from OKLCH) */
+  /* oklch(1 0 0) -> hsl(0 0% 100%) */
+  --background: 0 0% 100%;
+  /* oklch(0.145 0 0) -> hsl(0 0% 14.5%) */
+  --foreground: 0 0% 14.5%;
 
   /* Card & surface */
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 0 0% 14.5%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
+  --popover-foreground: 0 0% 14.5%;
 
   /* Primary brand - Vibrant blue */
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 210 40% 98%;
+  /* oklch(0.205 0 0) -> hsl(220 10% 20.5%) - actually using a blue hue */
+  --primary: 220 10% 20.5%;
+  --primary-foreground: 0 0% 98.5%;
   --primary-hover: 217.2 91.2% 52%;
 
   /* Secondary */
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 0 0% 97%;
+  --secondary-foreground: 0 0% 20.5%;
 
   /* Muted */
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted: 0 0% 97%;
+  --muted-foreground: 0 0% 55.6%;
 
   /* Accent */
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  --accent: 0 0% 97%;
+  --accent-foreground: 0 0% 20.5%;
 
   /* Status colors - Vibrant */
-  --destructive: 0 84.2% 60.2%;
+  --destructive: 0 72.2% 50.6%;
   --destructive-foreground: 210 40% 98%;
   --success: 142.1 76.2% 36.3%;
   --success-foreground: 355.7 100% 97.3%;
@@ -50,12 +58,12 @@
   --hard-bg: 0 85% 93%;
 
   /* Border & input */
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 217.2 91.2% 59.8%;
+  --border: 0 0% 92.2%;
+  --input: 0 0% 92.2%;
+  --ring: 0 0% 70.8%;
 
   /* Radius */
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 
   /* Glassmorphism */
   --glass-bg: rgba(255, 255, 255, 0.7);
@@ -75,53 +83,56 @@
   --space-16: 4rem;
 
   /* Chart colors */
-  --chart-1: 217.2 91.2% 59.8%;
-  --chart-2: 142.1 76.2% 36.3%;
-  --chart-3: 38 92% 50.2%;
-  --chart-4: 199 89% 48.2%;
-  --chart-5: 0 84.2% 60.2%;
+  --chart-1: 0 0% 87%;
+  --chart-2: 0 0% 55.6%;
+  --chart-3: 0 0% 43.9%;
+  --chart-4: 0 0% 37.1%;
+  --chart-5: 0 0% 26.9%;
 
   /* Sidebar */
-  --sidebar: 0 0% 98%;
-  --sidebar-foreground: 222.2 47.4% 11.2%;
-  --sidebar-primary: 217.2 91.2% 59.8%;
-  --sidebar-primary-foreground: 210 40% 98%;
-  --sidebar-accent: 210 40% 96.1%;
-  --sidebar-accent-foreground: 222.2 47.4% 11.2%;
-  --sidebar-border: 214.3 31.8% 91.4%;
-  --sidebar-ring: 217.2 91.2% 59.8%;
+  --sidebar: 0 0% 98.5%;
+  --sidebar-foreground: 0 0% 14.5%;
+  --sidebar-primary: 220 10% 20.5%;
+  --sidebar-primary-foreground: 0 0% 98.5%;
+  --sidebar-accent: 0 0% 97%;
+  --sidebar-accent-foreground: 0 0% 20.5%;
+  --sidebar-border: 0 0% 92.2%;
+  --sidebar-ring: 0 0% 70.8%;
 }
 
 .dark {
-  /* Base colors - OLED optimized dark */
-  --background: 240 20% 4%;
+  /* Base colors - OLED optimized dark (converted from OKLCH) */
+  /* oklch(0.145 0 0) -> hsl(0 0% 14.5%) -> but for dark it's 0 0% 14.5% actually represents a dark color */
+  /* Actually oklch(0.145 0 0) is very dark gray, which is 0 0% 14.5% */
+  /* For dark mode background we want something like hsl(0 0% 8%) */
+  --background: 0 0% 8%;
   --foreground: 0 0% 98%;
 
   /* Card & surface - Subtle elevation */
-  --card: 240 15% 10%;
+  --card: 0 0% 12%;
   --card-foreground: 0 0% 98%;
-  --popover: 240 15% 10%;
+  --popover: 0 0% 12%;
   --popover-foreground: 0 0% 98%;
 
   /* Primary brand - Vibrant blue */
   --primary: 217.2 91.2% 65%;
-  --primary-foreground: 240 20% 4%;
+  --primary-foreground: 0 0% 12%;
   --primary-hover: 217.2 91.2% 72%;
 
   /* Secondary */
-  --secondary: 240 15% 16%;
+  --secondary: 0 0% 15%;
   --secondary-foreground: 0 0% 98%;
 
   /* Muted */
-  --muted: 240 15% 16%;
-  --muted-foreground: 240 5% 65%;
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 63%;
 
   /* Accent */
-  --accent: 240 15% 16%;
+  --accent: 0 0% 15%;
   --accent-foreground: 0 0% 98%;
 
   /* Status colors - Vibrant on dark */
-  --destructive: 0 72% 56%;
+  --destructive: 0 72.2% 50.6%;
   --destructive-foreground: 0 0% 98%;
   --success: 142.1 70% 50%;
   --success-foreground: 144.9 80% 10%;
@@ -139,9 +150,9 @@
   --hard-bg: 0 50% 12%;
 
   /* Border & input */
-  --border: 240 15% 20%;
-  --input: 240 15% 20%;
-  --ring: 217.2 91.2% 65%;
+  --border: 0 0% 20%;
+  --input: 0 0% 20%;
+  --ring: 0 0% 50%;
 
   /* Glassmorphism - Dark mode */
   --glass-bg: rgba(0, 0, 0, 0.6);
@@ -149,21 +160,21 @@
   --glass-shadow: rgba(0, 0, 0, 0.3);
 
   /* Chart colors */
-  --chart-1: 217.2 91.2% 65%;
-  --chart-2: 142.1 70% 50%;
-  --chart-3: 38 92% 55%;
-  --chart-4: 199 89% 55%;
-  --chart-5: 0 72% 56%;
+  --chart-1: 0 0% 87%;
+  --chart-2: 0 0% 55.6%;
+  --chart-3: 0 0% 43.9%;
+  --chart-4: 0 0% 37.1%;
+  --chart-5: 0 0% 26.9%;
 
   /* Sidebar */
-  --sidebar: 240 15% 10%;
+  --sidebar: 0 0% 10%;
   --sidebar-foreground: 0 0% 98%;
-  --sidebar-primary: 217.2 91.2% 65%;
-  --sidebar-primary-foreground: 240 20% 4%;
-  --sidebar-accent: 240 15% 16%;
+  --sidebar-primary: 262.1 83.3% 57.8%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 0 0% 15%;
   --sidebar-accent-foreground: 0 0% 98%;
-  --sidebar-border: 240 15% 20%;
-  --sidebar-ring: 217.2 91.2% 65%;
+  --sidebar-border: 0 0% 20%;
+  --sidebar-ring: 0 0% 50%;
 }
 
 /* ── Tailwind v4 theme mapping ─────────────────────────────── */
@@ -205,8 +216,8 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-heading: "Space Grotesk", var(--font-sans);
-  --font-sans: "DM Sans", sans-serif;
+  --font-heading: var(--font-sans);
+  --font-sans: "Geist Variable", sans-serif;
   --color-sidebar-ring: hsl(var(--sidebar-ring));
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
@@ -218,6 +229,11 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
 }
 
 /* ── Base reset ──────────────────────────────────────────────── */
@@ -237,7 +253,12 @@
   }
 
   /* Headings use Space Grotesk */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-heading font-semibold tracking-tight;
   }
 
@@ -311,7 +332,11 @@
 
   /* Gradient text */
   .text-gradient {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--info)) 100%);
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--info)) 100%
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -459,16 +484,36 @@
     opacity: 0;
     animation: slideUp 0.3s ease-out forwards;
   }
-  .stagger-fade-in > *:nth-child(1) { animation-delay: 0ms; }
-  .stagger-fade-in > *:nth-child(2) { animation-delay: 50ms; }
-  .stagger-fade-in > *:nth-child(3) { animation-delay: 100ms; }
-  .stagger-fade-in > *:nth-child(4) { animation-delay: 150ms; }
-  .stagger-fade-in > *:nth-child(5) { animation-delay: 200ms; }
-  .stagger-fade-in > *:nth-child(6) { animation-delay: 250ms; }
-  .stagger-fade-in > *:nth-child(7) { animation-delay: 300ms; }
-  .stagger-fade-in > *:nth-child(8) { animation-delay: 350ms; }
-  .stagger-fade-in > *:nth-child(9) { animation-delay: 400ms; }
-  .stagger-fade-in > *:nth-child(10) { animation-delay: 450ms; }
+  .stagger-fade-in > *:nth-child(1) {
+    animation-delay: 0ms;
+  }
+  .stagger-fade-in > *:nth-child(2) {
+    animation-delay: 50ms;
+  }
+  .stagger-fade-in > *:nth-child(3) {
+    animation-delay: 100ms;
+  }
+  .stagger-fade-in > *:nth-child(4) {
+    animation-delay: 150ms;
+  }
+  .stagger-fade-in > *:nth-child(5) {
+    animation-delay: 200ms;
+  }
+  .stagger-fade-in > *:nth-child(6) {
+    animation-delay: 250ms;
+  }
+  .stagger-fade-in > *:nth-child(7) {
+    animation-delay: 300ms;
+  }
+  .stagger-fade-in > *:nth-child(8) {
+    animation-delay: 350ms;
+  }
+  .stagger-fade-in > *:nth-child(9) {
+    animation-delay: 400ms;
+  }
+  .stagger-fade-in > *:nth-child(10) {
+    animation-delay: 450ms;
+  }
 
   /* Reduced motion for stagger */
   @media (prefers-reduced-motion: reduce) {

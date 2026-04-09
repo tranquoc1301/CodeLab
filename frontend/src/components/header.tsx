@@ -55,6 +55,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const isProblemDetailPage = location.pathname.startsWith("/problems/");
 
   // Close user menu on click outside
   useEffect(() => {
@@ -97,7 +98,9 @@ export function Header() {
           // Glassmorphism effect
           "glass",
           // Floating style with spacing from edges
-          "mx-4 mt-4 rounded-xl",
+          "mx-4 rounded-xl",
+          // Add margin-top only when not on problem detail page
+          !isProblemDetailPage && "mt-4",
           // Responsive max-width
           "max-w-[calc(100%-2rem)]",
         )}
