@@ -197,9 +197,9 @@ export default function Home() {
         {totalCount != null && !search && ` of ${totalCount} total`}
       </p>
 
-      {/* Problem list */}
+      {/* Problem list - use content-visibility for performance */}
       <div
-        className="grid gap-3"
+        className="grid gap-3 content-visibility-auto"
         role="feed"
         aria-label="Problem list"
         aria-busy={isLoadingMore}

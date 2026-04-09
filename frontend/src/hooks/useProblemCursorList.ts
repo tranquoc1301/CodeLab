@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import api from '@/api';
 import { API } from '@/config';
-import { useAuth } from '@/store/auth';
 import type { ProblemCursorResponse, ProblemSummary } from '@/types';
 
 interface UseProblemCursorListOptions {
@@ -35,9 +34,6 @@ export function useProblemCursorList(
     sortBy = 'newest',
     initialLimit = 20,
   } = options;
-
-  // Get auth token for authenticated requests
-  const { token } = useAuth();
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);

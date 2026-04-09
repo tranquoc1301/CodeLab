@@ -263,6 +263,14 @@
   }
 }
 
+/* Disable all transitions during theme toggle - prevents border lag */
+.no-transition,
+.no-transition *,
+.no-transition *::before,
+.no-transition *::after {
+  transition: none !important;
+}
+
 /* ── Glassmorphism utilities ────────────────────────────────── */
 @layer utilities {
   /* Glass card effect - direct CSS instead of @apply */

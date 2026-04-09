@@ -84,7 +84,7 @@ function AppLayout() {
             <Route path={ROUTES.PROFILE} element={<Profile />} />
           </Routes>
         </main>
-        {!isProblemDetailPage && <Footer /> }
+        {!isProblemDetailPage && <Footer />}
       </div>
       <Toaster />
       {showAuthModal && <AuthModal />}

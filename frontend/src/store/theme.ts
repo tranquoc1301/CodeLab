@@ -12,8 +12,25 @@ const getInitialTheme = (): 'light' | 'dark' => {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 };
 
-const applyTheme = (theme: 'light' | 'dark') => {
-  document.documentElement.classList.toggle('dark', theme === 'dark');
+const applyTheme = (theme: 'light' | 'dark', skipTransition = false) => {
+  const root = document.documentElement;
+  const isDark = theme === 'dark';
+  
+  // Fast toggle: no transitions during theme change to prevent border lag
+  if (skipTransition) {
+    root.classList.add('no-transition');
+  }
+  
+  root.classList.toggle('dark', isDark);
+  
+  // Re-enable transitions after
+  if (skipTransition) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        root.classList.remove('no-transition');
+      });
+    });
+  }
 };
 
 export const useThemeStore = create<ThemeState>((set) => {
@@ -26,7 +43,7 @@ export const useThemeStore = create<ThemeState>((set) => {
       set((state) => {
         const next = state.theme === 'dark' ? 'light' : 'dark';
         localStorage.setItem(STORAGE_KEYS.THEME, next);
-        applyTheme(next);
+        applyTheme(next, true); // Enable fast toggle
         return { theme: next };
       }),
   };

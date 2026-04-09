@@ -32,7 +32,6 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
-  const [tempToken, setTempToken] = useState("");
   const [countdown, setCountdown] = useState(0);
   const navigate = useNavigate();
 
@@ -70,7 +69,6 @@ export default function Register() {
       return res.data;
     },
     onSuccess: (data) => {
-      setTempToken(data.temp_token);
       completeRegistration(data.temp_token);
     },
     onError: (err: unknown) => {
