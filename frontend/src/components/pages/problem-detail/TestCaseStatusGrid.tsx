@@ -1,4 +1,5 @@
-import { memo, useState } from "react";
+import { memo, useState, useMemo } from "react";
+import { tryParseJSON, formatValue } from "@/lib/test-case-utils";
 
 interface TestCaseData {
   index: number;
@@ -15,101 +16,130 @@ interface TestCaseStatusGridProps {
   testCases: TestCaseData[];
 }
 
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function DataBlock({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: "error" | "success";
+}) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-muted-foreground mb-1.5">
+        {label}
+      </p>
+      <pre
+        className={`rounded-md px-3 py-2.5 text-xs font-mono whitespace-pre-wrap leading-relaxed
+          ${
+            highlight === "error"
+              ? "bg-destructive/10 text-destructive border border-destructive/50"
+              : highlight === "success"
+                ? "bg-success/10 text-success border border-success/50"
+                : "bg-muted/50 text-foreground border border-transparent"
+          }`}
+      >
+        {value || "(empty)"}
+      </pre>
+    </div>
+  );
+}
+
+function InputSection({ raw }: { raw: string }) {
+  const parsed = tryParseJSON(raw);
+
+  if (parsed) {
+    return (
+      <div className="space-y-2">
+        {Object.entries(parsed).map(([key, value]) => (
+          <DataBlock key={key} label={`${key} =`} value={formatValue(value)} />
+        ))}
+      </div>
+    );
+  }
+
+  return <DataBlock label="Input" value={raw} />;
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export const TestCaseStatusGrid = memo(function TestCaseStatusGrid({
   testCases,
 }: TestCaseStatusGridProps) {
-  const [selected, setSelected] = useState<number | null>(null);
-  const selectedTC = selected !== null ? testCases.find(tc => tc.index === selected) : null;
+  const [selected, setSelected] = useState<number | null>(
+    testCases.length > 0 ? testCases[0].index : null,
+  );
+
+  const selectedTC = useMemo(
+    () =>
+      selected !== null
+        ? (testCases.find((tc) => tc.index === selected) ?? null)
+        : null,
+    [selected, testCases],
+  );
+
+  const isPassed = (tc: TestCaseData) => tc.status === "Accepted";
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-col gap-0">
+      {/* ── Case tab pills ── */}
+      <div className="flex items-center gap-2 px-4 pb-3 overflow-x-auto scrollbar-none">
         {testCases.map((tc) => {
-          const isPassed = tc.status === "Accepted";
+          const passed = isPassed(tc);
           const isSelected = selected === tc.index;
           return (
             <button
               key={tc.index}
-              type="button"
               onClick={() => setSelected(isSelected ? null : tc.index)}
-              className={`flex items-center justify-center w-8 h-8 rounded text-xs font-medium transition-all cursor-pointer ${
-                isPassed
-                  ? "bg-success/10 border border-success/50 text-success hover:bg-success/20"
-                  : "bg-destructive/10 border border-destructive/50 text-destructive hover:bg-destructive/20"
-              } ${isSelected ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""}`}
-              title={`Test Case ${tc.index + 1}: ${tc.status}`}
+              title={`Case ${tc.index + 1}: ${tc.status}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
+                whitespace-nowrap shrink-0 transition-all duration-150
+                ${
+                  isSelected
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                }`}
             >
-              {tc.index + 1}
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  passed ? "bg-success" : "bg-destructive"
+                }`}
+              />
+              Case {tc.index + 1}
             </button>
           );
         })}
       </div>
 
+      {/* ── Selected case detail ── */}
       {selectedTC && (
-        <div className="mt-3 p-3 bg-muted/30 rounded-lg border border-border/60 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-foreground">
-              Test Case {selectedTC.index + 1}
-            </span>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-              selectedTC.status === "Accepted"
-                ? "bg-success/10 text-success"
-                : "bg-destructive/10 text-destructive"
-            }`}>
-              {selectedTC.status}
-            </span>
-          </div>
+        <div className="flex flex-col gap-3 px-4 pb-4 border-t border-border pt-3">
+          <InputSection raw={selectedTC.input ?? ""} />
 
-          <div>
-            <span className="text-xs text-muted-foreground block mb-1">Input</span>
-            <pre className="p-2.5 bg-background rounded border border-border/60 font-mono text-xs text-foreground whitespace-pre-wrap overflow-auto max-h-32">
-              {selectedTC.input || "(empty)"}
-            </pre>
-          </div>
+          <DataBlock
+            label="Output"
+            value={selectedTC.stdout ?? ""}
+            highlight={isPassed(selectedTC) ? "success" : "error"}
+          />
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <span className="text-xs text-muted-foreground block mb-1">Expected Output</span>
-              <pre className="p-2.5 bg-success/5 rounded border border-success/20 font-mono text-xs text-success whitespace-pre-wrap overflow-auto max-h-32">
-                {selectedTC.expected_output || "(empty)"}
-              </pre>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground block mb-1">Your Output</span>
-              <pre className={`p-2.5 rounded border font-mono text-xs whitespace-pre-wrap overflow-auto max-h-32 ${
-                selectedTC.status === "Accepted"
-                  ? "bg-success/5 border-success/20 text-success"
-                  : "bg-destructive/5 border-destructive/20 text-destructive"
-              }`}>
-                {selectedTC.stdout || "(empty)"}
-              </pre>
-            </div>
-          </div>
+          <DataBlock
+            label="Expected"
+            value={selectedTC.expected_output ?? ""}
+            highlight="success"
+          />
 
           {selectedTC.error_message && selectedTC.status !== "Accepted" && (
-            <div>
-              <span className="text-xs text-muted-foreground block mb-1">Error</span>
-              <pre className="p-2.5 bg-destructive/10 rounded border border-destructive/30 font-mono text-xs text-destructive whitespace-pre-wrap overflow-auto max-h-24">
-                {selectedTC.error_message}
-              </pre>
-            </div>
-          )}
-
-          {(selectedTC.time_ms || selectedTC.memory_kb) && (
-            <div className="flex gap-4 text-xs text-muted-foreground">
-              {selectedTC.time_ms != null && <span>Time: {selectedTC.time_ms}ms</span>}
-              {selectedTC.memory_kb != null && <span>Memory: {selectedTC.memory_kb} KB</span>}
-            </div>
+            <DataBlock
+              label="Error"
+              value={selectedTC.error_message}
+              highlight="error"
+            />
           )}
         </div>
       )}
-
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {testCases.filter((t) => t.status === "Accepted").length} /{" "}
-          {testCases.length} passed
-        </span>
-      </div>
     </div>
   );
 });

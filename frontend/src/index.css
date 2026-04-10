@@ -21,15 +21,14 @@
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 14.5%;
 
-  /* Primary brand - Vibrant blue */
-  /* oklch(0.205 0 0) -> hsl(220 10% 20.5%) - actually using a blue hue */
-  --primary: 220 10% 20.5%;
-  --primary-foreground: 0 0% 98.5%;
-  --primary-hover: 217.2 91.2% 52%;
+  /* Primary brand - Sky blue */
+  --primary: 210 80% 55%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 210 80% 45%;
 
   /* Secondary */
-  --secondary: 0 0% 97%;
-  --secondary-foreground: 0 0% 20.5%;
+  --secondary: 210 30% 96%;
+  --secondary-foreground: 210 20% 20%;
 
   /* Muted */
   --muted: 0 0% 97%;

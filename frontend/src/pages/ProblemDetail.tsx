@@ -111,8 +111,17 @@ export default function ProblemDetail() {
   const { language, code, setCode, handleLanguageChange, handleCodeChange } =
     useProblemCode(problem, slug, autosave);
 
-  const { verdict, isRunning, isSubmitting, runCode, submitCode } =
+  const { verdict, isRunning, isSubmitting, runCode, submitCode, resetVerdict } =
     useCodeExecution();
+
+  // Reset verdict when problem changes
+  const previousProblemIdRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (problem?.id && problem.id !== previousProblemIdRef.current) {
+      previousProblemIdRef.current = problem.id;
+      resetVerdict();
+    }
+  }, [problem?.id, resetVerdict]);
 
   const {
     splitRef,
@@ -127,9 +136,6 @@ export default function ProblemDetail() {
   const [descriptionExpanded, setDescriptionExpanded] = useState(true);
   const [editorMaximized, setEditorMaximized] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-
-  // Track unsaved changes
-  const originalCodeRef = useRef<string>("");
 
   const wrappedCodeChange = useCallback(
     (value: string | undefined) => {
@@ -148,7 +154,6 @@ export default function ProblemDetail() {
       );
       const defaultCode = dbSnippet?.code ?? getCodeTemplate(language);
       setCode(defaultCode);
-      originalCodeRef.current = defaultCode;
       setShowResetConfirm(false);
     }
   }, [problem, language, setCode]);
@@ -550,6 +555,7 @@ export default function ProblemDetail() {
                   verdict={verdict}
                   isRunning={isRunning || isSubmitting}
                   totalTestCases={verdict?.total_test_cases ?? 0}
+                  problemId={problem?.id}
                 />
               </div>
             </div>

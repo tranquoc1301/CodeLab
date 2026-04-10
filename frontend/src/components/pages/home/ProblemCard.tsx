@@ -168,8 +168,7 @@ export const ProblemCard = memo(
       prevProps.problem.title === nextProps.problem.title &&
       prevProps.problem.is_solved === nextProps.problem.is_solved &&
       prevProps.problem.difficulty === nextProps.problem.difficulty &&
-      prevProps.onClick === nextProps.onClick &&
-      prevProps.onKeyDown === nextProps.onKeyDown &&
+      prevProps.isAuthenticated === nextProps.isAuthenticated &&
       prevProps.className === nextProps.className
     );
   },

@@ -172,14 +172,18 @@ export default function Submissions() {
         <button
           onClick={() => setPage((p) => Math.max(1, p - 1))}
           disabled={page === 1}
+          aria-label={`Go to previous page (currently on page ${page})`}
           className="px-3 py-1 rounded border disabled:opacity-50"
         >
           Previous
         </button>
-        <span className="text-sm text-muted-foreground">Page {page}</span>
+        <span className="text-sm text-muted-foreground" aria-live="polite">
+          Page {page}
+        </span>
         <button
           onClick={() => setPage((p) => p + 1)}
           disabled={!submissions || submissions.length < PAGE_SIZE}
+          aria-label={`Go to next page (currently on page ${page})`}
           className="px-3 py-1 rounded border disabled:opacity-50"
         >
           Next

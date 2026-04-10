@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { CheckCircle, XCircle } from "lucide-react";
+import { tryParseJSON, formatValue } from "@/lib/test-case-utils";
 
 interface TestCaseResultItemProps {
   index: number;
@@ -8,6 +9,60 @@ interface TestCaseResultItemProps {
   expected: string;
   actual: string;
 }
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function CodeBlock({
+  label,
+  value,
+  variant = "neutral",
+}: {
+  label: string;
+  value: string;
+  variant?: "neutral" | "success" | "error";
+}) {
+  const variantClass = {
+    neutral: "bg-muted/50 border-border text-foreground/80",
+    success: "bg-success/10 border-success/50 text-success",
+    error: "bg-destructive/10 border-destructive/50 text-destructive",
+  }[variant];
+
+  return (
+    <div>
+      <span className="block text-xs text-muted-foreground mb-1.5">
+        {label}
+      </span>
+      <pre
+        className={`px-3 py-2.5 rounded border font-mono text-xs whitespace-pre-wrap wrap-break-words leading-relaxed ${variantClass}`}
+      >
+        {value}
+      </pre>
+    </div>
+  );
+}
+
+function InputSection({ raw }: { raw: string }) {
+  const parsed = tryParseJSON(raw);
+
+  if (parsed) {
+    return (
+      <div className="space-y-2">
+        {Object.entries(parsed).map(([key, value]) => (
+          <CodeBlock
+            key={key}
+            label={`${key} =`}
+            value={formatValue(value)}
+            variant="neutral"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return <CodeBlock label="Input" value={raw} variant="neutral" />;
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export const TestCaseResultItem = memo(function TestCaseResultItem({
   index,
@@ -18,38 +73,32 @@ export const TestCaseResultItem = memo(function TestCaseResultItem({
 }: TestCaseResultItemProps) {
   return (
     <div className="space-y-3">
+      {/* Status header */}
       <div className="flex items-center gap-2 text-sm">
         {passed ? (
-          <CheckCircle className="h-4 w-4 text-green-500" aria-hidden />
+          <CheckCircle className="h-4 w-4 text-success" aria-hidden />
         ) : (
-          <XCircle className="h-4 w-4 text-red-500" aria-hidden />
+          <XCircle className="h-4 w-4 text-destructive" aria-hidden />
         )}
-        <span className={passed ? "text-green-400" : "text-red-400"}>
+        <span className={passed ? "text-success" : "text-destructive"}>
           Case {index + 1}: {passed ? "Accepted" : "Wrong Answer"}
         </span>
       </div>
-      {!passed && (
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div>
-            <span className="text-zinc-500 block mb-1">Input</span>
-            <pre className="p-2.5 bg-zinc-900 rounded border border-zinc-800 font-mono text-zinc-300 whitespace-pre-wrap overflow-auto">
-              {input}
-            </pre>
-          </div>
-          <div>
-            <span className="text-zinc-500 block mb-1">Expected</span>
-            <pre className="p-2.5 bg-green-950/30 rounded border border-green-800/50 font-mono text-green-400 whitespace-pre-wrap overflow-auto">
-              {expected}
-            </pre>
-          </div>
-          <div className="col-span-2">
-            <span className="text-zinc-500 block mb-1">Your Output</span>
-            <pre className="p-2.5 bg-red-950/30 rounded border border-red-800/50 font-mono text-red-400 whitespace-pre-wrap overflow-auto">
-              {actual}
-            </pre>
-          </div>
-        </div>
-      )}
+
+      {/* Details */}
+      <div className="space-y-3 text-xs">
+        <InputSection raw={input} />
+
+        <CodeBlock
+          label="Output"
+          value={actual}
+          variant={passed ? "success" : "error"}
+        />
+
+        {!passed && (
+          <CodeBlock label="Expected" value={expected} variant="success" />
+        )}
+      </div>
     </div>
   );
 });
