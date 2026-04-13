@@ -7,6 +7,7 @@ from sqlalchemy import Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+from app.models.problem_list import ProblemList
 
 if TYPE_CHECKING:
     from app.models.submission import Submission
@@ -42,4 +43,10 @@ class User(Base):
     verifications: Mapped[list[EmailVerification]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+
+    problem_lists: Mapped[list[ProblemList]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )

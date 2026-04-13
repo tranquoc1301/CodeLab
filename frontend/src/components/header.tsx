@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  Bookmark,
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { useThemeStore } from "@/store/theme";
@@ -192,6 +193,15 @@ export function Header() {
                       <User className="h-4 w-4" />
                       {COPY.NAV.PROFILE}
                     </Link>
+                    <Link
+                      to={ROUTES.PROBLEM_LISTS}
+                      className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-accent transition-colors"
+                      role="menuitem"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Bookmark className="h-4 w-4" />
+                      {COPY.NAV.PROBLEM_LISTS}
+                    </Link>
                     <button
                       type="button"
                       onClick={handleLogout}
@@ -257,14 +267,24 @@ export function Header() {
                 {COPY.NAV.PROBLEMS}
               </Link>
               {isAuthenticated && (
-                <Link
-                  to={ROUTES.SUBMISSIONS}
-                  className={cn(navLinkClass(isSubmissionsActive), "block")}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <FileCode className="h-4 w-4 mr-2 inline" />
-                  {COPY.NAV.SUBMISSIONS}
-                </Link>
+                <>
+                  <Link
+                    to={ROUTES.SUBMISSIONS}
+                    className={cn(navLinkClass(isSubmissionsActive), "block")}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <FileCode className="h-4 w-4 mr-2 inline" />
+                    {COPY.NAV.SUBMISSIONS}
+                  </Link>
+                  <Link
+                    to={ROUTES.PROBLEM_LISTS}
+                    className={cn(navLinkClass(false), "block")}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Bookmark className="h-4 w-4 mr-2 inline" />
+                    {COPY.NAV.PROBLEM_LISTS}
+                  </Link>
+                </>
               )}
               <Link
                 to={ROUTES.PROFILE}

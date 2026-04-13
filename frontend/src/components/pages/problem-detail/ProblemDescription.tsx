@@ -82,7 +82,7 @@ export const ProblemDescription = memo(function ProblemDescription({
                         key={`${ex.id}-img-${imgIndex}`}
                         src={imgUrl}
                         alt={`Example ${ex.example_num} illustration ${imgIndex + 1}`}
-                        className="max-h-48 rounded-lg border border-border/60 object-contain bg-muted/40"
+                        className="rounded-lg border border-border/60 object-contain bg-muted/40"
                         loading="lazy"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = "none";

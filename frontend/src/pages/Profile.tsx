@@ -1,12 +1,12 @@
-import { useAuth } from '@/store/auth';
+import { useAuth } from "@/store/auth";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui';
-import { COPY, DEFAULTS } from '@/config';
+} from "@/components/ui";
+import { COPY, DEFAULTS } from "@/config";
 
 export default function Profile() {
   const { isAuthenticated, user } = useAuth();
@@ -14,16 +14,20 @@ export default function Profile() {
   if (!isAuthenticated) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-muted-foreground text-lg">{COPY.PROFILE.LOGIN_REQUIRED}</p>
+        <p className="text-muted-foreground text-lg">
+          {COPY.PROFILE.LOGIN_REQUIRED}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="py-10">
-      <h1 className="text-3xl font-bold tracking-tight mb-8">{COPY.PROFILE.TITLE}</h1>
+    <div className="py-10 space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight">
+        {COPY.PROFILE.TITLE}
+      </h1>
 
-      <Card className="mb-6">
+      <Card>
         <CardContent className="p-6">
           <div className="flex items-center gap-4 mb-6">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary text-2xl font-bold">
@@ -37,15 +41,21 @@ export default function Profile() {
           <div className="border-t pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <span className="text-sm text-muted-foreground">{COPY.PROFILE.USERNAME}</span>
+                <span className="text-sm text-muted-foreground">
+                  {COPY.PROFILE.USERNAME}
+                </span>
                 <p className="font-medium">{user?.username}</p>
               </div>
               <div>
-                <span className="text-sm text-muted-foreground">{COPY.PROFILE.EMAIL}</span>
+                <span className="text-sm text-muted-foreground">
+                  {COPY.PROFILE.EMAIL}
+                </span>
                 <p className="font-medium">{user?.email}</p>
               </div>
               <div>
-                <span className="text-sm text-muted-foreground">{COPY.PROFILE.JOINED}</span>
+                <span className="text-sm text-muted-foreground">
+                  {COPY.PROFILE.JOINED}
+                </span>
                 <p className="font-medium">
                   {user?.created_at
                     ? new Date(user.created_at).toLocaleDateString(
@@ -62,8 +72,12 @@ export default function Profile() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">{COPY.PROFILE.SKILL_MAP_TITLE}</CardTitle>
-          <CardDescription>{COPY.PROFILE.SKILL_MAP_DESCRIPTION}</CardDescription>
+          <CardTitle className="text-lg">
+            {COPY.PROFILE.SKILL_MAP_TITLE}
+          </CardTitle>
+          <CardDescription>
+            {COPY.PROFILE.SKILL_MAP_DESCRIPTION}
+          </CardDescription>
         </CardHeader>
       </Card>
     </div>

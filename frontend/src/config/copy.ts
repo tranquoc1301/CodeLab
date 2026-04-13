@@ -11,6 +11,7 @@ export const COPY = {
     LOGIN: "Login",
     REGISTER: "Register",
     MENU: "Menu",
+    PROBLEM_LISTS: "My Lists",
   },
 
   HOME: {
@@ -78,6 +79,21 @@ export const COPY = {
     SKILL_MAP_DESCRIPTION:
       "Skill tracking will be available after solving problems.",
     LOGIN_REQUIRED: "Please login to view your profile.",
+    PROBLEM_LISTS_TITLE: "My Problem Lists",
+    PROBLEM_LISTS_EMPTY: "You haven't created any problem lists yet.",
+    CREATE_LIST: "Create New List",
+    EDIT_LIST: "Edit List",
+    DELETE_LIST: "Delete List",
+    DELETE_CONFIRM_TITLE: "Delete List",
+    DELETE_CONFIRM_MESSAGE: "Are you sure you want to delete this list? This action cannot be undone.",
+    CANCEL: "Cancel",
+    DELETE: "Delete",
+    SAVE: "Save",
+    SAVING: "Saving...",
+    LIST_NAME: "List Name",
+    LIST_NAME_PLACEHOLDER: "Enter list name",
+    LIST_DESCRIPTION: "Description (optional)",
+    LIST_DESCRIPTION_PLACEHOLDER: "Enter description",
   },
 
   PROBLEM: {

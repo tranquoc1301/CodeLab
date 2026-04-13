@@ -14,11 +14,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from app.core.database import Base
 from app.models import (
     CodeSnippet,
+    EmailVerification,
     Example,
     Problem,
     ProblemConstraint,
-    ProblemFollowUp,
     ProblemHint,
+    ProblemList,
+    ProblemListItem,
     ProblemSolution,
     ProblemTopic,
     Submission,

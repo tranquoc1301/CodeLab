@@ -156,6 +156,7 @@ class ProblemSummary(BaseModel):
     slug: str
     difficulty: str
     topics: list[TopicResponse] = []
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 

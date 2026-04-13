@@ -19,6 +19,8 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import Profile from "./pages/Profile";
 import Submissions from "./pages/Submissions";
+import ListDetail from "./pages/ListDetail";
+import ProblemLists from "./pages/ProblemLists";
 import api from "./api";
 import { AuthModal } from "./components/auth/AuthModal";
 
@@ -82,6 +84,8 @@ function AppLayout() {
             <Route path={ROUTES.REGISTER} element={<Register />} />
             <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPassword />} />
             <Route path={ROUTES.PROFILE} element={<Profile />} />
+            <Route path={ROUTES.PROBLEM_LISTS} element={<ProblemLists />} />
+            <Route path={ROUTES.PROBLEM_LIST_DETAIL} element={<ListDetail />} />
           </Routes>
         </main>
         {!isProblemDetailPage && <Footer />}

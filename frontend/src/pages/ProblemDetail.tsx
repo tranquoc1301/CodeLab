@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import CodeEditor from "@/components/CodeEditor";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { BookmarkButton } from "@/components/pages/problem-detail/BookmarkButton";
 import { useAuth } from "@/store/auth";
 import { getStoredPath, setStoredIntent } from "@/store/authGuard";
 import { useProblemNavigation } from "@/hooks/useProblemNavigation";
@@ -297,6 +298,14 @@ export default function ProblemDetail() {
 
             {/* Divider */}
             <div className="hidden sm:block w-px h-6 bg-border" aria-hidden />
+
+            {/* Bookmark/Add to list button */}
+            {problem && (
+              <BookmarkButton
+                problemId={problem.id}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent"
+              />
+            )}
 
             {/* Reset code button */}
             <div className="relative">

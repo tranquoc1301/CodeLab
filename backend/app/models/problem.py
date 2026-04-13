@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
@@ -14,12 +15,17 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+from app.models.problem_list import ProblemListItem
+
+if TYPE_CHECKING:
+    from app.models.submission import Submission
 
 
 class Topic(Base):
     __tablename__ = "topics"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
 
@@ -48,9 +54,12 @@ class ProblemTopic(Base):
 class Problem(Base):
     __tablename__ = "problems"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    problem_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
-    frontend_id: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
+    problem_id: Mapped[int] = mapped_column(
+        Integer, unique=True, nullable=False)
+    frontend_id: Mapped[int] = mapped_column(
+        Integer, unique=True, nullable=False)
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     slug: Mapped[str] = mapped_column(String(300), unique=True, nullable=False)
     difficulty: Mapped[str] = mapped_column(String(10), nullable=False)
@@ -111,12 +120,34 @@ class Problem(Base):
         back_populates="problem",
         lazy="dynamic",
     )
+    problem_list_items: Mapped[list[ProblemListItem]] = relationship(
+        back_populates="problem",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    def to_summary(self) -> "ProblemSummary":
+        from app.schemas.problem import ProblemSummary, TopicResponse
+
+        return ProblemSummary(
+            id=self.id,
+            problem_id=self.problem_id,
+            frontend_id=self.frontend_id,
+            title=self.title,
+            slug=self.slug,
+            difficulty=self.difficulty,
+            topics=[
+                TopicResponse(id=t.id, name=t.name, slug=t.slug) for t in self.topics
+            ],
+            created_at=self.created_at,
+        )
 
 
 class Example(Base):
     __tablename__ = "examples"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     problem_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("problems.id", ondelete="CASCADE"),
@@ -140,7 +171,8 @@ class Example(Base):
 class ProblemConstraint(Base):
     __tablename__ = "problem_constraints"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     problem_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("problems.id", ondelete="CASCADE"),
@@ -163,7 +195,8 @@ class ProblemConstraint(Base):
 class ProblemHint(Base):
     __tablename__ = "problem_hints"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     problem_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("problems.id", ondelete="CASCADE"),
@@ -186,7 +219,8 @@ class ProblemHint(Base):
 class CodeSnippet(Base):
     __tablename__ = "code_snippets"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     problem_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("problems.id", ondelete="CASCADE"),
@@ -209,7 +243,8 @@ class CodeSnippet(Base):
 class ProblemSolution(Base):
     __tablename__ = "problem_solutions"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     problem_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("problems.id", ondelete="CASCADE"),
