@@ -1,4 +1,4 @@
-import { memo, useCallback, useState, useRef, useEffect } from "react";
+import { memo, useCallback, useState } from "react";
 import { ChevronDown, ChevronUp, Hash, Check } from "lucide-react";
 import { Badge, Button, Skeleton } from "@/components/ui";
 import { motion } from "framer-motion";
@@ -15,6 +15,57 @@ interface TopicFilterProps {
   maxVisible?: number;
 }
 
+// Defined outside component to avoid object recreation on every render
+const MOTION_TRANSITION = {
+  type: "spring",
+  stiffness: 400,
+  damping: 30,
+} as const;
+
+// Isolated memo so only the toggled button re-renders, not all siblings
+const TopicButton = memo(function TopicButton({
+  topic,
+  isSelected,
+  onToggle,
+}: {
+  topic: Topic;
+  isSelected: boolean;
+  onToggle: (slug: string) => void;
+}) {
+  return (
+    <motion.button
+      type="button"
+      onClick={() => onToggle(topic.slug)}
+      whileHover={{ y: -1 }}
+      whileTap={{ scale: 0.96 }}
+      transition={MOTION_TRANSITION}
+      className={cn(
+        "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium",
+        "transition-colors duration-150",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        isSelected
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-input bg-background text-muted-foreground hover:border-primary/30",
+      )}
+      role="checkbox"
+      aria-checked={isSelected}
+    >
+      <span
+        className={cn(
+          "inline-flex items-center overflow-hidden transition-all duration-150 ease-out",
+          isSelected
+            ? "max-w-[1rem] mr-1 opacity-100"
+            : "max-w-0 mr-0 opacity-0",
+        )}
+        aria-hidden="true"
+      >
+        <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
+      </span>
+      {topic.name}
+    </motion.button>
+  );
+});
+
 export const TopicFilter = memo(function TopicFilter({
   topics,
   selectedTopics,
@@ -24,35 +75,18 @@ export const TopicFilter = memo(function TopicFilter({
   maxVisible = 12,
 }: TopicFilterProps) {
   const [showAll, setShowAll] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const visibleTopics = showAll ? topics : topics.slice(0, maxVisible);
   const hasMore = topics.length > maxVisible;
   const hasSelection = selectedTopics.length > 0;
 
-  // Close on click outside when expanded
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setIsExpanded(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const handleToggle = useCallback(
-    (slug: string) => {
-      onToggle(slug);
-    },
+    (slug: string) => onToggle(slug),
     [onToggle],
   );
 
-  // Loading state with staggered animation
+  const toggleShowAll = useCallback(() => setShowAll((v) => !v), []);
+
   if (isLoading) {
     return (
       <div
@@ -66,7 +100,7 @@ export const TopicFilter = memo(function TopicFilter({
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton
               key={i}
-              className="h-8 w-20 rounded-full animate-pulse"
+              className="h-8 w-20 rounded-full"
               style={{ animationDelay: `${i * 50}ms` }}
             />
           ))}
@@ -84,8 +118,7 @@ export const TopicFilter = memo(function TopicFilter({
   }
 
   return (
-    <div ref={containerRef} className={cn("space-y-3", className)}>
-      {/* Header with selection summary */}
+    <div className={cn("space-y-3", className)}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Hash className="h-4 w-4 text-muted-foreground" />
@@ -101,68 +134,36 @@ export const TopicFilter = memo(function TopicFilter({
         </div>
       </div>
 
-      {/* Topic grid with expand/collapse */}
       <div
         className={cn(
           "relative transition-all duration-300 ease-out",
-          !showAll && !isExpanded && "max-h-[120px] overflow-hidden",
+          !showAll && hasMore && "max-h-[120px] overflow-hidden",
         )}
         role="group"
         aria-label="Topic filters"
       >
         <div className="flex flex-wrap gap-2">
-          {visibleTopics.map((topic) => {
-            const isSelected = selectedTopics.includes(topic.slug);
-            return (
-              <motion.button
-                key={topic.slug}
-                type="button"
-                onClick={() => handleToggle(topic.slug)}
-                layout
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className={cn(
-                  "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                  isSelected
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-input bg-background text-muted-foreground hover:border-primary/30",
-                )}
-                role="checkbox"
-                aria-checked={isSelected}
-              >
-                <motion.span
-                  initial={false}
-                  animate={{
-                    width: isSelected ? "auto" : 0,
-                    opacity: isSelected ? 1 : 0,
-                    marginRight: isSelected ? 4 : 0,
-                  }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden inline-flex items-center"
-                >
-                  <Check className="h-3.5 w-3.5 shrink-0" />
-                </motion.span>
-                {topic.name}
-              </motion.button>
-            );
-          })}
+          {visibleTopics.map((topic) => (
+            <TopicButton
+              key={topic.slug}
+              topic={topic}
+              isSelected={selectedTopics.includes(topic.slug)}
+              onToggle={handleToggle}
+            />
+          ))}
         </div>
 
-        {/* Gradient fade when collapsed */}
-        {!showAll && !isExpanded && hasMore && (
+        {!showAll && hasMore && (
           <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent pointer-events-none" />
         )}
       </div>
 
-      {/* Action buttons */}
       {hasMore && (
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowAll(!showAll)}
+            onClick={toggleShowAll}
             className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
           >
             {showAll ? (
