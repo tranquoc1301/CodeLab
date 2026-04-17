@@ -1,11 +1,15 @@
 """Submission and submission test result models."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+
+if TYPE_CHECKING:
+    from app.models.error_annotation import ErrorAnnotation
 
 
 class Submission(Base):
@@ -45,6 +49,10 @@ class Submission(Base):
     user: Mapped["User"] = relationship(back_populates="submissions")
     problem: Mapped["Problem | None"] = relationship(back_populates="submissions")
     test_results: Mapped[list["SubmissionTestResult"]] = relationship(
+        back_populates="submission",
+        cascade="all, delete-orphan",
+    )
+    error_annotations: Mapped[list["ErrorAnnotation"]] = relationship(
         back_populates="submission",
         cascade="all, delete-orphan",
     )
