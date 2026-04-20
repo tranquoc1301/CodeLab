@@ -1,7 +1,9 @@
-import { useState, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { User, LogIn, AlertCircle } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { User, LogIn } from "lucide-react";
 import api from "@/api";
 import { useAuth } from "@/store/auth";
 import { getAndClearIntent } from "@/store/authGuard";
@@ -15,29 +17,41 @@ import {
   Button,
   Input,
   Label,
-  Alert,
-  AlertDescription,
 } from "@/components/ui";
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { API, ROUTES, COPY } from "@/config";
 import type { User as UserData } from "@/types";
+import { loginSchema } from "@/lib/validation";
 
-interface LoginProps {
+type LoginFormData = z.infer<typeof loginSchema>;
+
+export interface LoginProps {
   minimal?: boolean;
 }
 
 export default function Login({ minimal = false }: LoginProps) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const navigate = useNavigate();
   const { setToken, setUser, closeLoginModal, loginRedirectPath } = useAuth();
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setError,
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+    mode: "onBlur",
+  });
+
   const loginMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (data: LoginFormData) => {
       const formData = new URLSearchParams();
-      formData.append("username", username);
-      formData.append("password", password);
+      formData.append("username", data.username);
+      formData.append("password", data.password);
       const res = await api.post(API.ENDPOINTS.AUTH_LOGIN, formData, {
         headers: { "Content-Type": API.HEADERS.FORM_URLENCODED },
       });
@@ -64,25 +78,20 @@ export default function Login({ minimal = false }: LoginProps) {
       }
     },
     onError: () => {
-      setError(COPY.LOGIN.ERROR);
+      // Server returns 401 with "Invalid username or password"
+      setError("root", { 
+        message: COPY.LOGIN.ERROR,
+      });
     },
   });
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
-    loginMutation.mutate();
+  const onSubmit = (data: LoginFormData) => {
+    loginMutation.mutate(data);
   };
 
   if (minimal) {
     return (
-      <form onSubmit={handleSubmit} className="space-y-4 py-4">
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
         <div className="space-y-2">
           <Label htmlFor="username-minimal">{COPY.FORM_LABELS.USERNAME}</Label>
           <div className="relative">
@@ -90,28 +99,37 @@ export default function Login({ minimal = false }: LoginProps) {
             <Input
               id="username-minimal"
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              {...register("username")}
               required
               autoComplete="username"
               className="pl-10"
               placeholder={COPY.PLACEHOLDER.USERNAME}
+              aria-describedby={errors.username ? "username-minimal-error" : undefined}
+              aria-invalid={!!errors.username}
             />
           </div>
+          {errors.username && (
+            <p id="username-minimal-error" className="text-sm text-destructive">{errors.username.message}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="password-minimal">{COPY.FORM_LABELS.PASSWORD}</Label>
           <PasswordInput
             id="password-minimal"
-            value={password}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setPassword(e.target.value)
-            }
+            {...register("password")}
             required
             autoComplete="current-password"
             placeholder={COPY.PLACEHOLDER.PASSWORD}
+            aria-describedby={errors.password ? "password-minimal-error" : undefined}
+            aria-invalid={!!errors.password}
           />
+          {errors.password && (
+            <p id="password-minimal-error" className="text-sm text-destructive">{errors.password.message}</p>
+          )}
         </div>
+        {errors.root && (
+          <p className="text-sm text-destructive">{errors.root.message}</p>
+        )}
         <Button
           type="submit"
           className="w-full gap-2"
@@ -142,13 +160,7 @@ export default function Login({ minimal = false }: LoginProps) {
           <CardDescription>{COPY.LOGIN.DESCRIPTION}</CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username">{COPY.FORM_LABELS.USERNAME}</Label>
               <div className="relative">
@@ -156,28 +168,37 @@ export default function Login({ minimal = false }: LoginProps) {
                 <Input
                   id="username"
                   type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  {...register("username")}
                   required
                   autoComplete="username"
                   className="pl-10"
                   placeholder={COPY.PLACEHOLDER.USERNAME}
+                  aria-describedby={errors.username ? "username-error" : undefined}
+                  aria-invalid={!!errors.username}
                 />
               </div>
+              {errors.username && (
+                <p id="username-error" className="text-sm text-destructive">{errors.username.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">{COPY.FORM_LABELS.PASSWORD}</Label>
               <PasswordInput
                 id="password"
-                value={password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setPassword(e.target.value)
-                }
+                {...register("password")}
                 required
                 autoComplete="current-password"
                 placeholder={COPY.PLACEHOLDER.PASSWORD}
+                aria-describedby={errors.password ? "password-error" : undefined}
+                aria-invalid={!!errors.password}
               />
+              {errors.password && (
+                <p id="password-error" className="text-sm text-destructive">{errors.password.message}</p>
+              )}
             </div>
+            {errors.root && (
+              <p className="text-sm text-destructive">{errors.root.message}</p>
+            )}
             <div className="flex items-center justify-end text-sm">
               <Link
                 to={ROUTES.FORGOT_PASSWORD}

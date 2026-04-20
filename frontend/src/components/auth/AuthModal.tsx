@@ -1,5 +1,7 @@
 import * as React from "react";
 import { useEffect, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
@@ -13,7 +15,8 @@ import api from "@/api";
 import { isAxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
 import { getAndClearIntent } from "@/store/authGuard";
-import { loginSchema, registerSchema, validateLogin, validateRegister } from "@/lib/validation";
+import { loginSchema, registerSchema } from "@/lib/validation";
+import type { LoginFormData, RegisterFormData } from "@/lib/validation";
 
 export const AuthModal = () => {
   const { closeAuthModal, authModalTab, setAuthModalTab, setToken, setUser } = useAuth();
@@ -21,21 +24,29 @@ export const AuthModal = () => {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  // Login form state
-  const [loginUsername, setLoginUsername] = React.useState("");
-  const [loginPassword, setLoginPassword] = React.useState("");
-  const [loginError, setLoginError] = React.useState("");
-  const [loginFieldErrors, setLoginFieldErrors] = React.useState<Record<string, string>>({});
-  const [loginTouched, setLoginTouched] = React.useState<Record<string, boolean>>({});
+  // Login form with react-hook-form
+  const loginForm = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
 
-  // Register form state
-  const [registerUsername, setRegisterUsername] = React.useState("");
-  const [registerEmail, setRegisterEmail] = React.useState("");
-  const [registerPassword, setRegisterPassword] = React.useState("");
-  const [registerConfirmPassword, setRegisterConfirmPassword] = React.useState("");
-  const [registerError, setRegisterError] = React.useState("");
-  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
-  const [touched, setTouched] = React.useState<Record<string, boolean>>({});
+  // Register form with react-hook-form
+  const registerForm = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
+  // API error states
+  const [loginApiError, setLoginApiError] = React.useState("");
+  const [registerApiError, setRegisterApiError] = React.useState("");
 
   // Focus trap and focus management
   useEffect(() => {
@@ -67,57 +78,11 @@ export const AuthModal = () => {
     };
   }, []);
 
-  // Register field validation - validate single field with Zod
-  const validateRegisterField = (field: string, value: string) => {
-    const partialData = {
-      username: field === "username" ? value : registerUsername,
-      email: field === "email" ? value : registerEmail,
-      password: field === "password" ? value : registerPassword,
-      confirmPassword: field === "confirmPassword" ? value : registerConfirmPassword,
-    };
-    const result = registerSchema.safeParse(partialData);
-    if (!result.success) {
-      const fieldError = result.error.issues.find(i => String(i.path[0]) === field);
-      setFieldErrors(prev => {
-        if (fieldError) return { ...prev, [field]: fieldError.message };
-        const { [field]: _, ...rest } = prev;
-        return rest;
-      });
-    } else {
-      setFieldErrors(prev => {
-        const { [field]: _, ...rest } = prev;
-        return rest;
-      });
-    }
-  };
-
-  // Login field validation - validate single field with Zod
-  const validateLoginField = (field: string, value: string) => {
-    const partialData = {
-      username: field === "username" ? value : loginUsername,
-      password: field === "password" ? value : loginPassword,
-    };
-    const result = loginSchema.safeParse(partialData);
-    if (!result.success) {
-      const fieldError = result.error.issues.find(i => String(i.path[0]) === field);
-      setLoginFieldErrors(prev => {
-        if (fieldError) return { ...prev, [field]: fieldError.message };
-        const { [field]: _, ...rest } = prev;
-        return rest;
-      });
-    } else {
-      setLoginFieldErrors(prev => {
-        const { [field]: _, ...rest } = prev;
-        return rest;
-      });
-    }
-  };
-
   const loginMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (data: LoginFormData) => {
       const formData = new URLSearchParams();
-      formData.append("username", loginUsername);
-      formData.append("password", loginPassword);
+      formData.append("username", data.username);
+      formData.append("password", data.password);
       const res = await api.post("/auth/login", formData, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
@@ -140,111 +105,69 @@ export const AuthModal = () => {
       }
     },
     onError: () => {
-      setLoginError(COPY.LOGIN.ERROR);
+      loginForm.clearErrors();
+      setLoginApiError(COPY.LOGIN.ERROR);
     },
   });
 
   const registerMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (data: Omit<RegisterFormData, "confirmPassword">) => {
       const res = await api.post("/auth/register", {
-        username: registerUsername,
-        email: registerEmail,
-        password: registerPassword,
+        username: data.username,
+        email: data.email,
+        password: data.password,
       });
       return res.data;
     },
     onSuccess: () => {
       closeAuthModal();
       setAuthModalTab("login");
-      setRegisterUsername("");
-      setRegisterEmail("");
-      setRegisterPassword("");
-      setRegisterConfirmPassword("");
-      setRegisterError("");
-      setFieldErrors({});
+      loginForm.reset();
+      registerForm.reset();
     },
     onError: (err: unknown) => {
+      registerForm.clearErrors();
       if (isAxiosError(err)) {
         const detail = (err.response?.data as { detail?: string })?.detail;
         if (detail?.toLowerCase().includes("username")) {
-          setFieldErrors({ username: detail });
+          registerForm.setError("username", { message: detail });
         } else if (detail?.toLowerCase().includes("email")) {
-          setFieldErrors({ email: detail });
+          registerForm.setError("email", { message: detail });
         } else {
-          setRegisterError(detail || COPY.REGISTER.ERROR);
+          setRegisterApiError(detail || COPY.REGISTER.ERROR);
         }
       } else {
-        setRegisterError(COPY.REGISTER.ERROR);
+        setRegisterApiError(COPY.REGISTER.ERROR);
       }
     },
   });
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError("");
-    setLoginFieldErrors({});
-    setLoginTouched({ username: true, password: true });
+  const handleLoginSubmit = loginForm.handleSubmit((data) => {
+    setLoginApiError("");
+    loginMutation.mutate(data);
+  });
 
-    // Validate all fields with Zod
-    const errors = validateLogin({
-      username: loginUsername,
-      password: loginPassword,
-    });
-
-    if (Object.keys(errors).length > 0) {
-      setLoginFieldErrors(errors);
-      return;
-    }
-
-    loginMutation.mutate();
-  };
-
-  const handleRegisterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setRegisterError("");
-    setFieldErrors({});
-    setTouched({ username: true, email: true, password: true, confirmPassword: true });
-
-    const errors = validateRegister({
-      username: registerUsername,
-      email: registerEmail,
-      password: registerPassword,
-      confirmPassword: registerConfirmPassword,
-    });
-
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
-
-    registerMutation.mutate();
-  };
+  const handleRegisterSubmit = registerForm.handleSubmit((data) => {
+    setRegisterApiError("");
+    const { confirmPassword, ...registerData } = data;
+    registerMutation.mutate(registerData);
+  });
 
   const handleTabChange = (value: string) => {
     setAuthModalTab(value as "login" | "register");
-    setLoginError("");
-    setLoginFieldErrors({});
-    setLoginTouched({});
-    setRegisterError("");
-    setFieldErrors({});
-    setTouched({});
+    setLoginApiError("");
+    setRegisterApiError("");
+    loginForm.reset();
+    registerForm.reset();
   };
 
   const handleClose = () => {
     closeAuthModal();
     setTimeout(() => {
-      setLoginUsername("");
-      setLoginPassword("");
-      setLoginError("");
-      setLoginFieldErrors({});
-      setLoginTouched({});
-      setRegisterUsername("");
-      setRegisterEmail("");
-      setRegisterPassword("");
-      setRegisterConfirmPassword("");
-      setRegisterError("");
-      setFieldErrors({});
-      setTouched({});
+      setLoginApiError("");
+      setRegisterApiError("");
+      loginForm.reset();
+      registerForm.reset();
     }, 200);
   };
 
@@ -298,9 +221,9 @@ export const AuthModal = () => {
 
             {/* Login Tab */}
             <TabsContent value="login">
-              {loginError && (
+              {loginApiError && (
                 <Alert variant="destructive" className="mb-4">
-                  <AlertDescription>{loginError}</AlertDescription>
+                  <AlertDescription>{loginApiError}</AlertDescription>
                 </Alert>
               )}
               <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -309,24 +232,16 @@ export const AuthModal = () => {
                   <Input
                     id="auth-login-username"
                     type="text"
-                    value={loginUsername}
-                    onChange={(e) => {
-                      setLoginUsername(e.target.value);
-                      if (loginTouched.username) validateLoginField("username", e.target.value);
-                    }}
-                    onBlur={(e) => {
-                      setLoginTouched((prev) => ({ ...prev, username: true }));
-                      validateLoginField("username", e.target.value);
-                    }}
-                    aria-describedby={loginFieldErrors.username ? "auth-login-username-error" : undefined}
-                    aria-invalid={!!loginFieldErrors.username}
+                    {...loginForm.register("username")}
+                    aria-describedby={loginForm.formState.errors.username ? "auth-login-username-error" : undefined}
+                    aria-invalid={!!loginForm.formState.errors.username}
                     required
                     autoComplete="username"
                     placeholder={COPY.PLACEHOLDER.USERNAME}
                   />
-                  {loginFieldErrors.username && (
-                    <p id="auth-login-username-error" className="text-xs text-destructive">
-                      {loginFieldErrors.username}
+                  {loginForm.formState.errors.username && (
+                    <p id="auth-login-username-error" className="text-sm text-destructive">
+                      {loginForm.formState.errors.username.message}
                     </p>
                   )}
                 </div>
@@ -334,24 +249,16 @@ export const AuthModal = () => {
                   <Label htmlFor="auth-login-password">{COPY.FORM_LABELS.PASSWORD}</Label>
                   <PasswordInput
                     id="auth-login-password"
-                    value={loginPassword}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setLoginPassword(e.target.value);
-                      if (loginTouched.password) validateLoginField("password", e.target.value);
-                    }}
-                    onBlur={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setLoginTouched((prev) => ({ ...prev, password: true }));
-                      validateLoginField("password", e.target.value);
-                    }}
-                    aria-describedby={loginFieldErrors.password ? "auth-login-password-error" : undefined}
-                    aria-invalid={!!loginFieldErrors.password}
+                    {...loginForm.register("password")}
+                    aria-describedby={loginForm.formState.errors.password ? "auth-login-password-error" : undefined}
+                    aria-invalid={!!loginForm.formState.errors.password}
                     required
                     autoComplete="current-password"
                     placeholder={COPY.PLACEHOLDER.PASSWORD}
                   />
-                  {loginFieldErrors.password && (
-                    <p id="auth-login-password-error" className="text-xs text-destructive">
-                      {loginFieldErrors.password}
+                  {loginForm.formState.errors.password && (
+                    <p id="auth-login-password-error" className="text-sm text-destructive">
+                      {loginForm.formState.errors.password.message}
                     </p>
                   )}
                 </div>
@@ -367,9 +274,9 @@ export const AuthModal = () => {
 
             {/* Register Tab */}
             <TabsContent value="register">
-              {registerError && (
+              {registerApiError && (
                 <Alert variant="destructive" className="mb-4">
-                  <AlertDescription>{registerError}</AlertDescription>
+                  <AlertDescription>{registerApiError}</AlertDescription>
                 </Alert>
               )}
               <form onSubmit={handleRegisterSubmit} className="space-y-4">
@@ -378,24 +285,16 @@ export const AuthModal = () => {
                   <Input
                     id="auth-register-username"
                     type="text"
-                    value={registerUsername}
-                    onChange={(e) => {
-                      setRegisterUsername(e.target.value);
-                      if (touched.username) validateRegisterField("username", e.target.value);
-                    }}
-                    onBlur={(e) => {
-                      setTouched((prev) => ({ ...prev, username: true }));
-                      validateRegisterField("username", e.target.value);
-                    }}
-                    aria-describedby={fieldErrors.username ? "auth-register-username-error" : undefined}
-                    aria-invalid={!!fieldErrors.username}
+                    {...registerForm.register("username")}
+                    aria-describedby={registerForm.formState.errors.username ? "auth-register-username-error" : undefined}
+                    aria-invalid={!!registerForm.formState.errors.username}
                     required
                     autoComplete="username"
                     placeholder={COPY.PLACEHOLDER.USERNAME}
                   />
-                  {fieldErrors.username && (
-                    <p id="auth-register-username-error" className="text-xs text-destructive">
-                      {fieldErrors.username}
+                  {registerForm.formState.errors.username && (
+                    <p id="auth-register-username-error" className="text-sm text-destructive">
+                      {registerForm.formState.errors.username.message}
                     </p>
                   )}
                 </div>
@@ -404,24 +303,16 @@ export const AuthModal = () => {
                   <Input
                     id="auth-register-email"
                     type="email"
-                    value={registerEmail}
-                    onChange={(e) => {
-                      setRegisterEmail(e.target.value);
-                      if (touched.email) validateRegisterField("email", e.target.value);
-                    }}
-                    onBlur={(e) => {
-                      setTouched((prev) => ({ ...prev, email: true }));
-                      validateRegisterField("email", e.target.value);
-                    }}
-                    aria-describedby={fieldErrors.email ? "auth-register-email-error" : undefined}
-                    aria-invalid={!!fieldErrors.email}
+                    {...registerForm.register("email")}
+                    aria-describedby={registerForm.formState.errors.email ? "auth-register-email-error" : undefined}
+                    aria-invalid={!!registerForm.formState.errors.email}
                     required
                     autoComplete="email"
                     placeholder={COPY.PLACEHOLDER.EMAIL}
                   />
-                  {fieldErrors.email && (
-                    <p id="auth-register-email-error" className="text-xs text-destructive">
-                      {fieldErrors.email}
+                  {registerForm.formState.errors.email && (
+                    <p id="auth-register-email-error" className="text-sm text-destructive">
+                      {registerForm.formState.errors.email.message}
                     </p>
                   )}
                 </div>
@@ -429,26 +320,18 @@ export const AuthModal = () => {
                   <Label htmlFor="auth-register-password">{COPY.FORM_LABELS.PASSWORD}</Label>
                   <PasswordInput
                     id="auth-register-password"
-                    value={registerPassword}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setRegisterPassword(e.target.value);
-                      if (touched.password) validateRegisterField("password", e.target.value);
-                    }}
-                    onBlur={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setTouched((prev) => ({ ...prev, password: true }));
-                      validateRegisterField("password", e.target.value);
-                    }}
-                    aria-describedby={fieldErrors.password ? "auth-register-password-error" : undefined}
-                    aria-invalid={!!fieldErrors.password}
+                    {...registerForm.register("password")}
+                    aria-describedby={registerForm.formState.errors.password ? "auth-register-password-error" : undefined}
+                    aria-invalid={!!registerForm.formState.errors.password}
                     required
                     minLength={8}
                     autoComplete="new-password"
                     placeholder={COPY.PLACEHOLDER.PASSWORD}
                   />
-                  {registerPassword && <PasswordStrength password={registerPassword} />}
-                  {fieldErrors.password && (
-                    <p id="auth-register-password-error" className="text-xs text-destructive">
-                      {fieldErrors.password}
+                  {registerForm.watch("password") && <PasswordStrength password={registerForm.watch("password") as string} />}
+                  {registerForm.formState.errors.password && (
+                    <p id="auth-register-password-error" className="text-sm text-destructive">
+                      {registerForm.formState.errors.password.message}
                     </p>
                   )}
                 </div>
@@ -456,24 +339,16 @@ export const AuthModal = () => {
                   <Label htmlFor="auth-register-confirm">{COPY.FORM_LABELS.CONFIRM_PASSWORD}</Label>
                   <PasswordInput
                     id="auth-register-confirm"
-                    value={registerConfirmPassword}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setRegisterConfirmPassword(e.target.value);
-                      if (touched.confirmPassword) validateRegisterField("confirmPassword", e.target.value);
-                    }}
-                    onBlur={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setTouched((prev) => ({ ...prev, confirmPassword: true }));
-                      validateRegisterField("confirmPassword", e.target.value);
-                    }}
-                    aria-describedby={fieldErrors.confirmPassword ? "auth-register-confirm-error" : undefined}
-                    aria-invalid={!!fieldErrors.confirmPassword}
+                    {...registerForm.register("confirmPassword")}
+                    aria-describedby={registerForm.formState.errors.confirmPassword ? "auth-register-confirm-error" : undefined}
+                    aria-invalid={!!registerForm.formState.errors.confirmPassword}
                     required
                     autoComplete="new-password"
                     placeholder={COPY.PLACEHOLDER.CONFIRM_PASSWORD}
                   />
-                  {fieldErrors.confirmPassword && (
-                    <p id="auth-register-confirm-error" className="text-xs text-destructive">
-                      {fieldErrors.confirmPassword}
+                  {registerForm.formState.errors.confirmPassword && (
+                    <p id="auth-register-confirm-error" className="text-sm text-destructive">
+                      {registerForm.formState.errors.confirmPassword.message}
                     </p>
                   )}
                 </div>

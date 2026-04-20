@@ -1,6 +1,9 @@
-import { useState, useCallback, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { isAxiosError } from "axios";
 import { Mail, Lock, AlertCircle, CheckCircle, ArrowLeft } from "lucide-react";
 import api from "@/api";
@@ -21,20 +24,68 @@ import { PasswordInput } from "@/components/auth/PasswordInput";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { OTPInput } from "@/components/auth/OTPInput";
 import { API, ROUTES, COPY } from "@/config";
+import { emailSchema, otpSchema, resetSchema } from "@/lib/validation";
 
 type Step = "email" | "otp" | "reset";
 
+type EmailFormData = z.infer<typeof emailSchema>;
+type OtpFormData = z.infer<typeof otpSchema>;
+type ResetFormData = z.infer<typeof resetSchema>;
+
 export default function ForgotPassword() {
   const [step, setStep] = useState<Step>("email");
-  const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [countdown, setCountdown] = useState(0);
   const [tempToken, setTempToken] = useState("");
+  const [storedEmail, setStoredEmail] = useState("");
   const navigate = useNavigate();
+
+  // Email form hook
+  const {
+    register: emailRegister,
+    handleSubmit: emailHandleSubmit,
+    formState: { errors: emailErrors },
+    watch: emailWatch,
+    reset: emailReset,
+  } = useForm<EmailFormData>({
+    resolver: zodResolver(emailSchema),
+    mode: "onChange",
+  });
+
+  // OTP form hook (register not needed - OTP is set programmatically)
+  const {
+    handleSubmit: otpHandleSubmit,
+    formState: { errors: otpErrors },
+    setValue: otpSetValue,
+    watch: otpWatch,
+    reset: otpReset,
+  } = useForm<OtpFormData>({
+    resolver: zodResolver(otpSchema),
+    mode: "onChange",
+  });
+
+  // Reset password form hook
+  const {
+    register: resetRegister,
+    handleSubmit: resetHandleSubmit,
+    formState: { errors: resetErrors },
+    watch: resetWatch,
+    reset: resetReset,
+  } = useForm<ResetFormData>({
+    resolver: zodResolver(resetSchema),
+    mode: "onChange",
+  });
+
+  // Watch values for conditional rendering
+  const watchedEmail = emailWatch("email");
+  const watchedOtp = otpWatch("otp");
+  const watchedPassword = resetWatch("password");
+
+  // Reset form when step changes
+  useEffect(() => {
+    emailReset();
+    otpReset();
+    resetReset();
+  }, [step, emailReset, otpReset, resetReset]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -46,31 +97,31 @@ export default function ForgotPassword() {
 
   // Send OTP mutation
   const sendOtpMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (email: string) => {
       const res = await api.post(API.ENDPOINTS.AUTH_SEND_OTP, {
         email,
         otp_type: "forgot_password",
       });
       return res.data;
     },
-    onSuccess: (data) => {
-      setSuccess(data.message || "OTP sent to your email");
+    onSuccess: () => {
+      setStoredEmail(watchedEmail);
       setStep("otp");
       setCountdown(60);
     },
     onError: (err: unknown) => {
       if (isAxiosError(err)) {
         const detail = (err.response?.data as { detail?: string })?.detail;
-        setError(detail || "Failed to send OTP");
+        console.error(detail || "Failed to send OTP");
       } else {
-        setError("Failed to send OTP");
+        console.error("Failed to send OTP");
       }
     },
   });
 
   // Verify OTP mutation
   const verifyOtpMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ email, otp }: { email: string; otp: string }) => {
       const res = await api.post(API.ENDPOINTS.AUTH_VERIFY_OTP, {
         email,
         otp_code: otp,
@@ -81,21 +132,28 @@ export default function ForgotPassword() {
     onSuccess: (data) => {
       setTempToken(data.temp_token);
       setStep("reset");
-      setError("");
     },
     onError: (err: unknown) => {
       if (isAxiosError(err)) {
         const detail = (err.response?.data as { detail?: string })?.detail;
-        setError(detail || "Invalid OTP");
+        console.error(detail || "Invalid OTP");
       } else {
-        setError("Invalid OTP");
+        console.error("Invalid OTP");
       }
     },
   });
 
   // Reset password mutation
   const resetPasswordMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({
+      email,
+      tempToken,
+      password,
+    }: {
+      email: string;
+      tempToken: string;
+      password: string;
+    }) => {
       const res = await api.post(API.ENDPOINTS.AUTH_RESET_PASSWORD, {
         email,
         temp_token: tempToken,
@@ -104,54 +162,47 @@ export default function ForgotPassword() {
       return res.data;
     },
     onSuccess: () => {
-      setSuccess("Password reset successfully!");
       setTimeout(() => navigate(ROUTES.LOGIN), 2000);
     },
     onError: (err: unknown) => {
       if (isAxiosError(err)) {
         const detail = (err.response?.data as { detail?: string })?.detail;
-        setError(detail || "Failed to reset password");
+        console.error(detail || "Failed to reset password");
       } else {
-        setError("Failed to reset password");
+        console.error("Failed to reset password");
       }
     },
   });
 
   const handleResendOtp = useCallback(() => {
     if (countdown > 0) return;
-    setOtp("");
-    setError("");
-    sendOtpMutation.mutate();
-  }, [countdown, sendOtpMutation]);
+    if (storedEmail) {
+      sendOtpMutation.mutate(storedEmail);
+    }
+  }, [countdown, sendOtpMutation, storedEmail]);
 
-  const handleSendOtp = (e: FormEvent) => {
-    e.preventDefault();
-    setError("");
-    sendOtpMutation.mutate();
+  const handleSendOtp = (data: EmailFormData) => {
+    sendOtpMutation.mutate(data.email);
   };
 
-  const handleVerifyOtp = (e: FormEvent) => {
-    e.preventDefault();
-    if (otp.length !== 6) {
-      setError("Please enter the complete 6-digit code");
-      return;
+  const handleVerifyOtp = (data: OtpFormData) => {
+    if (storedEmail) {
+      verifyOtpMutation.mutate({ email: storedEmail, otp: data.otp });
     }
-    setError("");
-    verifyOtpMutation.mutate();
   };
 
-  const handleResetPassword = (e: FormEvent) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
+  const handleResetPassword = (data: ResetFormData) => {
+    if (storedEmail && tempToken) {
+      resetPasswordMutation.mutate({
+        email: storedEmail,
+        tempToken,
+        password: data.password,
+      });
     }
-    setError("");
-    resetPasswordMutation.mutate();
   };
 
   const renderEmailStep = () => (
-    <form onSubmit={handleSendOtp} className="space-y-4">
+    <form onSubmit={emailHandleSubmit(handleSendOtp)} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="email">{COPY.FORM_LABELS.EMAIL}</Label>
         <div className="relative">
@@ -159,14 +210,15 @@ export default function ForgotPassword() {
           <Input
             id="email"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            {...emailRegister("email")}
             placeholder={COPY.PLACEHOLDER.EMAIL}
-            required
             autoComplete="email"
             className="pl-10"
           />
         </div>
+        {emailErrors.email && (
+          <p className="text-sm text-destructive">{emailErrors.email.message}</p>
+        )}
       </div>
       <Button
         type="submit"
@@ -179,28 +231,37 @@ export default function ForgotPassword() {
   );
 
   const renderOtpStep = () => (
-    <form onSubmit={handleVerifyOtp} className="space-y-6">
+    <form onSubmit={otpHandleSubmit(handleVerifyOtp)} className="space-y-6">
       <div className="text-center space-y-2">
         <p className="text-sm text-muted-foreground">
           Enter the 6-digit code sent to
         </p>
-        <p className="font-medium">{email}</p>
+        <p className="font-medium">{storedEmail}</p>
       </div>
 
       <div className="flex justify-center">
         <OTPInput
           length={6}
-          value={otp}
-          onChange={setOtp}
+          value={(watchedOtp as string) || ""}
+          onChange={(value) =>
+            otpSetValue("otp", value, { shouldValidate: true })
+          }
           disabled={verifyOtpMutation.isPending}
-          error={!!error}
+          error={!!otpErrors.otp}
         />
       </div>
+      {otpErrors.otp && (
+        <p className="text-sm text-destructive text-center">
+          {otpErrors.otp.message}
+        </p>
+      )}
 
       <Button
         type="submit"
         className="w-full"
-        disabled={otp.length !== 6 || verifyOtpMutation.isPending}
+        disabled={
+          (watchedOtp as string)?.length !== 6 || verifyOtpMutation.isPending
+        }
       >
         {verifyOtpMutation.isPending ? "Verifying..." : "Verify Code"}
       </Button>
@@ -222,21 +283,24 @@ export default function ForgotPassword() {
   );
 
   const renderResetStep = () => (
-    <form onSubmit={handleResetPassword} className="space-y-4">
+    <form
+      onSubmit={resetHandleSubmit(handleResetPassword)}
+      className="space-y-4"
+    >
       <div className="space-y-2">
         <Label htmlFor="password">{COPY.FORM_LABELS.PASSWORD}</Label>
         <PasswordInput
           id="password"
-          value={password}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setPassword(e.target.value)
-          }
+          {...resetRegister("password")}
           required
           minLength={8}
           autoComplete="new-password"
           placeholder="New password"
         />
-        {password && <PasswordStrength password={password} />}
+        {resetErrors.password && (
+          <p className="text-sm text-destructive">{resetErrors.password.message}</p>
+        )}
+        {watchedPassword && <PasswordStrength password={watchedPassword} />}
       </div>
       <div className="space-y-2">
         <Label htmlFor="confirmPassword">
@@ -244,14 +308,16 @@ export default function ForgotPassword() {
         </Label>
         <PasswordInput
           id="confirmPassword"
-          value={confirmPassword}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setConfirmPassword(e.target.value)
-          }
+          {...resetRegister("confirmPassword")}
           required
           autoComplete="new-password"
           placeholder="Confirm new password"
         />
+        {resetErrors.confirmPassword && (
+          <p className="text-sm text-destructive">
+            {resetErrors.confirmPassword.message}
+          </p>
+        )}
       </div>
       <Button
         type="submit"
@@ -293,17 +359,46 @@ export default function ForgotPassword() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
+          {sendOtpMutation.isError && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>
+                {(sendOtpMutation.error as { detail?: string })?.detail ||
+                  "Failed to send OTP"}
+              </AlertDescription>
             </Alert>
           )}
-          {success && (
+          {verifyOtpMutation.isError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {(verifyOtpMutation.error as { detail?: string })?.detail ||
+                  "Invalid OTP"}
+              </AlertDescription>
+            </Alert>
+          )}
+          {resetPasswordMutation.isError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {(resetPasswordMutation.error as { detail?: string })?.detail ||
+                  "Failed to reset password"}
+              </AlertDescription>
+            </Alert>
+          )}
+          {sendOtpMutation.isSuccess && step === "email" && (
             <Alert className="mb-4 border-green-500/50 bg-green-500/10">
               <CheckCircle className="h-4 w-4 text-green-500" />
               <AlertDescription className="text-green-600 dark:text-green-400">
-                {success}
+                OTP sent to your email
+              </AlertDescription>
+            </Alert>
+          )}
+          {resetPasswordMutation.isSuccess && step !== "email" && (
+            <Alert className="mb-4 border-green-500/50 bg-green-500/10">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <AlertDescription className="text-green-600 dark:text-green-400">
+                Password reset successfully!
               </AlertDescription>
             </Alert>
           )}
