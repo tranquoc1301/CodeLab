@@ -4,13 +4,19 @@ import { Search } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { setStoredIntent } from "@/store/authGuard";
 import { Button, Input, toast, LoadMoreControl } from "@/components/ui";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { TopicFilter } from "@/components/TopicFilter";
 import { ROUTES, COPY } from "@/config";
 import { useProblemCursorList } from "@/hooks/useProblemCursorList";
 import { useTopics } from "@/hooks/useTopics";
 import { useProblemFilters } from "@/hooks/useProblemFilters";
 import { useDebounce } from "@/hooks/useDebounce";
-import { FilterDropdown } from "@/components/shared/FilterDropdown";
 import { ProblemCard } from "@/components/pages/home/ProblemCard";
 import { ProblemCardSkeleton } from "@/components/pages/home/ProblemCardSkeleton";
 
@@ -106,6 +112,11 @@ export default function Home() {
     [setSearch],
   );
 
+  // Handle error state display
+  const handleRetry = useCallback(() => {
+    refresh();
+  }, [refresh]);
+
   // Memoize filter description for display (uses debounced search for accuracy)
   const filterDescription = useMemo(() => {
     const parts: string[] = [];
@@ -166,27 +177,33 @@ export default function Home() {
           />
         </div>
         <div className="flex gap-2">
-          <FilterDropdown
-            label={COPY.FILTERS.DIFFICULTY}
+          <Select
             value={difficulty}
-            options={[
-              { value: "all", label: COPY.FILTERS.ALL },
-              { value: "Easy", label: COPY.FILTERS.EASY },
-              { value: "Medium", label: COPY.FILTERS.MEDIUM },
-              { value: "Hard", label: COPY.FILTERS.HARD },
-            ]}
-            onChange={(val) => handleFilterChange(val, sortBy)}
-          />
-          <FilterDropdown
-            label="Sort"
+            onValueChange={(val) => handleFilterChange(val, sortBy)}
+          >
+            <SelectTrigger className="w-[130px] rounded-md border-input data-[size=default]:h-10 gap-2 px-3">
+              <SelectValue placeholder={COPY.FILTERS.ALL} />
+            </SelectTrigger>
+            <SelectContent position="popper" align="center" sideOffset={4}>
+              <SelectItem value="all">{COPY.FILTERS.ALL}</SelectItem>
+              <SelectItem value="Easy">{COPY.FILTERS.EASY}</SelectItem>
+              <SelectItem value="Medium">{COPY.FILTERS.MEDIUM}</SelectItem>
+              <SelectItem value="Hard">{COPY.FILTERS.HARD}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
             value={sortBy}
-            options={[
-              { value: "title", label: COPY.HOME.SORT_TITLE },
-              { value: "oldest", label: COPY.HOME.SORT_OLDEST },
-              { value: "newest", label: COPY.HOME.SORT_NEWEST },
-            ]}
-            onChange={(val) => handleFilterChange(difficulty, val)}
-          />
+            onValueChange={(val) => handleFilterChange(difficulty, val)}
+          >
+            <SelectTrigger className="w-[130px] rounded-md border-input data-[size=default]:h-10 gap-2 px-3">
+              <SelectValue placeholder={COPY.HOME.SORT_TITLE} />
+            </SelectTrigger>
+            <SelectContent position="popper" align="center" sideOffset={4}>
+              <SelectItem value="title">{COPY.HOME.SORT_TITLE}</SelectItem>
+              <SelectItem value="oldest">{COPY.HOME.SORT_OLDEST}</SelectItem>
+              <SelectItem value="newest">{COPY.HOME.SORT_NEWEST}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -196,6 +213,27 @@ export default function Home() {
         {filterDescription && ` ${filterDescription}`}
         {totalCount != null && !search && ` of ${totalCount} total`}
       </p>
+
+      {/* Error state */}
+      {error && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="flex flex-col sm:flex-row items-center justify-center gap-3 py-4 px-4 rounded-lg border border-destructive/30 bg-destructive/5"
+        >
+          <p className="text-sm text-destructive text-center">
+            Failed to load problems. Please try again.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRetry}
+            aria-label="Retry loading problems"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Problem list - use content-visibility for performance */}
       <div

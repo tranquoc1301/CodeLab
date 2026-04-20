@@ -15,7 +15,7 @@ interface CodeEditorProps {
  * Maps internal Language types to Monaco editor language identifiers.
  */
 const LANGUAGE_MAP: Record<Language, string> = {
-  python3: "python3",
+  python3: "python",
   java: "java",
   cpp: "cpp",
   c: "c",

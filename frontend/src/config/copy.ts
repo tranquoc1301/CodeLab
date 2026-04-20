@@ -35,6 +35,28 @@ export const COPY = {
     ALL: "All",
   },
 
+  FILTER_OPTIONS: {
+    DIFFICULTY: [
+      { value: "all", label: "All" },
+      { value: "Easy", label: "Easy" },
+      { value: "Medium", label: "Medium" },
+      { value: "Hard", label: "Hard" },
+    ],
+    STATUS: [
+      { value: "all", label: "All" },
+      { value: "Accepted", label: "Accepted" },
+      { value: "Wrong Answer", label: "Wrong Answer" },
+      { value: "Time Limit Exceeded", label: "Time Limit Exceeded" },
+      { value: "Runtime Error", label: "Runtime Error" },
+      { value: "Compilation Error", label: "Compilation Error" },
+    ],
+    SORT: [
+      { value: "newest", label: "Newest" },
+      { value: "oldest", label: "Oldest" },
+      { value: "title", label: "Title" },
+    ],
+  },
+
   LOGIN: {
     TITLE: "Welcome back",
     DESCRIPTION: "Sign in to continue",
@@ -201,5 +223,18 @@ export const COPY = {
     CLOSE_MENU: "Close menu",
     TOGGLE_THEME: "Toggle theme",
     NAVIGATE_PROBLEM: "Go to problem",
+    BACK_TO_PROBLEMS: "Back to problems",
+    PREVIOUS_PROBLEM: "Previous problem",
+    NEXT_PROBLEM: "Next problem",
+  },
+
+  ERRORS: {
+    GENERIC: "Something went wrong. Please try again.",
+    NETWORK: "Unable to connect. Please check your internet connection.",
+    NOT_FOUND: "The requested resource was not found.",
+    UNAUTHORIZED: "You need to sign in to access this feature.",
+    FORBIDDEN: "You do not have permission to perform this action.",
+    VALIDATION_FAILED: "Please check the form for errors.",
+    SERVER_ERROR: "Server error. Please try again later.",
   },
 } as const;

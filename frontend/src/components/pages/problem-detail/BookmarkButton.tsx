@@ -190,7 +190,6 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
   const isAdding = addMutation.isPending;
   const isRemoving = removeMutation.isPending;
   const isCreating = createMutation.isPending;
-  const isMutating = isAdding || isRemoving;
 
   // Build a set of list IDs containing this problem for quick lookup
   const problemListIds = new Set(

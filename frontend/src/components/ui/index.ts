@@ -1,4 +1,4 @@
-export { Button, buttonVariants, type ButtonProps } from "./button";
+export { Button, buttonVariants } from "./button";
 export { Input } from "./input";
 export { Textarea } from "./textarea";
 export {
@@ -28,3 +28,4 @@ export { ConstraintText } from "./constraint-text";
 export { LoadMoreControl } from "./load-more";
 export { BackToTop } from "./back-to-top";
 export { Checkbox } from "./checkbox";
+export { SkeletonList } from "../shared/SkeletonList";

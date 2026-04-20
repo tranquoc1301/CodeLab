@@ -1,10 +1,12 @@
+export type SubmissionStatus = 'Accepted' | 'Wrong Answer' | 'Time Limit Exceeded' | 'Runtime Error' | 'Compilation Error' | null;
+
 export interface Submission {
   id: number;
   problem_id: number | null;
   problem_slug: string | null;
   problem_title: string | null;
   language: string;
-  status: string | null;
+  status: SubmissionStatus;
   created_at: string;
   execution_time_ms: number | null;
   memory_used_kb: number | null;
@@ -42,7 +44,7 @@ export interface SubmissionResult {
   problem_slug: string | null;
   source_code: string;
   language: string;
-  status: string | null;
+  status: SubmissionStatus;
   stdout: string | null;
   stderr: string | null;
   error_type: string | null;

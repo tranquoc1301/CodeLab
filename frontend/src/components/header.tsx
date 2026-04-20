@@ -56,7 +56,15 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const userMenuItemsRef = useRef<HTMLDivElement>(null);
+  const [activeMenuIndex, setActiveMenuIndex] = useState(-1);
   const isProblemDetailPage = location.pathname.startsWith("/problems/");
+
+  const userMenuItems = [
+    { label: COPY.NAV.PROFILE, to: ROUTES.PROFILE },
+    { label: COPY.NAV.PROBLEM_LISTS, to: ROUTES.PROBLEM_LISTS },
+  ];
 
   // Close user menu on click outside
   useEffect(() => {
@@ -72,6 +80,39 @@ export function Header() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [userMenuOpen]);
+
+  // Keyboard navigation for user menu
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const maxIndex = userMenuItems.length;
+      switch (e.key) {
+        case "Escape":
+          e.preventDefault();
+          setUserMenuOpen(false);
+          userMenuButtonRef.current?.focus();
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          setActiveMenuIndex((prev) => (prev < maxIndex - 1 ? prev + 1 : 0));
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setActiveMenuIndex((prev) => (prev > 0 ? prev - 1 : maxIndex - 1));
+          break;
+        case "Home":
+          e.preventDefault();
+          setActiveMenuIndex(0);
+          break;
+        case "End":
+          e.preventDefault();
+          setActiveMenuIndex(maxIndex - 1);
+          break;
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [userMenuOpen, userMenuItems.length]);
 
   const navLinkClass = (isActive: boolean) =>
     cn(
@@ -152,6 +193,7 @@ export function Header() {
             {isAuthenticated ? (
               <div className="relative" ref={userMenuRef}>
                 <button
+                  ref={userMenuButtonRef}
                   type="button"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className={cn(
@@ -161,6 +203,7 @@ export function Header() {
                   )}
                   aria-expanded={userMenuOpen}
                   aria-haspopup="true"
+                  aria-controls="user-menu"
                 >
                   <div className="h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center">
                     <User className="h-4 w-4 text-primary" />
@@ -175,8 +218,40 @@ export function Header() {
                 </button>
                 {userMenuOpen && (
                   <div
+                    id="user-menu"
+                    ref={userMenuItemsRef}
                     className="absolute right-0 mt-2 w-56 rounded-lg border bg-popover p-1 shadow-lg dropdown-enter"
                     role="menu"
+                    onKeyDown={(e) => {
+                      const maxIndex = userMenuItems.length;
+                      switch (e.key) {
+                        case "ArrowDown":
+                          e.stopPropagation();
+                          setActiveMenuIndex((prev) =>
+                            prev < maxIndex - 1 ? prev + 1 : 0
+                          );
+                          break;
+                        case "ArrowUp":
+                          e.stopPropagation();
+                          setActiveMenuIndex((prev) =>
+                            prev > 0 ? prev - 1 : maxIndex - 1
+                          );
+                          break;
+                        case "Home":
+                          e.stopPropagation();
+                          setActiveMenuIndex(0);
+                          break;
+                        case "End":
+                          e.stopPropagation();
+                          setActiveMenuIndex(maxIndex - 1);
+                          break;
+                        case "Escape":
+                          e.stopPropagation();
+                          setUserMenuOpen(false);
+                          userMenuButtonRef.current?.focus();
+                          break;
+                      }
+                    }}
                   >
                     <div className="px-3 py-2 border-b border-border mb-1">
                       <p className="text-sm font-medium">{user?.username}</p>
@@ -184,29 +259,38 @@ export function Header() {
                         {user?.email}
                       </p>
                     </div>
-                    <Link
-                      to={ROUTES.PROFILE}
-                      className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-accent transition-colors"
-                      role="menuitem"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <User className="h-4 w-4" />
-                      {COPY.NAV.PROFILE}
-                    </Link>
-                    <Link
-                      to={ROUTES.PROBLEM_LISTS}
-                      className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-accent transition-colors"
-                      role="menuitem"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <Bookmark className="h-4 w-4" />
-                      {COPY.NAV.PROBLEM_LISTS}
-                    </Link>
+                    {userMenuItems.map((item, index) => (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-accent transition-colors",
+                          activeMenuIndex === index && "bg-accent",
+                        )}
+                        role="menuitem"
+                        aria-current={currentPath === item.to ? "page" : undefined}
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          setActiveMenuIndex(-1);
+                        }}
+                        onMouseEnter={() => setActiveMenuIndex(index)}
+                        onMouseLeave={() => setActiveMenuIndex(-1)}
+                      >
+                        <User className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    ))}
                     <button
                       type="button"
                       onClick={handleLogout}
                       className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-accent transition-colors text-destructive"
                       role="menuitem"
+                      onMouseEnter={() => setActiveMenuIndex(-1)}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                          e.stopPropagation();
+                        }
+                      }}
                     >
                       <LogOut className="h-4 w-4" />
                       {COPY.NAV.LOGOUT}
@@ -214,13 +298,13 @@ export function Header() {
                   </div>
                 )}
               </div>
-            ) : (
+            ) : null}
+            {!isAuthenticated && (
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" asChild>
+                <Button variant="ghost" asChild>
                   <Link to={ROUTES.LOGIN}>{COPY.NAV.LOGIN}</Link>
                 </Button>
                 <Button
-                  size="sm"
                   className="hidden sm:flex glow-primary"
                   asChild
                 >

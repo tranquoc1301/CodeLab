@@ -8,6 +8,10 @@ export const DEFAULTS = {
     month: 'long',
     day: 'numeric',
   } as Intl.DateTimeFormatOptions,
+  DEBOUNCE_MS: 300,
+  PAGE_SIZE: 20,
+  OTP_COUNTDOWN_SECONDS: 60,
+  TOAST_DURATION_MS: 6000,
 } as const;
 
 export const VALIDATION = {

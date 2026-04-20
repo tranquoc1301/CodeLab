@@ -1,3 +1,5 @@
+export type Difficulty = 'Easy' | 'Medium' | 'Hard';
+
 export interface Example {
   id: number;
   example_num: number;
@@ -35,7 +37,7 @@ export interface Problem {
   frontend_id: number;
   title: string;
   description: string;
-  difficulty: string;
+  difficulty: Difficulty;
   topics: Topic[];
   examples: Example[];
   constraints: Constraint[];
@@ -50,7 +52,7 @@ export interface ProblemSummary {
   frontend_id: number;
   title: string;
   slug: string;
-  difficulty: string;
+  difficulty: Difficulty;
   topics: Topic[];
   created_at: string;
   is_solved?: boolean;

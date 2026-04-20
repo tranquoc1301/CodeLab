@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import type { Submission } from "@/types";
+import { useFilters } from "./useFilters";
 
 interface UseSubmissionFiltersReturn {
   statusFilter: string;
@@ -18,9 +19,12 @@ interface UseSubmissionFiltersReturn {
 export function useSubmissionFilters(
   submissions: Submission[] | undefined,
 ): UseSubmissionFiltersReturn {
+  const { sortBy, setSortBy, clearFilters: clearBaseFilters, hasActiveFilters: baseHasFilters } = useFilters({
+    defaultStatus: "all",
+    defaultSort: "newest",
+  });
   const [statusFilter, setStatusFilter] = useState("all");
   const [languageFilter, setLanguageFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
 
   const filteredSubmissions = useMemo(() => {
     if (!submissions) return [];
@@ -47,7 +51,7 @@ export function useSubmissionFilters(
   const uniqueStatuses = useMemo(() => {
     if (!submissions) return [];
     const statuses = new Set(
-      submissions.map((s) => s.status).filter((s): s is string => Boolean(s)),
+      submissions.map((s) => s.status ?? "").filter((s) => s !== ""),
     );
     return Array.from(statuses);
   }, [submissions]);
@@ -61,11 +65,12 @@ export function useSubmissionFilters(
   }, [submissions]);
 
   const clearFilters = useCallback(() => {
+    clearBaseFilters();
     setStatusFilter("all");
     setLanguageFilter("all");
-  }, []);
+  }, [clearBaseFilters]);
 
-  const hasActiveFilters = statusFilter !== "all" || languageFilter !== "all";
+  const hasActiveFilters = statusFilter !== "all" || languageFilter !== "all" || baseHasFilters;
 
   return {
     statusFilter,

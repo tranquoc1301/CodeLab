@@ -2,83 +2,34 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Play,
-  CheckCircle,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
   BookOpen,
   Maximize2,
-  Minimize2,
   PanelLeftClose,
   PanelLeftOpen,
-  RotateCcw,
-  FileCode,
 } from "lucide-react";
-import CodeEditor from "@/components/CodeEditor";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { BookmarkButton } from "@/components/pages/problem-detail/BookmarkButton";
 import { useAuth } from "@/store/auth";
-import { getStoredPath, setStoredIntent } from "@/store/authGuard";
+import { setStoredIntent } from "@/store/authGuard";
 import { useProblemNavigation } from "@/hooks/useProblemNavigation";
 import { useCodeExecution } from "@/hooks/useCodeExecution";
 import { useSplitResize } from "@/hooks/useSplitResize";
 import { useProblemCode } from "@/hooks/useProblemCode";
 import { useAutosave } from "@/hooks/useAutosave";
+import { useLoginGate } from "@/hooks/useLoginGate";
+import { useNumericSlugRedirect } from "@/hooks/useNumericSlugRedirect";
 import api from "@/api";
-import { Button } from "@/components/ui";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { API, COPY, DEFAULTS, ROUTES } from "@/config";
 import { getCodeTemplate } from "@/config/code";
-import type { Language, Problem } from "@/types";
-
-const FILE_EXTENSION: Record<Language, string> = {
-  python3: ".py",
-  java: ".java",
-  cpp: ".cpp",
-  c: ".c",
-};
+import type { Problem } from "@/types";
+// Language: used via useProblemCode (language), ProblemToolbar (language), ProblemEditorPanel (language)
 
 // Extracted sub-components
 import { LoadingState } from "@/components/pages/problem-detail/LoadingState";
 import { LoginGate } from "@/components/pages/problem-detail/LoginGate";
 import { LoginPromptOverlay } from "@/components/pages/problem-detail/LoginPromptOverlay";
 import { ProblemDescription } from "@/components/pages/problem-detail/ProblemDescription";
-import { ConsolePanel } from "@/components/pages/problem-detail/ConsolePanel";
-
-// Login gate effect
-function useLoginGate(isAuthenticated: boolean) {
-  const [showLoginPrompt, setShowLoginPrompt] = useState(() => {
-    const intentPath = getStoredPath();
-    return (
-      !isAuthenticated && !!intentPath && intentPath.startsWith("/problems/")
-    );
-  });
-
-  return { showLoginPrompt, setShowLoginPrompt };
-}
-
-// Numeric slug redirect
-function useNumericSlugRedirect(
-  slug: string | undefined,
-  navigate: ReturnType<typeof useNavigate>,
-) {
-  useEffect(() => {
-    if (!slug || slug.includes("-") || isNaN(Number(slug))) return;
-    api
-      .get(`/problems/redirect/${slug}`)
-      .then((res) => {
-        navigate(`/problems/${res.data.slug}`, { replace: true });
-      })
-      .catch(() => navigate("/", { replace: true }));
-  }, [slug, navigate]);
-}
+import { ProblemToolbar } from "@/components/pages/problem-detail/ProblemToolbar";
+import { ProblemEditorPanel } from "@/components/pages/problem-detail/ProblemEditorPanel";
 
 // Main component
 export default function ProblemDetail() {
@@ -88,7 +39,7 @@ export default function ProblemDetail() {
 
   // Hooks
   const { showLoginPrompt, setShowLoginPrompt } = useLoginGate(isAuthenticated);
-  useNumericSlugRedirect(slug, navigate);
+  useNumericSlugRedirect(slug);
 
   const { prevProblem, nextProblem, navigatePrev, navigateNext } =
     useProblemNavigation(slug, (nextSlug) => {
@@ -126,7 +77,7 @@ export default function ProblemDetail() {
 
   const {
     splitRef,
-    editorSplitRef,
+    // editorSplitRef unused now - ProblemEditorPanel handles its own layout
     splitPercent,
     consoleHeight,
     handleHorizontalMouseDown,
@@ -194,202 +145,31 @@ export default function ProblemDetail() {
   return (
     <ErrorBoundary>
       <div className="h-[calc(100dvh-4rem)] -mx-4 flex flex-col" ref={splitRef}>
-        {/* Top bar */}
-        <div className="relative flex items-center justify-between px-3 py-2 border-b border-border/80 bg-background/95 backdrop-blur-sm z-20">
-          {/* Left section: Back + Problem info + Navigation */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => navigate(ROUTES.HOME)}
-              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent"
-              aria-label="Back to problems"
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden />
-            </Button>
-
-            <div className="flex items-center gap-2 min-w-0">
-              <h1 className="text-base font-bold text-foreground truncate">
-                Problem
-              </h1>
-              {problem.frontend_id && (
-                <span className="shrink-0 text-base font-mono text-muted-foreground">
-                  #{problem.frontend_id}
-                </span>
-              )}
-            </div>
-
-            {/* Prev/Next */}
-            <div className="hidden sm:flex items-center gap-0.5 ml-1 pl-2 border-l border-border/60">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={navigatePrev}
-                disabled={!prevProblem}
-                className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed"
-                aria-label="Previous problem"
-                title={prevProblem ? prevProblem.title : "No previous problem"}
-              >
-                <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={navigateNext}
-                disabled={!nextProblem}
-                className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed"
-                aria-label="Next problem"
-                title={nextProblem ? nextProblem.title : "No next problem"}
-              >
-                <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-              </Button>
-            </div>
-          </div>
-
-          {/* Right section: Language + Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-             {/* Language selector — more prominent */}
-             <div className="relative group">
-               <Select
-                 value={language}
-                 onValueChange={(val) => handleLanguageChange(val as Language)}
-               >
-                 <SelectTrigger
-                   className="h-8 w-[110px] text-xs"
-                   aria-label="Programming language"
-                 >
-                   <SelectValue />
-                 </SelectTrigger>
-                 <SelectContent position="popper">
-                   {Object.entries(COPY.LANGUAGE_LABELS).map(
-                     ([value, label]) => (
-                       <SelectItem key={value} value={value}>
-                         {label}
-                       </SelectItem>
-                     ),
-                   )}
-                 </SelectContent>
-               </Select>
-             </div>
-
-            {/* File indicator */}
-            <div className="hidden md:flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground bg-secondary/50 rounded-md border border-border">
-              <FileCode className="h-3 w-3" aria-hidden />
-              <span className="font-mono">
-                solution{FILE_EXTENSION[language]}
-              </span>
-            </div>
-
-            {/* Autosave status */}
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-15 justify-end">
-              {autosaveStatus === "saving" && (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-                  <span className="hidden sm:inline">Saving...</span>
-                </>
-              )}
-              {autosaveStatus === "saved" && (
-                <>
-                  <CheckCircle className="h-3 w-3 text-success" aria-hidden />
-                  <span className="hidden sm:inline text-success">Saved</span>
-                </>
-              )}
-            </div>
-
-            {/* Divider */}
-            <div className="hidden sm:block w-px h-6 bg-border" aria-hidden />
-
-            {/* Bookmark/Add to list button */}
-            {problem && (
-              <BookmarkButton
-                problemId={problem.id}
-                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent"
-              />
-            )}
-
-            {/* Reset code button */}
-            <div className="relative">
-              <Button
-                onClick={() => setShowResetConfirm(true)}
-                disabled={isRunning || isSubmitting}
-                variant="ghost"
-                size="icon-sm"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent"
-                aria-label={COPY.PROBLEM.RESET_CODE}
-                title={COPY.PROBLEM.RESET_CODE}
-              >
-                <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-              </Button>
-
-              {/* Reset confirmation popover */}
-              {showResetConfirm && (
-                <div className="absolute top-full right-0 mt-2 z-50 bg-popover border border-border rounded-lg p-3 shadow-xl w-56 animate-scale-in">
-                  <p className="text-xs text-popover-foreground mb-3">
-                    {COPY.PROBLEM.RESET_CODE_CONFIRM}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={handleResetCode}
-                      className="h-7 text-xs flex-1"
-                    >
-                      Reset
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setShowResetConfirm(false)}
-                      className="h-7 text-xs flex-1 text-muted-foreground"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Run Code button */}
-            <Button
-              onClick={handleRunCode}
-              disabled={isRunning || isSubmitting}
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5 border-border text-foreground hover:bg-accent hover:text-accent-foreground hover:border-border/80 transition-all"
-              aria-label={isRunning ? "Running..." : COPY.PROBLEM.RUN_CODE}
-            >
-              {isRunning ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-              ) : (
-                <Play className="h-3.5 w-3.5" aria-hidden />
-              )}
-              <span className="hidden sm:inline">
-                {isRunning ? "Running..." : COPY.PROBLEM.RUN_CODE}
-              </span>
-            </Button>
-
-            {/* Submit button — more prominent */}
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting || isRunning}
-              variant="default"
-              size="sm"
-              className="h-8 text-xs gap-1.5 bg-success hover:bg-success/90 active:bg-success text-success-foreground shadow-sm shadow-success/30 hover:shadow-success/40 transition-all font-medium"
-              aria-label={
-                isSubmitting ? COPY.PROBLEM.SUBMITTING : COPY.PROBLEM.SUBMIT
-              }
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-              ) : (
-                <CheckCircle className="h-3.5 w-3.5" aria-hidden />
-              )}
-              <span>
-                {isSubmitting ? COPY.PROBLEM.SUBMITTING : COPY.PROBLEM.SUBMIT}
-              </span>
-            </Button>
-          </div>
-        </div>
+{/* Top toolbar */}
+        <ProblemToolbar
+          problem={{
+            id: problem.id,
+            title: problem.title,
+            slug: problem.slug,
+          }}
+          frontendId={problem.frontend_id}
+          language={language}
+          autosaveStatus={autosaveStatus}
+          isRunning={isRunning}
+          isSubmitting={isSubmitting}
+          showResetConfirm={showResetConfirm}
+          prevProblem={prevProblem}
+          nextProblem={nextProblem}
+          onLanguageChange={(lang) => handleLanguageChange(lang)}
+          onNavigatePrev={navigatePrev}
+          onNavigateNext={navigateNext}
+          onResetCode={handleResetCode}
+          onCancelReset={() => setShowResetConfirm(false)}
+          onRunCode={handleRunCode}
+          onSubmit={handleSubmit}
+          onShowResetConfirm={() => setShowResetConfirm(true)}
+          onNavigateHome={() => navigate(ROUTES.HOME)}
+        />
 
         {/* Main content with resizable split */}
         <div className="flex-1 flex min-h-0">
@@ -493,7 +273,6 @@ export default function ProblemDetail() {
           {/* Right: Editor + Console with vertical resize */}
           {isAuthenticated ? (
             <div
-              ref={editorSplitRef}
               className="flex flex-col min-h-0"
               style={{
                 width: editorMaximized
@@ -503,70 +282,19 @@ export default function ProblemDetail() {
                     : `calc(100% - 3rem)`,
               }}
             >
-              {/* Editor panel header */}
-              <div className="flex items-center justify-between px-3 py-1.5 bg-card/80 border-b border-border/60">
-                <div className="flex items-center gap-2">
-                  <FileCode
-                    className="h-3.5 w-3.5 text-muted-foreground"
-                    aria-hidden
-                  />
-                  <span className="text-xs font-mono text-muted-foreground">
-                    solution{FILE_EXTENSION[language]}
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                    {languageLabel}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  {editorMaximized && (
-                    <button
-                      type="button"
-                      onClick={() => setEditorMaximized(false)}
-                      className="p-1.5 hover:bg-accent rounded-md transition-colors"
-                      aria-label={COPY.PROBLEM.RESTORE_LAYOUT}
-                      title={COPY.PROBLEM.RESTORE_LAYOUT}
-                    >
-                      <Minimize2
-                        className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground"
-                        aria-hidden
-                      />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Code Editor */}
-              <div
-                className="flex flex-col min-h-0"
-                style={{ height: `${100 - consoleHeight}%` }}
-              >
-                <CodeEditor
-                  language={language}
-                  value={code}
-                  onChange={wrappedCodeChange}
-                />
-              </div>
-
-              {/* Resize handle (vertical) */}
-              <div
-                className="h-1 bg-border hover:bg-primary/50 cursor-row-resize transition-colors shrink-0"
-                onMouseDown={handleVerticalMouseDown}
-                role="separator"
-                aria-orientation="horizontal"
+              <ProblemEditorPanel
+                language={language}
+                languageLabel={languageLabel}
+                code={code}
+                onCodeChange={wrappedCodeChange}
+                verdict={verdict}
+                isRunning={isRunning}
+                isSubmitting={isSubmitting}
+                editorMaximized={editorMaximized}
+                consoleHeight={consoleHeight}
+                onRestoreLayout={() => setEditorMaximized(false)}
+                onVerticalResize={handleVerticalMouseDown}
               />
-
-              {/* Console/Test Result panel */}
-              <div
-                className="flex flex-col min-h-0"
-                style={{ height: `${consoleHeight}%` }}
-              >
-                <ConsolePanel
-                  verdict={verdict}
-                  isRunning={isRunning || isSubmitting}
-                  totalTestCases={verdict?.total_test_cases ?? 0}
-                  problemId={problem?.id}
-                />
-              </div>
             </div>
           ) : (
             <div

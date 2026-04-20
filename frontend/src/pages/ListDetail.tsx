@@ -292,14 +292,7 @@ export default function ListDetail() {
           {problems.map((problem) => (
             <div
               key={problem.id}
-              className={cn(
-                "group relative flex items-center gap-3 rounded-lg border border-border p-2 transition-all duration-200",
-                isSelectionMode && selectedProblems.has(problem.id)
-                  ? "bg-muted border-primary"
-                  : isSelectionMode
-                    ? "hover:bg-muted/50 cursor-pointer"
-                    : "hover:bg-muted/30",
-              )}
+              className={cn("group relative flex items-center gap-3")}
             >
               {isSelectionMode && (
                 <div

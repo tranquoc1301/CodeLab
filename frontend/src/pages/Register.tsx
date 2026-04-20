@@ -21,6 +21,8 @@ import { PasswordInput } from "@/components/auth/PasswordInput";
 import { PasswordStrength } from "@/components/auth/PasswordStrength";
 import { OTPInput } from "@/components/auth/OTPInput";
 import { API, ROUTES, COPY, VALIDATION } from "@/config";
+import { registerSchema, validateRegister } from "@/lib/validation";
+import { useCheckUsername, useCheckEmail } from "@/lib/useAvailabilityCheck";
 
 type Step = "form" | "otp" | "success";
 
@@ -33,7 +35,38 @@ export default function Register() {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [countdown, setCountdown] = useState(0);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
+
+  // Update field error using Zod
+  const setFieldError = (field: string, value: string) => {
+    const partialData = {
+      username: field === "username" ? value : username,
+      email: field === "email" ? value : email,
+      password: field === "password" ? value : password,
+      confirmPassword: field === "confirmPassword" ? value : confirmPassword,
+    };
+    const result = registerSchema.safeParse(partialData);
+    if (!result.success) {
+      const fieldError = result.error.issues.find(
+        (i) => String(i.path[0]) === field,
+      );
+      setFieldErrors((prev) => {
+        if (fieldError) return { ...prev, [field]: fieldError.message };
+        const { [field]: _, ...rest } = prev;
+        return rest;
+      });
+    } else {
+      setFieldErrors((prev) => {
+        const { [field]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  // Use shared availability check hooks
+  const { checkUsername } = useCheckUsername();
+  const { checkEmail } = useCheckEmail();
 
   // Send OTP mutation
   const sendOtpMutation = useMutation({
@@ -51,7 +84,13 @@ export default function Register() {
     onError: (err: unknown) => {
       if (isAxiosError(err)) {
         const detail = (err.response?.data as { detail?: string })?.detail;
-        setError(detail || COPY.REGISTER.ERROR);
+        if (detail?.toLowerCase().includes("username")) {
+          setFieldErrors({ username: detail });
+        } else if (detail?.toLowerCase().includes("email")) {
+          setFieldErrors({ email: detail });
+        } else {
+          setError(detail || COPY.REGISTER.ERROR);
+        }
       } else {
         setError(COPY.REGISTER.ERROR);
       }
@@ -98,7 +137,13 @@ export default function Register() {
     onError: (err: unknown) => {
       if (isAxiosError(err)) {
         const detail = (err.response?.data as { detail?: string })?.detail;
-        setError(detail || COPY.REGISTER.ERROR);
+        if (detail?.toLowerCase().includes("username")) {
+          setFieldErrors({ username: detail });
+        } else if (detail?.toLowerCase().includes("email")) {
+          setFieldErrors({ email: detail });
+        } else {
+          setError(detail || COPY.REGISTER.ERROR);
+        }
       } else {
         setError(COPY.REGISTER.ERROR);
       }
@@ -112,13 +157,42 @@ export default function Register() {
     [registerMutation],
   );
 
-  const handleFormSubmit = (e: FormEvent) => {
+  const handleFormSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    if (password !== confirmPassword) {
-      setError(COPY.REGISTER.PASSWORD_MISMATCH);
+    setFieldErrors({});
+
+    // Validate all fields with Zod first
+    const errors = validateRegister({
+      username,
+      email,
+      password,
+      confirmPassword,
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
+
+    // Check username and email availability in parallel
+    const [usernameAvailable, emailAvailable] = await Promise.all([
+      checkUsername(username),
+      checkEmail(email),
+    ]);
+
+    if (!usernameAvailable) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        username: "Username is already taken",
+      }));
+      return;
+    }
+    if (!emailAvailable) {
+      setFieldErrors((prev) => ({ ...prev, email: "Email is already in use" }));
+      return;
+    }
+
     sendOtpMutation.mutate();
   };
 
@@ -157,7 +231,23 @@ export default function Register() {
             id="username"
             type="text"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              setFieldError("username", e.target.value);
+            }}
+            onBlur={async (e) => {
+              const value = e.target.value;
+              setFieldError("username", value);
+              if (value.length >= 3 && !fieldErrors.username) {
+                const available = await checkUsername(value);
+                if (!available) {
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    username: "Username is already taken",
+                  }));
+                }
+              }
+            }}
             placeholder={COPY.PLACEHOLDER.USERNAME}
             required
             minLength={3}
@@ -166,6 +256,9 @@ export default function Register() {
             className="pl-10"
           />
         </div>
+        {fieldErrors.username && (
+          <p className="text-xs text-destructive">{fieldErrors.username}</p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="email">{COPY.FORM_LABELS.EMAIL}</Label>
@@ -175,28 +268,52 @@ export default function Register() {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setFieldError("email", e.target.value);
+            }}
+            onBlur={async (e) => {
+              const value = e.target.value;
+              setFieldError("email", value);
+              if (value.includes("@") && !fieldErrors.email) {
+                const available = await checkEmail(value);
+                if (!available) {
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    email: "Email is already in use",
+                  }));
+                }
+              }
+            }}
             placeholder={COPY.PLACEHOLDER.EMAIL}
             required
             autoComplete="email"
             className="pl-10"
           />
         </div>
+        {fieldErrors.email && (
+          <p className="text-xs text-destructive">{fieldErrors.email}</p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">{COPY.FORM_LABELS.PASSWORD}</Label>
         <PasswordInput
           id="password"
           value={password}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setPassword(e.target.value)
-          }
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            setPassword(e.target.value);
+            setFieldError("password", e.target.value);
+          }}
+          onBlur={(e) => setFieldError("password", e.target.value)}
           required
           minLength={VALIDATION.MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
           placeholder={COPY.PLACEHOLDER.PASSWORD}
         />
         {password && <PasswordStrength password={password} />}
+        {fieldErrors.password && (
+          <p className="text-xs text-destructive">{fieldErrors.password}</p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="confirmPassword">
@@ -205,17 +322,18 @@ export default function Register() {
         <PasswordInput
           id="confirmPassword"
           value={confirmPassword}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setConfirmPassword(e.target.value)
-          }
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            setConfirmPassword(e.target.value);
+            setFieldError("confirmPassword", e.target.value);
+          }}
+          onBlur={(e) => setFieldError("confirmPassword", e.target.value)}
           required
           autoComplete="new-password"
           placeholder={COPY.PLACEHOLDER.CONFIRM_PASSWORD}
         />
-        {confirmPassword && password !== confirmPassword && (
-          <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-            <AlertCircle className="h-3 w-3" aria-hidden />
-            {COPY.REGISTER.PASSWORD_MISMATCH}
+        {fieldErrors.confirmPassword && (
+          <p className="text-xs text-destructive">
+            {fieldErrors.confirmPassword}
           </p>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useFilters } from "./useFilters";
 
 interface UseProblemFiltersReturn {
   search: string;
@@ -15,9 +16,11 @@ interface UseProblemFiltersReturn {
 }
 
 export function useProblemFilters(): UseProblemFiltersReturn {
-  const [search, setSearch] = useState("");
-  const [difficulty, setDifficulty] = useState("all");
-  const [sortBy, setSortBy] = useState("oldest");
+  const { search, difficulty, sortBy, setSearch, setDifficulty, setSortBy, handleFilterChange, hasActiveFilters: baseHasActiveFilters } = useFilters({
+    defaultSearch: "",
+    defaultDifficulty: "all",
+    defaultSort: "oldest",
+  });
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
   const handleToggleTopic = useCallback((slug: string) => {
@@ -30,16 +33,8 @@ export function useProblemFilters(): UseProblemFiltersReturn {
     setSelectedTopics([]);
   }, []);
 
-  const handleFilterChange = useCallback(
-    (newDifficulty: string, newSortBy: string) => {
-      setDifficulty(newDifficulty);
-      setSortBy(newSortBy);
-    },
-    [],
-  );
-
   const hasActiveFilters =
-    difficulty !== "all" || selectedTopics.length > 0 || search !== "";
+    difficulty !== "all" || selectedTopics.length > 0 || search !== "" || baseHasActiveFilters;
 
   return {
     search,

@@ -1,7 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -61,8 +60,8 @@
   --input: 0 0% 92.2%;
   --ring: 0 0% 70.8%;
 
-  /* Radius */
-  --radius: 0.625rem;
+  /* Radius - matching shadcn standard */
+  --radius: 0.5rem;
 
   /* Glassmorphism */
   --glass-bg: rgba(255, 255, 255, 0.7);
@@ -81,22 +80,17 @@
   --space-12: 3rem;
   --space-16: 4rem;
 
-  /* Chart colors */
+/* Chart colors */
   --chart-1: 0 0% 87%;
   --chart-2: 0 0% 55.6%;
   --chart-3: 0 0% 43.9%;
   --chart-4: 0 0% 37.1%;
   --chart-5: 0 0% 26.9%;
-
-  /* Sidebar */
-  --sidebar: 0 0% 98.5%;
-  --sidebar-foreground: 0 0% 14.5%;
-  --sidebar-primary: 220 10% 20.5%;
-  --sidebar-primary-foreground: 0 0% 98.5%;
-  --sidebar-accent: 0 0% 97%;
-  --sidebar-accent-foreground: 0 0% 20.5%;
-  --sidebar-border: 0 0% 92.2%;
-  --sidebar-ring: 0 0% 70.8%;
+  --color-chart-5: hsl(var(--chart-5));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-1: hsl(var(--chart-1));
 }
 
 .dark {
@@ -228,11 +222,11 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
+  --color-chart-5: hsl(var(--chart-5));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-1: hsl(var(--chart-1));
 }
 
 /* ── Base reset ──────────────────────────────────────────────── */

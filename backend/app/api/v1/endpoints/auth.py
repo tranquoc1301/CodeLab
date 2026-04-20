@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -272,3 +274,31 @@ async def get_me(
 ) -> User:
     """Get the current authenticated user."""
     return current_user
+
+
+class AvailabilityResponse(BaseModel):
+    available: bool
+
+
+@router.get("/check-username", response_model=AvailabilityResponse)
+async def check_username(
+    username: str = Query(..., min_length=3, max_length=30),
+    db: AsyncSession = Depends(get_db),
+) -> AvailabilityResponse:
+    """Check if username is available."""
+    stmt = select(User).where(User.username == username)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    return AvailabilityResponse(available=user is None)
+
+
+@router.get("/check-email", response_model=AvailabilityResponse)
+async def check_email(
+    email: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> AvailabilityResponse:
+    """Check if email is available."""
+    stmt = select(User).where(User.email == email)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    return AvailabilityResponse(available=user is None)
