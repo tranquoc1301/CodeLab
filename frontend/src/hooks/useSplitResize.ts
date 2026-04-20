@@ -11,7 +11,7 @@ interface UseSplitResizeOptions {
 
 interface UseSplitResizeReturn {
   splitRef: React.RefObject<HTMLDivElement | null>;
-  editorSplitRef: React.RefObject<HTMLDivElement | null>;
+  editorPanelRef: React.RefObject<HTMLDivElement | null>;
   splitPercent: number;
   consoleHeight: number;
   handleHorizontalMouseDown: (e: React.MouseEvent) => void;
@@ -31,44 +31,66 @@ export function useSplitResize(
   } = options;
 
   const splitRef = useRef<HTMLDivElement>(null);
-  const editorSplitRef = useRef<HTMLDivElement>(null);
+  const editorPanelRef = useRef<HTMLDivElement>(null);
   const [splitPercent, setSplitPercent] = useState(initialSplit);
   const [consoleHeight, setConsoleHeight] = useState(initialConsoleHeight);
-  const isResizingRef = useRef(false);
-  const editorResizingRef = useRef(false);
+  
+  // Refs for drag state (avoid re-renders during drag)
+  const isHorizontalDragging = useRef(false);
+  const isVerticalDragging = useRef(false);
 
   const handleHorizontalMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    isResizingRef.current = true;
+    isHorizontalDragging.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
   }, []);
 
   const handleVerticalMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    editorResizingRef.current = true;
+    isVerticalDragging.current = true;
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
   }, []);
 
+  // Direct state updates for smooth cursor-following
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (isResizingRef.current) {
-        const container = splitRef.current;
-        if (!container) return;
-        const rect = container.getBoundingClientRect();
+      if (!isHorizontalDragging.current && !isVerticalDragging.current) return;
+
+      if (isHorizontalDragging.current) {
+        const root = splitRef.current;
+        if (!root) return;
+        
+        const rect = root.getBoundingClientRect();
         const percent = ((e.clientX - rect.left) / rect.width) * 100;
-        setSplitPercent(Math.min(Math.max(percent, minSplit), maxSplit));
+        const clampedPercent = Math.min(
+          Math.max(percent, minSplit),
+          maxSplit,
+        );
+        setSplitPercent(clampedPercent);
       }
-      if (editorResizingRef.current) {
-        const container = editorSplitRef.current;
+
+      if (isVerticalDragging.current) {
+        const container = editorPanelRef.current;
         if (!container) return;
+        
         const rect = container.getBoundingClientRect();
         const percent =
           ((rect.height - (e.clientY - rect.top)) / rect.height) * 100;
-        setConsoleHeight(Math.min(Math.max(percent, minConsole), maxConsole));
+        const clampedConsole = Math.min(
+          Math.max(percent, minConsole),
+          maxConsole,
+        );
+        setConsoleHeight(clampedConsole);
       }
     };
 
     const handleMouseUp = () => {
-      isResizingRef.current = false;
-      editorResizingRef.current = false;
+      isHorizontalDragging.current = false;
+      isVerticalDragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
     };
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -81,7 +103,7 @@ export function useSplitResize(
 
   return {
     splitRef,
-    editorSplitRef,
+    editorPanelRef,
     splitPercent,
     consoleHeight,
     handleHorizontalMouseDown,

@@ -26,7 +26,7 @@ function useDialog() {
   return context;
 }
 
-interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement> {}
+type DialogContentProps = React.HTMLAttributes<HTMLDivElement>;
 
 const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
   ({ className, children, ...props }, ref) => {
@@ -84,7 +84,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
 );
 DialogContent.displayName = 'DialogContent';
 
-interface DialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {}
+type DialogHeaderProps = React.HTMLAttributes<HTMLDivElement>;
 
 const DialogHeader = React.forwardRef<HTMLDivElement, DialogHeaderProps>(
   ({ className, ...props }, ref) => (
@@ -97,7 +97,7 @@ const DialogHeader = React.forwardRef<HTMLDivElement, DialogHeaderProps>(
 );
 DialogHeader.displayName = 'DialogHeader';
 
-interface DialogTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {}
+type DialogTitleProps = React.HTMLAttributes<HTMLHeadingElement>;
 
 const DialogTitle = React.forwardRef<HTMLHeadingElement, DialogTitleProps>(
   ({ className, ...props }, ref) => (
@@ -110,7 +110,7 @@ const DialogTitle = React.forwardRef<HTMLHeadingElement, DialogTitleProps>(
 );
 DialogTitle.displayName = 'DialogTitle';
 
-interface DialogDescriptionProps extends React.HTMLAttributes<HTMLParagraphElement> {}
+type DialogDescriptionProps = React.HTMLAttributes<HTMLParagraphElement>;
 
 const DialogDescription = React.forwardRef<HTMLParagraphElement, DialogDescriptionProps>(
   ({ className, ...props }, ref) => (
@@ -123,7 +123,7 @@ const DialogDescription = React.forwardRef<HTMLParagraphElement, DialogDescripti
 );
 DialogDescription.displayName = 'DialogDescription';
 
-interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
+type DialogFooterProps = React.HTMLAttributes<HTMLDivElement>;
 
 const DialogFooter = React.forwardRef<HTMLDivElement, DialogFooterProps>(
   ({ className, ...props }, ref) => (

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { setStoredIntent } from "@/store/authGuard";
-import { Button, Input, toast, LoadMoreControl } from "@/components/ui";
+import { Button, Input, toast, LoadMoreControl, BackToTop } from "@/components/ui";
 import {
   Select,
   SelectContent,
@@ -286,6 +286,9 @@ export default function Home() {
           totalCount={totalCount}
         />
       )}
+
+      {/* Back to top button */}
+      <BackToTop />
     </div>
   );
 }

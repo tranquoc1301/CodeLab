@@ -149,8 +149,12 @@ export const AuthModal = () => {
 
   const handleRegisterSubmit = registerForm.handleSubmit((data) => {
     setRegisterApiError("");
-    const { confirmPassword, ...registerData } = data;
-    registerMutation.mutate(registerData);
+    // Exclude confirmPassword - only needed for client-side validation, not sent to API
+    registerMutation.mutate({
+      username: data.username,
+      email: data.email,
+      password: data.password,
+    });
   });
 
   const handleTabChange = (value: string) => {

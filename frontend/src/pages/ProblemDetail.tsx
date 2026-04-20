@@ -63,8 +63,14 @@ export default function ProblemDetail() {
   const { language, code, setCode, handleLanguageChange, handleCodeChange } =
     useProblemCode(problem, slug, autosave);
 
-  const { verdict, isRunning, isSubmitting, runCode, submitCode, resetVerdict } =
-    useCodeExecution();
+  const {
+    verdict,
+    isRunning,
+    isSubmitting,
+    runCode,
+    submitCode,
+    resetVerdict,
+  } = useCodeExecution();
 
   // Reset verdict when problem changes
   const previousProblemIdRef = useRef<number | undefined>(undefined);
@@ -77,7 +83,7 @@ export default function ProblemDetail() {
 
   const {
     splitRef,
-    // editorSplitRef unused now - ProblemEditorPanel handles its own layout
+    editorPanelRef,
     splitPercent,
     consoleHeight,
     handleHorizontalMouseDown,
@@ -88,6 +94,11 @@ export default function ProblemDetail() {
   const [descriptionExpanded, setDescriptionExpanded] = useState(true);
   const [editorMaximized, setEditorMaximized] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  // Compute split width directly (avoid CSS custom property for smooth resize)
+  const leftPanelWidth = descriptionExpanded
+    ? `calc(${splitPercent}% - 1px)`  // -1px accounts for border
+    : `calc(${splitPercent}%)`;
 
   const wrappedCodeChange = useCallback(
     (value: string | undefined) => {
@@ -144,8 +155,15 @@ export default function ProblemDetail() {
 
   return (
     <ErrorBoundary>
-      <div className="h-[calc(100dvh-4rem)] -mx-4 flex flex-col" ref={splitRef}>
-{/* Top toolbar */}
+      <div 
+        className="h-[calc(100dvh-4rem)] -mx-4 flex flex-col overflow-hidden" 
+        ref={splitRef}
+        style={{ 
+          "--split-percent": `${splitPercent}%`, 
+          "--console-height": `${consoleHeight}%` 
+        } as React.CSSProperties}
+      >
+        {/* Top toolbar */}
         <ProblemToolbar
           problem={{
             id: problem.id,
@@ -184,7 +202,7 @@ export default function ProblemDetail() {
             }`}
             style={
               !editorMaximized && descriptionExpanded
-                ? { width: `${splitPercent}%` }
+                ? { width: leftPanelWidth }
                 : editorMaximized
                   ? { width: "0px" }
                   : undefined
@@ -260,28 +278,35 @@ export default function ProblemDetail() {
             )}
           </div>
 
-          {/* Resize handle (horizontal) */}
-          {!editorMaximized && (
-            <div
-              className="w-1 bg-border hover:bg-primary/50 cursor-col-resize transition-colors shrink-0"
-              onMouseDown={handleHorizontalMouseDown}
-              role="separator"
-              aria-orientation="vertical"
-            />
-          )}
+{/* Horizontal resize handle */}
+      {!editorMaximized && (
+        <div
+          className="w-1.5 bg-border/50 hover:bg-primary/40 cursor-col-resize transition-all relative group select-none"
+          onMouseDown={handleHorizontalMouseDown}
+          role="separator"
+          aria-orientation="vertical"
+        >
+          {/* Drag indicator dots */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/60" />
+            <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/60" />
+            <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/60" />
+          </div>
+        </div>
+      )}
 
           {/* Right: Editor + Console with vertical resize */}
           {isAuthenticated ? (
-            <div
-              className="flex flex-col min-h-0"
-              style={{
-                width: editorMaximized
-                  ? "100%"
-                  : descriptionExpanded
-                    ? `${100 - splitPercent}%`
-                    : `calc(100% - 3rem)`,
-              }}
-            >
+             <div
+               className="flex flex-col min-h-0"
+               style={{
+                 width: editorMaximized
+                   ? "100%"
+                   : descriptionExpanded
+                     ? `calc(100% - ${splitPercent}% - 1px)`
+                     : `calc(100% - 3rem)`,
+               }}
+             >
               <ProblemEditorPanel
                 language={language}
                 languageLabel={languageLabel}
@@ -294,19 +319,20 @@ export default function ProblemDetail() {
                 consoleHeight={consoleHeight}
                 onRestoreLayout={() => setEditorMaximized(false)}
                 onVerticalResize={handleVerticalMouseDown}
+                editorPanelRef={editorPanelRef}
               />
             </div>
           ) : (
-            <div
-              className="flex items-center justify-center"
-              style={{
-                width: editorMaximized
-                  ? "100%"
-                  : descriptionExpanded
-                    ? `${100 - splitPercent}%`
-                    : `calc(100% - 3rem)`,
-              }}
-            >
+             <div
+               className="flex items-center justify-center"
+               style={{
+                 width: editorMaximized
+                   ? "100%"
+                   : descriptionExpanded
+                     ? `calc(100% - ${splitPercent}% - 1px)`
+                     : `calc(100% - 3rem)`,
+               }}
+             >
               <LoginGate onLogin={() => setShowLoginPrompt(true)} />
             </div>
           )}

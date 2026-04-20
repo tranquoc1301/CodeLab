@@ -17,6 +17,7 @@ interface ProblemEditorPanelProps {
   consoleHeight: number;
   onRestoreLayout: () => void;
   onVerticalResize?: (e: React.MouseEvent) => void;
+  editorPanelRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export const ProblemEditorPanel = memo(function ProblemEditorPanel({
@@ -31,6 +32,7 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
   consoleHeight,
   onRestoreLayout,
   onVerticalResize,
+  editorPanelRef,
 }: ProblemEditorPanelProps) {
   const FILE_EXTENSION: Record<Language, string> = {
     python3: ".py",
@@ -39,8 +41,15 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
     c: ".c",
   };
 
+  // Use consoleHeight to avoid TS warning about unused variable
+  const consoleHeightPercent = `${consoleHeight}%`;
+
   return (
-    <div className="flex flex-col min-h-0" style={{ width: editorMaximized ? "100%" : undefined }}>
+    <div
+      className="flex flex-col min-h-0"
+      style={{ width: editorMaximized ? "100%" : undefined }}
+      ref={editorPanelRef}
+    >
       <div className="flex items-center justify-between px-3 py-1.5 bg-card/80 border-b border-border/60">
         <div className="flex items-center gap-2">
           <FileCode className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
@@ -60,7 +69,10 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
               aria-label={COPY.PROBLEM.RESTORE_LAYOUT}
               title={COPY.PROBLEM.RESTORE_LAYOUT}
             >
-              <Minimize2 className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" aria-hidden />
+              <Minimize2
+                className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground"
+                aria-hidden
+              />
             </button>
           )}
         </div>
@@ -68,21 +80,30 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
 
       <div
         className="flex flex-col min-h-0"
-        style={{ height: `${100 - consoleHeight}%` }}
+        style={{ height: `calc(100% - ${consoleHeightPercent})` }}
       >
         <CodeEditor language={language} value={code} onChange={onCodeChange} />
       </div>
 
+      {/* Vertical resize handle between editor and console */}
       <div
-        className="h-1 bg-border hover:bg-primary/50 cursor-row-resize transition-colors shrink-0"
+        className="h-2 bg-border/50 hover:bg-primary/40 cursor-row-resize transition-all relative group select-none flex items-center justify-center"
         onMouseDown={onVerticalResize}
         role="separator"
         aria-orientation="horizontal"
-      />
+        aria-label="Resize console panel"
+      >
+        {/* Horizontal drag indicator */}
+        <div className="flex gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity">
+          <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/60" />
+          <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/60" />
+          <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/60" />
+        </div>
+      </div>
 
       <div
-        className="flex flex-col min-h-0"
-        style={{ height: `${consoleHeight}%` }}
+        className="flex flex-col min-h-0 overflow-hidden"
+        style={{ height: consoleHeightPercent }}
       >
         <ConsolePanel
           verdict={verdict}

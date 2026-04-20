@@ -40,7 +40,7 @@ function useTabs() {
   return context;
 }
 
-interface TabsListProps extends React.HTMLAttributes<HTMLDivElement> {}
+type TabsListProps = React.HTMLAttributes<HTMLDivElement>;
 
 export const TabsList = React.forwardRef<HTMLDivElement, TabsListProps>(
   ({ className, children, ...props }, ref) => {

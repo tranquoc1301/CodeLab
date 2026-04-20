@@ -19,7 +19,8 @@ export function BackToTop({
   right = "1.5rem",
   className,
 }: BackToTopProps) {
-  const [isVisible, setIsVisible] = useState(false);
+  // Use lazy initialization to check scroll position on mount
+  const [isVisible, setIsVisible] = useState(() => window.scrollY > threshold);
 
   const handleScroll = useCallback(() => {
     setIsVisible(window.scrollY > threshold);
@@ -34,7 +35,6 @@ export function BackToTop({
 
   useEffect(() => {
     window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
