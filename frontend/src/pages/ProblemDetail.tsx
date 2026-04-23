@@ -53,6 +53,7 @@ export default function ProblemDetail() {
       return res.data;
     },
     enabled: !!slug,
+    staleTime: 1000 * 60 * 5, // 5 minutes - problem data rarely changes
   });
 
   const { status: autosaveStatus, save: autosave } = useAutosave(

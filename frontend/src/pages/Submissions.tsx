@@ -28,6 +28,8 @@ export default function Submissions() {
       });
       return res.data;
     },
+    staleTime: 1000 * 30, // 30 seconds - user may submit frequently
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching next page
   });
 
   // Filter state

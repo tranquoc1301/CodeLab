@@ -44,6 +44,7 @@ export default function ProblemLists() {
     queryKey: ["problemLists", user?.id],
     queryFn: () => problemListApi.getAll().then((r) => r.data),
     enabled: !!user,
+    staleTime: 1000 * 60 * 2, // 2 minutes - user lists don't change often
   });
 
   // Create list mutation

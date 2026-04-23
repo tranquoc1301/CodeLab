@@ -43,6 +43,7 @@ export default function ListDetail() {
     queryKey: ["problemList", numericListId],
     queryFn: () => problemListApi.get(numericListId).then((r) => r.data),
     enabled: isAuthenticated && !isNaN(numericListId),
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
   const { data: listProblems, isLoading: isLoadingProblems } =
@@ -51,6 +52,7 @@ export default function ListDetail() {
       queryFn: () =>
         problemListApi.getProblems(numericListId).then((r) => r.data),
       enabled: isAuthenticated && !isNaN(numericListId),
+      staleTime: 1000 * 60, // 1 minute
     });
 
   // Derived Data

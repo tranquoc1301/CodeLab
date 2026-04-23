@@ -48,6 +48,7 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
     queryKey: ["problemLists"],
     queryFn: () => problemListApi.getAll().then((r) => r.data),
     enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 2, // 2 minutes - user lists don't change often
   });
 
   // Get lists that contain this specific problem
@@ -55,6 +56,7 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
     queryKey: ["problemLists", "containing", problemId],
     queryFn: () => problemListApi.getListsContainingProblem(problemId).then((r) => r.data),
     enabled: isAuthenticated && open,
+    staleTime: 1000 * 60, // 1 minute - quick stale
   });
 
   // Add problem to list mutation
