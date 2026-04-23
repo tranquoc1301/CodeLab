@@ -37,6 +37,16 @@ export interface VerdictResult {
   test_case_results: TestCaseResult[];
 }
 
+export interface TestCaseResult {
+  index: number;
+  status: string;
+  input: string;
+  stdout: string;
+  stderr: string;
+  expected_output: string;
+  error_message: string | null;
+}
+
 export interface SubmissionResult {
   id: number;
   user_id: number;
@@ -51,5 +61,8 @@ export interface SubmissionResult {
   execution_time_ms: number | null;
   memory_used_kb: number | null;
   judge0_token: string | null;
+  passed_count: number | null;
+  total_count: number | null;
   created_at: string;
+  test_case_results: TestCaseResult[];
 }

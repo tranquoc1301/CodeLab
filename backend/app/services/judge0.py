@@ -193,10 +193,13 @@ async def _execute_local(
             ]
 
             start_time = time.monotonic()
+            memory_kb = None
             proc = None
             try:
+                # Use /usr/bin/time to track memory usage
+                time_cmd = ["/usr/bin/time", "-v"] + run_cmd
                 proc = await asyncio.create_subprocess_exec(
-                    *run_cmd,
+                    *time_cmd,
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
@@ -210,6 +213,22 @@ async def _execute_local(
                 stdout_str = stdout.decode(errors="replace").strip()
                 stderr_str = stderr.decode(errors="replace").strip()
 
+                # Parse memory from /usr/bin/time output (stderr contains timing info)
+                memory_kb = None
+                time_output_lines = []
+                user_stderr_lines = []
+                for line in stderr_str.split("\n"):
+                    if "Maximum resident set size" in line:
+                        match = re.search(r": (\d+)", line)
+                        if match:
+                            memory_kb = int(match.group(1))
+                    elif line.startswith(("\t", "User time", "System time", "Percent of", "Elapsed", "Average", "Major", "Minor", "Voluntary", "Involuntary", "Swaps", "File system", "Socket", "Signals", "Page size", "Exit status", "Command being timed")):
+                        time_output_lines.append(line)
+                    else:
+                        user_stderr_lines.append(line)
+
+                stderr_str = "\n".join(filter(None, user_stderr_lines)) or None
+
                 if proc.returncode is not None and proc.returncode != 0:
                     return {
                         "status": _signal_name(proc.returncode),
@@ -218,7 +237,7 @@ async def _execute_local(
                         "compile_output": compile_output,
                         "error_type": _signal_name(proc.returncode),
                         "time": elapsed_ms / 1000.0 if elapsed_ms else None,
-                        "memory": None,
+                        "memory": memory_kb,
                     }
 
                 return {
@@ -228,7 +247,7 @@ async def _execute_local(
                     "compile_output": compile_output,
                     "error_type": None,
                     "time": elapsed_ms / 1000.0 if elapsed_ms else None,
-                    "memory": None,
+                    "memory": memory_kb,
                 }
 
             except asyncio.TimeoutError:

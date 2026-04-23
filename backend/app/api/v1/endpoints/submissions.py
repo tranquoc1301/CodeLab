@@ -73,14 +73,17 @@ async def evaluate_submission(
             detail="Evaluation failed due to an internal error",
         )
 
-
 @router.get("/", response_model=list[SubmissionResponse])
 async def list_submissions(
     limit: int = Query(
         default=20, ge=1, le=100, description="Number of submissions to return"
     ),
     offset: int = Query(
-        default=0, ge=0, description="Number of submissions to skip"),
+        default=0, ge=0, description="Number of submissions to skip"
+    ),
+    problem_id: int | None = Query(
+        default=None, description="Filter submissions by problem ID"
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[SubmissionResponse]:
@@ -90,6 +93,7 @@ async def list_submissions(
         user=current_user,
         limit=limit,
         offset=offset,
+        problem_id=problem_id,
     )
 
 

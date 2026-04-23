@@ -128,13 +128,23 @@ async def get_user_submissions(
     user: User,
     limit: int = 20,
     offset: int = 0,
+    problem_id: int | None = None,
 ) -> list[SubmissionResponse]:
     """Get submissions for a user with pagination."""
-    result = await db.execute(
+    query = (
         select(Submission)
         .options(selectinload(Submission.problem))
+        .options(selectinload(Submission.test_results))
         .where(Submission.user_id == user.id)
-        .order_by(Submission.created_at.desc())
+        .where(Submission.submission_type == "submit")
+    )
+
+    # Filter by problem_id if provided
+    if problem_id is not None:
+        query = query.where(Submission.problem_id == problem_id)
+
+    result = await db.execute(
+        query.order_by(Submission.created_at.desc())
         .offset(offset)
         .limit(limit),
     )
@@ -152,6 +162,7 @@ async def get_submission_by_id(
     result = await db.execute(
         select(Submission)
         .options(selectinload(Submission.problem))
+        .options(selectinload(Submission.test_results))
         .where(
             Submission.id == submission_id,
             Submission.user_id == user.id,
@@ -172,14 +183,30 @@ async def _get_problem(db: AsyncSession, problem_id: int) -> Problem | None:
 
 
 def _build_submission_response(submission: Submission) -> SubmissionResponse:
-    """Build submission response from submission (problem must be eager-loaded)."""
+    """Build submission response from submission (problem and test_results must be eager-loaded)."""
     problem_slug = submission.problem.slug if submission.problem else None
-    return _map_submission_to_response(submission, problem_slug)
+    
+    # Build test case results from loaded test_results relationship
+    test_case_results = []
+    if hasattr(submission, 'test_results') and submission.test_results:
+        for tc in submission.test_results:
+            test_case_results.append({
+                "index": tc.id - 1,  # Use 0-based index
+                "status": tc.status,
+                "input": tc.stdin or "",
+                "stdout": tc.stdout or "",
+                "stderr": "",  # Not stored in this table
+                "expected_output": tc.expected_output or "",
+                "error_message": None,
+            })
+    
+    return _map_submission_to_response(submission, problem_slug, test_case_results)
 
 
 def _map_submission_to_response(
     submission: Submission,
     problem_slug: str | None,
+    test_case_results: list[dict] | None = None,
 ) -> SubmissionResponse:
     """Map submission and problem_slug to SubmissionResponse."""
     return SubmissionResponse(
@@ -199,6 +226,7 @@ def _map_submission_to_response(
         passed_count=submission.passed_count,
         total_count=submission.total_count,
         created_at=submission.created_at,
+        test_case_results=test_case_results or [],
     )
 
 
@@ -221,6 +249,8 @@ async def _persist_test_results(
             test_case_id=None,
             status=tc_result.get("status", "Unknown"),
             stdout=_truncate(tc_result.get("stdout"), 2000),
+            expected_output=_truncate(tc_result.get("expected_output"), 2000),
+            stdin=_truncate(tc_result.get("stdin"), 2000),
             execution_time_ms=tc_result.get("time_ms"),
             memory_used_kb=tc_result.get("memory_kb"),
         )

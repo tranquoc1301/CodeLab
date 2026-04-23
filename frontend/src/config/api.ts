@@ -10,6 +10,9 @@ export const API = {
     PROBLEM_NAVIGATION: (slug: string) => `/problems/navigation/${slug}`,
     SUBMISSIONS: "/submissions/",
     SUBMISSIONS_EVALUATE: "/submissions/evaluate",
+    SUBMISSIONS_BY_PROBLEM: (problemId: number) =>
+      `/submissions/?problem_id=${problemId}&limit=20&offset=0`,
+    SUBMISSION_DETAIL: (id: number) => `/submissions/${id}`,
     AUTH_LOGIN: "/auth/login",
     AUTH_REGISTER: "/auth/register",
     AUTH_ME: "/auth/me",

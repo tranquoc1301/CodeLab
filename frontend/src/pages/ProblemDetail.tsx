@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
   Maximize2,
   PanelLeftClose,
   PanelLeftOpen,
+  FileCode,
 } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/store/auth";
@@ -20,7 +21,7 @@ import { useNumericSlugRedirect } from "@/hooks/useNumericSlugRedirect";
 import api from "@/api";
 import { API, COPY, DEFAULTS, ROUTES } from "@/config";
 import { getCodeTemplate } from "@/config/code";
-import type { Problem } from "@/types";
+import type { Problem, SubmissionResult } from "@/types";
 // Language: used via useProblemCode (language), ProblemToolbar (language), ProblemEditorPanel (language)
 
 // Extracted sub-components
@@ -30,6 +31,8 @@ import { LoginPromptOverlay } from "@/components/pages/problem-detail/LoginPromp
 import { ProblemDescription } from "@/components/pages/problem-detail/ProblemDescription";
 import { ProblemToolbar } from "@/components/pages/problem-detail/ProblemToolbar";
 import { ProblemEditorPanel } from "@/components/pages/problem-detail/ProblemEditorPanel";
+import { SubmissionList } from "@/components/pages/problem-detail/SubmissionList";
+import { SubmissionDetail } from "@/components/pages/problem-detail/SubmissionDetail";
 
 // Main component
 export default function ProblemDetail() {
@@ -81,6 +84,38 @@ export default function ProblemDetail() {
       resetVerdict();
     }
   }, [problem?.id, resetVerdict]);
+
+  // Tab state for left panel (exposed via ref to avoid setState in effect)
+  const [leftTab, setLeftTab] = useState<"description" | "submissions">("description");
+
+  // Submission detail state
+  const [selectedSubmission, setSelectedSubmission] = useState<SubmissionResult | null>(null);
+
+  // Handlers for submission selection
+  const handleSelectSubmission = useCallback((submission: SubmissionResult) => {
+    setSelectedSubmission(submission);
+  }, []);
+
+  const handleBackToEditor = useCallback(() => {
+    setSelectedSubmission(null);
+  }, []);
+
+  const handleSwitchToSubmissionsTab = useCallback(() => {
+    setLeftTab("submissions");
+    setSelectedSubmission(null);
+  }, []);
+
+  // Query client for query invalidation
+  const queryClient = useQueryClient();
+
+  // Auto-switch to submissions tab after successful submit, and invalidate query
+  useEffect(() => {
+    if (verdict && !isSubmitting && verdict.status) {
+      queryClient.invalidateQueries({ queryKey: ["submissions", "problem", problem?.id] });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      handleSwitchToSubmissionsTab();
+    }
+  }, [verdict, isSubmitting, problem?.id, queryClient, handleSwitchToSubmissionsTab]);
 
   const {
     splitRef,
@@ -212,16 +247,42 @@ export default function ProblemDetail() {
           >
             {descriptionExpanded && !editorMaximized && (
               <>
-                {/* Description header */}
+                {/* Tab bar */}
                 <div className="flex items-center justify-between px-5 py-2.5 border-b border-border/60 sticky top-0 bg-card/95 backdrop-blur-sm z-10">
-                  <div className="flex items-center gap-2">
-                    <BookOpen
-                      className="h-4 w-4 text-muted-foreground"
-                      aria-hidden
-                    />
-                    <span className="text-sm font-medium text-muted-foreground">
-                      Description
-                    </span>
+                  <div className="flex items-center gap-1">
+                    {/* Tab: Description */}
+                    <button
+                      type="button"
+                      onClick={() => setLeftTab("description")}
+                      className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                        leftTab === "description"
+                          ? "border-primary text-foreground"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4" />
+                        Description
+                      </span>
+                    </button>
+
+                    {/* Tab: Submissions — only for authenticated users */}
+                    {isAuthenticated && (
+                      <button
+                        type="button"
+                        onClick={() => setLeftTab("submissions")}
+                        className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                          leftTab === "submissions"
+                            ? "border-primary text-foreground"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <FileCode className="h-4 w-4" />
+                          Submissions
+                        </span>
+                      </button>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -250,7 +311,16 @@ export default function ProblemDetail() {
                     </button>
                   </div>
                 </div>
-                <ProblemDescription problem={problem} />
+
+                {/* Tab content */}
+                {leftTab === "description" ? (
+                  <ProblemDescription problem={problem} />
+                ) : (
+                  <SubmissionList
+                    problemId={problem.id}
+                    onSelectSubmission={handleSelectSubmission}
+                  />
+                )}
               </>
             )}
 
@@ -296,7 +366,7 @@ export default function ProblemDetail() {
         </div>
       )}
 
-          {/* Right: Editor + Console with vertical resize */}
+          {/* Right: Editor + Console with vertical resize, or Submission Detail */}
           {isAuthenticated ? (
              <div
                className="flex flex-col min-h-0"
@@ -308,20 +378,27 @@ export default function ProblemDetail() {
                      : `calc(100% - 3rem)`,
                }}
              >
-              <ProblemEditorPanel
-                language={language}
-                languageLabel={languageLabel}
-                code={code}
-                onCodeChange={wrappedCodeChange}
-                verdict={verdict}
-                isRunning={isRunning}
-                isSubmitting={isSubmitting}
-                editorMaximized={editorMaximized}
-                consoleHeight={consoleHeight}
-                onRestoreLayout={() => setEditorMaximized(false)}
-                onVerticalResize={handleVerticalMouseDown}
-                editorPanelRef={editorPanelRef}
-              />
+              {selectedSubmission !== null ? (
+                <SubmissionDetail
+                  submission={selectedSubmission}
+                  onBack={handleBackToEditor}
+                />
+              ) : (
+                <ProblemEditorPanel
+                  language={language}
+                  languageLabel={languageLabel}
+                  code={code}
+                  onCodeChange={wrappedCodeChange}
+                  verdict={verdict}
+                  isRunning={isRunning}
+                  isSubmitting={isSubmitting}
+                  editorMaximized={editorMaximized}
+                  consoleHeight={consoleHeight}
+                  onRestoreLayout={() => setEditorMaximized(false)}
+                  onVerticalResize={handleVerticalMouseDown}
+                  editorPanelRef={editorPanelRef}
+                />
+              )}
             </div>
           ) : (
              <div

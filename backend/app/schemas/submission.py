@@ -119,6 +119,10 @@ class SubmissionResponse(BaseModel):
     passed_count: int | None
     total_count: int | None
     created_at: datetime
+    test_case_results: List[TestCaseResult] = Field(
+        default_factory=list,
+        description="Per-test-case results",
+    )
 
     model_config = {"from_attributes": True}
 
