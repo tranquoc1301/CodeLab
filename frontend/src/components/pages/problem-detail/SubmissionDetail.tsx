@@ -250,14 +250,13 @@ export const SubmissionDetail = memo(function SubmissionDetail({
                 LANGUAGE_MAP[submission.language] || submission.language
               }
               value={submission.source_code}
-              theme={EDITOR.THEME.dark}
+              theme={EDITOR.THEME[theme]}
               options={{
                 readOnly: true,
                 minimap: { enabled: false },
                 lineNumbers: "on",
                 scrollBeyondLastLine: false,
                 fontSize: 13,
-                theme: theme === "dark" ? "vs-dark" : "vs-light",
                 padding: {
                   top: 12,
                   bottom: 12,
