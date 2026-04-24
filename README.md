@@ -1,4 +1,4 @@
-# CodeLab — Personalized Programming Exercise Recommendation System
+# CodeLab — Hệ thống gợi ý bài tập lập trình cá nhân hóa
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
@@ -6,57 +6,46 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> An intelligent coding practice platform that tells you **what went wrong, how to fix it, and what to practice next** — powered by AI-driven error analysis and adaptive learning.
+> Nền tảng luyện lập trình thông minh giúp bạn biết **sai ở đâu, sửa thế nào, và nên luyện bài gì tiếp theo** — nhờ phân tích lỗi bằng AI và theo dõi kỹ năng cá nhân hóa.
 
 ---
 
-## Why CodeLab?
+## Tại sao có CodeLab?
 
-Traditional coding platforms (LeetCode, Codeforces, HackerRank) only return **pass/fail** results. Students see "Wrong Answer" but don't understand _why_ their code failed or _what to practice next_.
+Các nền tảng luyện lập trình phổ biến (LeetCode, Codeforces, HackerRank) chỉ trả về kết quả **đúng/sai**. Người dùng thấy "Wrong Answer" nhưng không biết _tại sao sai_ hay _cần luyện thêm bài gì_.
 
-CodeLab solves this with two AI models working together:
+CodeLab giải quyết điều này với hai mô hình AI phối hợp:
 
-1. **CodeBERT** analyzes your code and classifies the error type (logic, loop, memory, recursion)
-2. **Deep Knowledge Tracing (DKT)** tracks your skill proficiency across topics
-3. A **recommendation engine** suggests personalized practice problems targeting your weakest areas
-
----
-
-## Core Features
-
-### Online Coding Environment
-
-- Integrated code editor (Monaco Editor) with syntax highlighting
-- Supports **Python, Java, C/C++**
-- Run code directly in the browser
-- Automatic grading via **Judge0** with per-test-case results
-
-### Automatic Code Error Analysis
-
-When a submission fails, CodeBERT classifies the error:
-
-| Error Category               | Examples                                   |
-| ---------------------------- | ------------------------------------------ |
-| **Logic Error**              | Incorrect algorithm, wrong formula         |
-| **Loop & Condition Error**   | Infinite loops, off-by-one, wrong boundary |
-| **Memory & Reference Error** | Null pointer, index out of range           |
-| **Recursion Error**          | Missing base case, infinite recursion      |
-
-### Fix Suggestions
-
-Guided hints based on error type — helps you discover the fix yourself without giving away the answer.
-
-### Personalized Skill Map
-
-After each submission, a DKT model updates your proficiency across skills (Arrays, Loops, Recursion, DP, Graphs, etc.), displayed as an interactive **radar chart**.
-
-### Smart Exercise Recommendations
-
-Recommends **top 5 practice problems** based on your detected errors and weakest skills.
+1. **LLM** phân tích mã nguồn và đưa ra gợi ý sửa theo từng level chi tiết
+2. **Deep Knowledge Tracing (DKT)** theo dõi mức độ thành thạo kỹ năng của người dùng
+3. **Recommendation Engine** gợi ý bài tập cá nhân hóa theo điểm yếu thực tế
 
 ---
 
-## Architecture
+## Tính năng chính
+
+### Môi trường làm bài trực tuyến
+
+- Trình soạn thảo code tích hợp (Monaco Editor) với syntax highlighting
+- Hỗ trợ **Python, Java, C/C++**
+- Chạy code trực tiếp trên trình duyệt
+- Chấm bài tự động qua **Judge0** với kết quả từng test case
+
+### Gợi ý hướng sửa theo level
+
+Khi bài nộp thất bại, LLM phân tích mã nguồn và đưa ra gợi ý hướng sửa theo từng mức độ chi tiết — không đưa thẳng đáp án mà hướng dẫn người dùng tự tìm ra giải pháp.
+
+### Bản đồ kỹ năng cá nhân
+
+Sau mỗi lần nộp bài, mô hình DKT cập nhật mức độ thành thạo các kỹ năng (Mảng, Vòng lặp, Đệ quy, DP, Đồ thị...), hiển thị dưới dạng **radar chart** trực quan.
+
+### Gợi ý bài tập cá nhân hóa
+
+Đề xuất **top 5 bài tập** dựa trên lỗi vừa phát hiện và kỹ năng đang yếu nhất của người dùng.
+
+---
+
+## Kiến trúc hệ thống
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -70,77 +59,74 @@ Recommends **top 5 practice problems** based on your detected errors and weakest
 ┌────────────────────────▼────────────────────────────┐
 │                Backend (FastAPI)                      │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
-│  │ Judge0   │  │ CodeBERT │  │ DKT (pyKT)       │  │
-│  │ Grading  │  │ Error    │  │ Skill Tracking   │  │
-│  │ Service  │  │ Analyzer │  │ & Recommendation │  │
+│  │ Judge0   │  │   LLM    │  │ DKT (pyKT)       │  │
+│  │ Grading  │  │  Fix     │  │ Skill Tracking   │  │
+│  │ Service  │  │ Hint     │  │ & Recommendation │  │
 │  └──────────┘  └──────────┘  └──────────────────┘  │
 └────────────────────────┬────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────┐
-│              PostgreSQL 16 + Redis Cache              │
+│              PostgreSQL 18 + Redis Cache              │
 └─────────────────────────────────────────────────────┘
 ```
 
 ### Tech Stack
 
-| Layer              | Technology                                              |
-| ------------------ | ------------------------------------------------------- |
-| **Frontend**       | React 19, TypeScript, Vite, Tailwind CSS, Monaco Editor |
-| **Backend**        | FastAPI (async Python), SQLAlchemy, Alembic             |
-| **Code Execution** | Judge0                                                  |
-| **Error Analysis** | CodeBERT (fine-tuned on IBM CodeNet)                    |
-| **Skill Tracking** | Deep Knowledge Tracing / LSTM via pyKT                  |
-| **Database**       | PostgreSQL 16                                           |
-| **Caching**        | Redis                                                   |
-| **Deployment**     | Docker, Vercel, Railway                                 |
+| Thành phần           | Công nghệ                                               |
+| -------------------- | ------------------------------------------------------- |
+| **Frontend**         | React 19, TypeScript, Vite, Tailwind CSS, Monaco Editor |
+| **Backend**          | FastAPI (async Python), SQLAlchemy, Alembic             |
+| **Chấm bài**         | Judge0                                                  |
+| **Gợi ý sửa lỗi**    | LLM (gợi ý theo level chi tiết)                         |
+| **Theo dõi kỹ năng** | Deep Knowledge Tracing / LSTM via pyKT                  |
+| **Cơ sở dữ liệu**    | PostgreSQL 18                                           |
+| **Caching**          | Redis                                                   |
+| **Triển khai**       | Docker, Vercel, Render                                  |
 
 ---
 
-## Data Flow
+## Luồng xử lý
 
 ```
-Write code → Submit → Judge0 grades
-                        │ (if failed)
+Viết code → Nộp bài → Judge0 chấm bài
+                        │ (nếu sai)
                         ▼
-                  CodeBERT analyzes
+                  LLM phân tích lỗi
                         │
                         ▼
-              Classifies error type
+        Gợi ý hướng sửa theo từng level
                         │
                         ▼
-              Generates fix hint
+              DKT cập nhật bản đồ kỹ năng
                         │
                         ▼
-              DKT updates skill map
-                        │
-                        ▼
-              Recommends next problems
+              Gợi ý bài tập tiếp theo
 ```
 
 ---
 
-## AI Model Targets
+## Mục tiêu mô hình AI
 
-| Model              | Metric      | Target |
-| ------------------ | ----------- | ------ |
-| **CodeBERT**       | Accuracy    | ≥ 80%  |
-|                    | Macro F1    | ≥ 0.78 |
-| **DKT (LSTM)**     | AUC-ROC     | ≥ 0.80 |
-|                    | RMSE        | ≤ 0.40 |
-| **Recommendation** | Precision@5 | ≥ 0.70 |
-|                    | Hit Rate@5  | ≥ 0.80 |
+| Mô hình            | Chỉ số      | Mục tiêu |
+| ------------------ | ----------- | -------- |
+| **LLM (Fix Hint)** | Accuracy    | ≥ 80%    |
+|                    | Macro F1    | ≥ 0.78   |
+| **DKT (LSTM)**     | AUC-ROC     | ≥ 0.80   |
+|                    | RMSE        | ≤ 0.40   |
+| **Recommendation** | Precision@5 | ≥ 0.70   |
+|                    | Hit Rate@5  | ≥ 0.80   |
 
 ---
 
-## Getting Started
+## Hướng dẫn cài đặt
 
-### Prerequisites
+### Yêu cầu
 
 - **Python 3.12+**
 - **Node.js 20+**
-- **PostgreSQL 16**
-- **Redis** (optional, for caching)
-- **Judge0** instance (for code execution)
+- **PostgreSQL 18**
+- **Redis** (tuỳ chọn, dùng cho caching)
+- **Judge0** instance (để chạy và chấm code)
 
 ### Backend
 
@@ -149,14 +135,14 @@ cd backend
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
-# Configure environment
+# Cấu hình môi trường
 cp .env.example .env
-# Edit .env with your DATABASE_URL, REDIS_URL, JUDGE0_URL, SECRET_KEY
+# Chỉnh sửa .env: DATABASE_URL, REDIS_URL, JUDGE0_URL, SECRET_KEY
 
-# Run migrations
+# Chạy migrations
 alembic upgrade head
 
-# Start server
+# Khởi động server
 uvicorn app.main:app --reload
 ```
 
@@ -166,22 +152,22 @@ uvicorn app.main:app --reload
 cd frontend
 npm install
 
-# Configure environment
+# Cấu hình môi trường
 cp .env.example .env
-# Edit .env with your VITE_API_BASE_URL
+# Chỉnh sửa .env: VITE_API_BASE_URL
 
-# Start dev server
+# Khởi động dev server
 npm run dev
 ```
 
 ### Database
 
 ```bash
-# PostgreSQL 16 must be running
-# Migrations are handled by Alembic:
+# PostgreSQL 16 phải đang chạy
+# Migration được xử lý qua Alembic:
 alembic upgrade head
 
-# Or apply schema directly:
+# Hoặc áp dụng schema trực tiếp:
 psql -U postgres -d codelab -f schema.sql
 ```
 
@@ -194,7 +180,7 @@ python scripts/seed_problems.py
 
 ---
 
-## Project Structure
+## Cấu trúc dự án
 
 ```
 coding_platform/
@@ -204,13 +190,13 @@ coding_platform/
 │   │   ├── models/            # SQLAlchemy models
 │   │   ├── schemas/           # Pydantic schemas
 │   │   ├── services/          # Business logic (cache, cursor, auth, judge0)
-│   │   ├── config.py          # App configuration
-│   │   ├── database.py        # DB connection
-│   │   └── main.py            # FastAPI app entry
+│   │   ├── config.py          # Cấu hình ứng dụng
+│   │   ├── database.py        # Kết nối DB
+│   │   └── main.py            # FastAPI entry point
 │   ├── alembic/               # Database migrations
 │   ├── tests/                 # Pytest tests
-│   ├── scripts/               # Data seeding scripts
-│   └── schema.sql             # Full database schema
+│   ├── scripts/               # Scripts seed dữ liệu
+│   └── schema.sql             # Schema cơ sở dữ liệu
 ├── frontend/
 │   ├── src/
 │   │   ├── api/               # API client (Axios)
@@ -219,64 +205,35 @@ coding_platform/
 │   │   ├── pages/             # Route pages
 │   │   ├── store/             # Zustand state management
 │   │   ├── types/             # TypeScript types
-│   │   ├── config/            # App constants & config
+│   │   ├── config/            # constants và config
 │   │   └── App.tsx            # Root component
 │   └── package.json
-└── docs/                      # Documentation
+└── docs/                      # Tài liệu dự án
 ```
 
 ---
 
-## Implementation Status
+## Tiến độ thực hiện
 
-### Completed
+### Đã hoàn thành
 
-- [x] User authentication (register, login, JWT)
-- [x] Problem listing with cursor-based pagination
-- [x] Topic-based filtering (multi-select, OR logic)
-- [x] Difficulty filtering & sort options
-- [x] Code editor integration (Monaco)
-- [x] Submission system with Judge0
-- [x] Database schema (PostgreSQL, 3NF)
-- [x] Redis caching for popular queries
-- [x] Responsive UI with skeleton loaders
+- [x] Xác thực người dùng (đăng ký, đăng nhập, JWT)
+- [x] Danh sách bài tập với cursor-based pagination
+- [x] Lọc theo chủ đề (multi-select, OR logic)
+- [x] Lọc theo độ khó & các tùy chọn sắp xếp
+- [x] Tích hợp Monaco Editor
+- [x] Hệ thống nộp bài với Judge0
+- [x] Schema cơ sở dữ liệu (PostgreSQL, 3NF)
+- [x] Redis caching cho các truy vấn phổ biến
+- [x] Giao diện responsive với skeleton loaders
 - [x] Accessibility (ARIA, keyboard navigation)
 
-### In Progress
+### Đang thực hiện
 
-- [ ] CodeBERT error classification pipeline
-- [ ] DKT skill tracking integration
+- [ ] Pipeline gợi ý hướng sửa lỗi theo level bằng LLM
+- [ ] Tích hợp DKT theo dõi kỹ năng
 - [ ] Recommendation engine
-- [ ] Skill radar chart visualization
-- [ ] Fix suggestion generation
-
----
-
-## API Documentation
-
-| Endpoint                       | Method | Description                  |
-| ------------------------------ | ------ | ---------------------------- |
-| `/api/auth/register`           | POST   | Create user account          |
-| `/api/auth/login`              | POST   | Authenticate, get JWT        |
-| `/api/auth/me`                 | GET    | Get current user profile     |
-| `/api/problems/paginated`      | GET    | List problems (cursor-based) |
-| `/api/problems/topics`         | GET    | List all available topics    |
-| `/api/problems/by-slug/{slug}` | GET    | Get problem details          |
-| `/api/submissions/`            | POST   | Submit code for grading      |
-
----
-
-## Academic Context
-
-This project is developed as a graduation thesis:
-
-- **Title**: "Xây dựng hệ thống gợi ý bài tập lập trình cá nhân hóa dựa trên phân tích lỗi mã nguồn"
-- **Author**: Trần Quốc (MSSV: 102220335, Class 22T_Nhat2)
-- **Advisor**: TS. Phạm Minh Tuấn
-- **Institution**: Trường Đại học Bách Khoa — Khoa Công nghệ Thông tin
-- **Year**: 2026
-
----
+- [ ] Radar chart bản đồ kỹ năng cá nhân
 
 ## License
 
