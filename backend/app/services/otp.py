@@ -5,10 +5,8 @@ import random
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Optional
 
-import httpx
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -102,7 +100,7 @@ class OTPService:
             minutes=self.OTP_EXPIRY_MINUTES
         )
 
-        # Send email via Resend API
+        # Send email via Mailtrap
         success = await self._send_email(email, otp_code, otp_type)
         if not success:
             return False, "Failed to send email. Please try again."
@@ -166,44 +164,7 @@ class OTPService:
         return bool(re.match(pattern, email))
 
     async def _send_email(self, email: str, otp_code: str, otp_type: str) -> bool:
-        """Send email via Resend API."""
-        # Check if Resend API key is configured
-        if not self.settings.RESEND_API_KEY:
-            print(f"[DEV] OTP for {email}: {otp_code}")
-            return True
+        """Send OTP email via Mailtrap."""
+        from app.services.email_provider import send_otp_email
 
-        subject = (
-            "Your Verification Code"
-            if otp_type == "register"
-            else "Password Reset Code"
-        )
-
-        template_path = Path(__file__).parent.parent / "templates" / "email_otp.html"
-        html_content = template_path.read_text(encoding="utf-8").replace(
-            "{otp_code}", otp_code
-        )
-
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    "https://api.resend.com/emails",
-                    headers={
-                        "Authorization": f"Bearer {self.settings.RESEND_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "from": self.settings.RESEND_FROM_EMAIL,
-                        "to": email,
-                        "subject": subject,
-                        "html": html_content,
-                    },
-                    timeout=10.0,
-                )
-                if response.status_code != 200:
-                    print(
-                        f"[ERROR] Resend API: {response.status_code} - {response.text}"
-                    )
-                return response.status_code == 200
-        except Exception as e:
-            print(f"[ERROR] Email send failed: {e}")
-            return False
+        return await send_otp_email(email, otp_code, otp_type)

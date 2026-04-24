@@ -35,10 +35,25 @@ class Settings(BaseSettings):
     )
     JUDGE0_AUTH_TOKEN: str = Field(default="", description="Judge0 API token")
 
-    # Resend Email - OPTIONAL
-    RESEND_API_KEY: str = Field(default="", description="Resend API key")
-    RESEND_FROM_EMAIL: str = Field(
-        default="onboarding@resend.dev", description="Sender email for Resend"
+    # Mailtrap Email - REQUIRED
+    MAILTRAP_API_TOKEN: str = Field(..., description="Mailtrap API key")
+    MAILTRAP_USE_SANDBOX: bool = Field(
+        default=True, description="Use sandbox mode")
+    MAILTRAP_INBOX_ID: int = Field(
+        default=4571496, description="Mailtrap inbox ID")
+    MAILTRAP_FROM_EMAIL: str = Field(
+        default="tranquoc1301@gmail.com", description="Sender email for Mailtrap"
+    )
+    MAILTRAP_FROM_NAME: str = Field(
+        default="Tran Quoc", description="Sender name")
+    MAILTRAP_TEMPLATE_WELCOME_UUID: str = Field(
+        default="334a0db3-58a4-49e1-bc0a-739dd97364af", description="Welcome email template UUID"
+    )
+    MAILTRAP_TEMPLATE_RESET_PASSWORD_UUID: str = Field(
+        default="2d4a2616-02be-40a4-ba57-59cd1b69e11e", description="Reset password template UUID"
+    )
+    MAILTRAP_TEMPLATE_REGISTER_UUID: str = Field(
+        default="bd07b561-b620-47a8-9347-18001be63bb6", description="Register email template UUID"
     )
 
     @field_validator("SECRET_KEY", mode="before")
