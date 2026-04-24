@@ -148,6 +148,10 @@ class VerdictResponse(BaseModel):
         default=None,
         description="Maximum execution time in ms across all test cases",
     )
+    submission_type: str | None = Field(
+        default=None,
+        description="Type of submission: 'run' or 'submit'",
+    )
     memory_kb: int | None = Field(
         default=None,
         description="Peak memory usage in KB during execution",

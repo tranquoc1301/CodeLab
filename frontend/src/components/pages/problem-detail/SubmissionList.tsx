@@ -11,9 +11,6 @@ interface SubmissionListProps {
   onSelectSubmission: (submission: SubmissionResult) => void;
 }
 
-/**
- * Format relative time (simple formatter without date-fns/dayjs)
- */
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
@@ -48,10 +45,15 @@ export const SubmissionList = memo(function SubmissionList({
   onSelectSubmission,
 }: SubmissionListProps) {
   const queryClient = useQueryClient();
-  const { data: submissions, isLoading } = useProblemSubmissions(problemId, true);
+  const { data: submissions, isLoading } = useProblemSubmissions(
+    problemId,
+    true,
+  );
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["submissions", "problem", problemId] });
+    queryClient.invalidateQueries({
+      queryKey: ["submissions", "problem", problemId],
+    });
   };
 
   if (isLoading) {

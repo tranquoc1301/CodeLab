@@ -108,9 +108,9 @@ export default function ProblemDetail() {
   // Query client for query invalidation
   const queryClient = useQueryClient();
 
-  // Auto-switch to submissions tab after successful submit, and invalidate query
+  // Auto-switch to submissions tab after submit (not after run), and invalidate query
   useEffect(() => {
-    if (verdict && !isSubmitting && verdict.status) {
+    if (verdict && !isSubmitting && verdict.status && verdict.submission_type === "submit") {
       queryClient.invalidateQueries({ queryKey: ["submissions", "problem", problem?.id] });
       // eslint-disable-next-line react-hooks/set-state-in-effect
       handleSwitchToSubmissionsTab();

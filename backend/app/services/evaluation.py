@@ -423,6 +423,7 @@ async def evaluate_submission(
             "total_test_cases": total_count,
             "runtime_ms": int(max_runtime_ms) if max_runtime_ms else None,
             "memory_kb": peak_memory_kb,
+            "submission_type": "run" if sample_only else "submit",
             "last_test_case_output": truncate(last_tc.get("stdin"))
             if return_test_case_data
             else None,
@@ -445,6 +446,7 @@ async def evaluate_submission(
         "total_test_cases": total_count,
         "runtime_ms": int(max_runtime_ms) if max_runtime_ms else None,
         "memory_kb": peak_memory_kb,
+        "submission_type": "run" if sample_only else "submit",
         "last_test_case_output": truncate(first_failure["actual_output"])
         if return_test_case_data
         else None,

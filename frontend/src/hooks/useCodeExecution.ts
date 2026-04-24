@@ -8,8 +8,16 @@ interface UseCodeExecutionReturn {
   verdict: VerdictResult | null;
   isRunning: boolean;
   isSubmitting: boolean;
-  runCode: (code: string, language: Language, problemId: number | undefined) => Promise<void>;
-  submitCode: (code: string, language: Language, problemId: number | undefined) => Promise<void>;
+  runCode: (
+    code: string,
+    language: Language,
+    problemId: number | undefined,
+  ) => Promise<void>;
+  submitCode: (
+    code: string,
+    language: Language,
+    problemId: number | undefined,
+  ) => Promise<void>;
   resetVerdict: () => void;
 }
 
@@ -33,9 +41,6 @@ export function useCodeExecution(): UseCodeExecutionReturn {
         });
         setVerdict(res.data as VerdictResult);
       } catch {
-        // 401 handled by axios interceptor (logout + redirect).
-        // For other errors, the interceptor rejects the promise but we
-        // still need to give the user visible feedback.
         toast.error("Code execution failed. Please try again.");
       } finally {
         setIsRunning(false);
@@ -71,5 +76,12 @@ export function useCodeExecution(): UseCodeExecutionReturn {
     setVerdict(null);
   }, []);
 
-  return { verdict, isRunning, isSubmitting, runCode, submitCode, resetVerdict };
+  return {
+    verdict,
+    isRunning,
+    isSubmitting,
+    runCode,
+    submitCode,
+    resetVerdict,
+  };
 }

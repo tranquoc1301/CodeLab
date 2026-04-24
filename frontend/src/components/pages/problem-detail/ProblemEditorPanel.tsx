@@ -42,12 +42,15 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
   };
 
   // Use consoleHeight to avoid TS warning about unused variable
-  const consoleHeightPercent = `${consoleHeight}%`;
+  const consoleHeightPercent = "var(--console-height, 45%)";
 
   return (
     <div
       className="flex flex-col min-h-0"
-      style={{ width: editorMaximized ? "100%" : undefined }}
+      style={{ 
+        width: editorMaximized ? "100%" : undefined,
+        "--console-height": `${consoleHeight}%`,
+      } as React.CSSProperties}
       ref={editorPanelRef}
     >
       <div className="flex items-center justify-between px-3 py-1.5 bg-card/80 border-b border-border/60">
@@ -80,7 +83,7 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
 
       <div
         className="flex flex-col min-h-0"
-        style={{ height: `calc(100% - ${consoleHeightPercent})` }}
+        style={{ height: "calc(100% - var(--console-height, 45%))" }}
       >
         <CodeEditor language={language} value={code} onChange={onCodeChange} />
       </div>

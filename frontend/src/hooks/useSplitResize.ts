@@ -38,6 +38,14 @@ export function useSplitResize(
   // Refs for drag state (avoid re-renders during drag)
   const isHorizontalDragging = useRef(false);
   const isVerticalDragging = useRef(false);
+  const splitPercentRef = useRef(initialSplit);
+  const consoleHeightRef = useRef(initialConsoleHeight);
+
+  // Sync ref with state for initial render
+  useEffect(() => {
+    splitPercentRef.current = splitPercent;
+    consoleHeightRef.current = consoleHeight;
+  }, [splitPercent, consoleHeight]);
 
   const handleHorizontalMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -53,7 +61,7 @@ export function useSplitResize(
     document.body.style.userSelect = "none";
   }, []);
 
-  // Direct state updates for smooth cursor-following
+  // Use CSS custom properties for smooth resize (no React re-renders)
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isHorizontalDragging.current && !isVerticalDragging.current) return;
@@ -68,7 +76,9 @@ export function useSplitResize(
           Math.max(percent, minSplit),
           maxSplit,
         );
-        setSplitPercent(clampedPercent);
+        splitPercentRef.current = clampedPercent;
+        // Direct DOM update for performance
+        root.style.setProperty("--split-percent", `${clampedPercent}%`);
       }
 
       if (isVerticalDragging.current) {
@@ -82,11 +92,19 @@ export function useSplitResize(
           Math.max(percent, minConsole),
           maxConsole,
         );
-        setConsoleHeight(clampedConsole);
+        consoleHeightRef.current = clampedConsole;
+        // Direct DOM update for performance
+        container.style.setProperty("--console-height", `${clampedConsole}%`);
       }
     };
 
     const handleMouseUp = () => {
+      if (isHorizontalDragging.current) {
+        setSplitPercent(splitPercentRef.current);
+      }
+      if (isVerticalDragging.current) {
+        setConsoleHeight(consoleHeightRef.current);
+      }
       isHorizontalDragging.current = false;
       isVerticalDragging.current = false;
       document.body.style.cursor = "";
@@ -109,4 +127,4 @@ export function useSplitResize(
     handleHorizontalMouseDown,
     handleVerticalMouseDown,
   };
-}
+};

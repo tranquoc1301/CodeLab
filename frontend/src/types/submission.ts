@@ -28,6 +28,7 @@ export interface VerdictResult {
   total_test_cases: number;
   runtime_ms: number | null;
   memory_kb: number | null;
+  submission_type: "run" | "submit" | null;
   last_test_case_output: string | null;
   expected_output: string | null;
   error_message: string | null;
