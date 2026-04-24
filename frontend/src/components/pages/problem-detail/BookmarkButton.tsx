@@ -55,7 +55,7 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
   const { data: listsContainingProblem } = useQuery<ListContainingProblem[]>({
     queryKey: ["problemLists", "containing", problemId],
     queryFn: () => problemListApi.getListsContainingProblem(problemId).then((r) => r.data),
-    enabled: isAuthenticated && open,
+    enabled: isAuthenticated,
     staleTime: 1000 * 60, // 1 minute - quick stale
   });
 
