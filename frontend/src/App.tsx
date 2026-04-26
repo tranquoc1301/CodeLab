@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import {
   BrowserRouter,
   Routes,
@@ -6,25 +6,25 @@ import {
   useNavigate,
   useLocation,
 } from "react-router-dom";
-import { Suspense, lazy, useEffect } from "react";
-import { useAuth } from "./store/auth";
-import { Header } from "./components/header";
-import { Footer } from "./components/footer";
-import { Toaster } from "./components/ui";
-import { ROUTES, API } from "./config";
-import api from "./api";
-import { AuthModal } from "./components/auth/AuthModal";
+import { Suspense, lazy, useEffect, useMemo, type ReactNode } from "react";
+import { useAuth } from "@/app/store/auth";
+import { Header } from "@/app/layouts/Header";
+import { Footer } from "@/app/layouts/Footer";
+import { API } from "@/shared/config";
+import { ROUTES } from "@/app/router";
+import api from "@/shared/api";
+import { AuthModal } from "@/features/auth/components/AuthModal";
 
 // Code-split route components - Monaco loaded only when needed
-const Home = lazy(() => import("./pages/Home"));
-const ProblemDetail = lazy(() => import("./pages/ProblemDetail"));
-const Login = lazy(() => import("./pages/Login"));
-const Register = lazy(() => import("./pages/Register"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
-const Profile = lazy(() => import("./pages/Profile"));
-const Submissions = lazy(() => import("./pages/Submissions"));
-const ListDetail = lazy(() => import("./pages/ListDetail"));
-const ProblemLists = lazy(() => import("./pages/ProblemLists"));
+const Home = lazy(() => import("@/features/problems/pages/Home"));
+const ProblemDetail = lazy(() => import("@/features/problems/pages/ProblemDetail"));
+const Login = lazy(() => import("@/features/auth/pages/Login"));
+const Register = lazy(() => import("@/features/auth/pages/Register"));
+const ForgotPassword = lazy(() => import("@/features/auth/pages/ForgotPassword"));
+const Profile = lazy(() => import("@/features/profile/pages/Profile"));
+const Submissions = lazy(() => import("@/features/submissions/pages/Submissions"));
+const ListDetail = lazy(() => import("@/features/problems/pages/ListDetail"));
+const ProblemLists = lazy(() => import("@/features/problems/pages/ProblemLists"));
 
 // Loading fallback for code-split components
 function RouteLoader() {
@@ -37,34 +37,44 @@ function RouteLoader() {
 
 const queryClient = new QueryClient();
 
-function AuthInitializer({ children }: { children: React.ReactNode }) {
+function AuthInitializer({ children }: { children: ReactNode }) {
   const { token, setUser, checkTokenExpiration } = useAuth();
   const navigate = useNavigate();
 
-  // Start token validation immediately, await only when navigation needed
+  // useQuery gives automatic request deduplication & caching
+  // refetchOnMount ensures user data refreshes on page reload
+  useQuery({
+    queryKey: ["auth-me"],
+    queryFn: () => api.get(API.ENDPOINTS.AUTH_ME).then((res) => res.data),
+    enabled: !!token,
+    staleTime: 5 * 60 * 1000, // 5 min — avoid redundant refetches
+    refetchOnMount: "always",
+  });
+
+  // Combined: refetch user on token change + check expiration on interval
   useEffect(() => {
     if (!token) return;
 
-    // Fire user fetch immediately (no await) - start Promise early
-    api
-      .get(API.ENDPOINTS.AUTH_ME)
-      .then((res) => setUser(res.data))
-      .catch(() => {
-        console.error("Failed to fetch user data");
-      });
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- token is stable auth state
-  }, [token]);
+    // Sync user from query cache when it arrives
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.query.queryKey[0] === "auth-me" && event.type === "updated") {
+        const data = event.query.state.data;
+        if (data) setUser(data);
+      }
+    });
 
-  // Check token expiration every 30s using setInterval (not dependent on fetch)
-  useEffect(() => {
+    // Token expiration check every 30s
     const interval = setInterval(() => {
       if (checkTokenExpiration()) {
         navigate("/login");
       }
     }, 30000);
 
-    return () => clearInterval(interval);
-  }, [checkTokenExpiration, navigate]);
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+  }, [token, checkTokenExpiration, navigate, setUser, queryClient]);
 
   return <>{children}</>;
 }
@@ -81,7 +91,11 @@ export default function App() {
 
 function AppLayout() {
   const location = useLocation();
-  const isProblemDetailPage = location.pathname.startsWith("/problems/");
+  // Memoize: only recomputes when pathname actually changes
+  const isProblemDetailPage = useMemo(
+    () => location.pathname.startsWith("/problems/"),
+    [location.pathname]
+  );
   const { showAuthModal } = useAuth();
 
   return (
@@ -107,7 +121,6 @@ function AppLayout() {
         </main>
         {!isProblemDetailPage && <Footer />}
       </div>
-      <Toaster />
       {showAuthModal && <AuthModal />}
     </AuthInitializer>
   );
