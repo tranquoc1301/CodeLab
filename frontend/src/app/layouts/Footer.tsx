@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Code2, Heart, ExternalLink, Link as LinkIcon } from "lucide-react";
+import { Code2, Heart } from "lucide-react";
 import { cn } from "@/shared/utils/utils";
 import { ROUTES, COPY } from '@/app/router';
 import { useAuth } from "@/app/store/auth";
@@ -38,55 +38,22 @@ export function Footer({ className }: FooterProps) {
           </div>
 
           {/* Links */}
-          <div className="flex items-center gap-8">
-            <nav className="flex items-center gap-6 text-sm">
+          <nav className="flex items-center gap-6 text-sm">
+            <Link
+              to={ROUTES.HOME}
+              className="text-muted-foreground hover:text-foreground transition-colors duration-200 hover:underline underline-offset-4"
+            >
+              Problems
+            </Link>
+            {isAuthenticated && (
               <Link
-                to={ROUTES.HOME}
+                to={ROUTES.SUBMISSIONS}
                 className="text-muted-foreground hover:text-foreground transition-colors duration-200 hover:underline underline-offset-4"
               >
-                Problems
+                Submissions
               </Link>
-              {isAuthenticated && (
-                <Link
-                  to={ROUTES.SUBMISSIONS}
-                  className="text-muted-foreground hover:text-foreground transition-colors duration-200 hover:underline underline-offset-4"
-                >
-                  Submissions
-                </Link>
-              )}
-            </nav>
-
-            {/* Social Links */}
-            <div className="flex items-center gap-3">
-              <a
-                href="https://github.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200"
-                aria-label="GitHub"
-              >
-                <LinkIcon className="h-4 w-4" aria-hidden="true" />
-              </a>
-              <a
-                href="https://twitter.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200"
-                aria-label="Twitter"
-              >
-                <LinkIcon className="h-4 w-4" aria-hidden="true" />
-              </a>
-              <a
-                href="https://github.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
-              >
-                <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                <span className="hidden sm:inline">Source</span>
-              </a>
-            </div>
-          </div>
+            )}
+          </nav>
         </div>
 
         {/* Bottom bar */}
