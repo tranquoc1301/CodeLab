@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Trash2,
@@ -8,6 +8,7 @@ import {
   Loader2,
   ListChecks,
   FolderOpen,
+  ArrowLeft,
 } from "lucide-react";
 import { useAuth } from "@/app/store/auth";
 import { toast } from "sonner";
@@ -20,6 +21,9 @@ import { ROUTES } from "@/app/router";
 import { ProblemCard } from "@/features/problems/components/ProblemCard";
 import { cn } from "@/shared/utils/utils";
 import { Button } from "@/shared/components/ui/button";
+import { Badge } from "@/shared/components/ui/badge";
+import { Skeleton } from "@/shared/components/ui/skeleton";
+import { ProblemCardSkeleton } from "@/features/problems/components/ProblemCardSkeleton";
 
 interface ListProblemsResponse {
   problems: ProblemSummaryType[];
@@ -179,14 +183,15 @@ export default function ListDetail() {
   // Early Returns
   if (isLoadingList || !canShowDelete) {
     return (
-      <div className="py-6 space-y-4">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 w-48 bg-muted rounded" />
-          <div className="h-4 w-32 bg-muted rounded" />
+      <div className="py-6 space-y-6">
+        <Skeleton className="h-4 w-28" />
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-4 w-36" />
         </div>
         <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-24 bg-muted rounded-lg" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <ProblemCardSkeleton key={i} />
           ))}
         </div>
       </div>
@@ -195,17 +200,30 @@ export default function ListDetail() {
 
   return (
     <div className="py-6 space-y-6">
+      {/* Back Navigation */}
+      <Link
+        to={ROUTES.problemLists()}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 group"
+      >
+        <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
+        My Lists
+      </Link>
+
       {/* Header Section */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight truncate">
-              {list.name}
-            </h1>
-            <p className="text-muted-foreground mt-1 flex items-center gap-2">
-              <FolderOpen className="h-4 w-4" />
-              {totalCount} problem{totalCount !== 1 ? "s" : ""} in this list
-            </p>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight truncate">
+                {list.name}
+              </h1>
+              <Badge
+                variant="secondary"
+                className="shrink-0 text-xs font-normal"
+              >
+                {totalCount} problem{totalCount !== 1 ? "s" : ""}
+              </Badge>
+            </div>
             {list.description && (
               <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
                 {list.description}
@@ -248,12 +266,12 @@ export default function ListDetail() {
             : "max-h-0 opacity-0",
         )}
       >
-        <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border animate-in slide-in-from-top-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
+        <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/50 rounded-lg border border-border/60 animate-in slide-in-from-top-2">
+          <div className="flex items-center gap-2.5">
+            <Badge className="h-7 min-w-[1.75rem] px-2 text-xs font-semibold">
               {selectedProblems.size}
-            </div>
-            <span className="text-sm font-medium">selected</span>
+            </Badge>
+            <span className="text-sm font-medium text-muted-foreground">selected</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -261,7 +279,7 @@ export default function ListDetail() {
               variant="ghost"
               size="sm"
               onClick={toggleSelectAll}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-sm text-muted-foreground hover:text-foreground"
             >
               {isAllSelected ? "Deselect All" : "Select All"}
             </Button>
@@ -270,14 +288,14 @@ export default function ListDetail() {
               size="sm"
               onClick={handleBulkDelete}
               disabled={bulkRemoveMutation.isPending}
-              className="min-w-[120px]"
+              className="min-w-[100px]"
             >
               {bulkRemoveMutation.isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Trash2 className="h-4 w-4 mr-2" />
               )}
-              Delete
+              Remove
             </Button>
           </div>
         </div>
@@ -287,7 +305,7 @@ export default function ListDetail() {
       {isLoadingProblems ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-24 bg-muted rounded-lg animate-pulse" />
+            <ProblemCardSkeleton key={i} />
           ))}
         </div>
       ) : problems.length > 0 ? (
@@ -349,12 +367,12 @@ export default function ListDetail() {
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-muted/60 ring-1 ring-border/30">
             <FolderOpen className="h-8 w-8 text-muted-foreground" />
           </div>
-          <p className="text-lg font-medium">No problems in this list yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add problems from the problems page using the bookmark button
+          <p className="text-lg font-semibold">No problems in this list yet</p>
+          <p className="mt-1.5 text-sm text-muted-foreground max-w-xs">
+            Browse problems and use the bookmark button to add them to this list.
           </p>
         </div>
       )}

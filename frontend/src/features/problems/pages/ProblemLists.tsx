@@ -1,7 +1,10 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { FolderPlus, Pencil, Trash2, FolderOpen } from "lucide-react";
+import { FolderPlus, Pencil, Trash2, FolderOpen, ChevronRight } from "lucide-react";
+import { Skeleton } from "@/shared/components/ui/skeleton";
+import { Badge } from "@/shared/components/ui/badge";
+import { cn } from "@/shared/utils/utils";
 import { useAuth } from "@/app/store/auth";
 import {
   Card,
@@ -179,17 +182,35 @@ export default function ProblemLists() {
           <CardTitle>{COPY.PROFILE.PROBLEM_LISTS_TITLE}</CardTitle>
           <CardDescription>Your saved problem lists</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           {listsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-muted-foreground">Loading...</div>
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-4 rounded-lg px-4 py-4"
+                >
+                  <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-3 w-1/5" />
+                  </div>
+                  <Skeleton className="h-5 w-12 rounded-full" />
+                </div>
+              ))}
             </div>
           ) : lists && lists.length > 0 ? (
-            <div className="py-4">
+            <div className="space-y-1">
               {lists.map((list) => (
                 <div
                   key={list.id}
-                  className="group flex items-center justify-between rounded-md px-3 py-3 hover:bg-muted cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className={cn(
+                    "group flex items-center gap-4 rounded-lg px-4 py-3.5",
+                    "cursor-pointer transition-all duration-200",
+                    "hover:bg-muted/60",
+                    "border border-transparent hover:border-border/40",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  )}
                   onClick={() => handleListClick(list.id)}
                   role="button"
                   tabIndex={0}
@@ -200,20 +221,29 @@ export default function ProblemLists() {
                     }
                   }}
                 >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/80 shrink-0 transition-colors duration-200 group-hover:bg-primary/10">
+                    <FolderOpen className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-primary" />
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium truncate">{list.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium truncate group-hover:text-primary transition-colors duration-200">
+                        {list.name}
+                      </h3>
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 text-[11px] px-2 py-0 h-5 font-normal"
+                      >
+                        {list.problem_count}
+                      </Badge>
+                    </div>
                     {list.description && (
-                      <p className="text-sm text-muted-foreground truncate">
+                      <p className="text-sm text-muted-foreground truncate mt-0.5">
                         {list.description}
                       </p>
                     )}
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {list.problem_count} problem
-                      {list.problem_count !== 1 ? "s" : ""}
-                    </p>
                   </div>
                   <div
-                    className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Button
@@ -223,10 +253,10 @@ export default function ProblemLists() {
                         e.stopPropagation();
                         openEditDialog(list);
                       }}
-                      className="text-muted-foreground hover:text-foreground"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                       aria-label="Edit list"
                     >
-                      <Pencil className="h-4 w-4" />
+                      <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -235,28 +265,29 @@ export default function ProblemLists() {
                         e.stopPropagation();
                         openDeleteDialog(list);
                       }}
-                      className="text-muted-foreground hover:text-destructive"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                       aria-label="Delete list"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </div>
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-muted/60 ring-1 ring-border/30">
                 <FolderOpen className="h-8 w-8 text-muted-foreground" />
               </div>
-              <p className="text-lg font-medium">
+              <p className="text-lg font-semibold">
                 {COPY.PROFILE.PROBLEM_LISTS_EMPTY}
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Create your first list to start saving problems
+              <p className="mt-1.5 text-sm text-muted-foreground max-w-xs">
+                Organize your favorite problems into lists for easy access and focused practice.
               </p>
               <Button
-                className="mt-4"
+                className="mt-5"
                 onClick={() => setCreateDialogOpen(true)}
               >
                 <FolderPlus className="h-4 w-4 mr-2" />
