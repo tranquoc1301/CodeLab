@@ -15,9 +15,6 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Topic slug groupings (matches slugs stored in `topics.slug` DB column)
-# ---------------------------------------------------------------------------
 
 ALGORITHM_TOPICS: frozenset[str] = frozenset([
     "dynamic-programming", "dp", "graph", "tree", "binary-tree",

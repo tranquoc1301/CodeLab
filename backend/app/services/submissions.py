@@ -11,7 +11,6 @@ from app.models.submission import Submission, SubmissionTestResult
 from app.models.user import User
 from app.schemas.submission import SubmissionCreate, SubmissionResponse, VerdictResponse
 from app.services.evaluation import evaluate_submission
-from app.services.error_annotations import create_or_update_error_annotation
 
 logger = logging.getLogger(__name__)
 
@@ -107,16 +106,6 @@ async def evaluate_code(
         test_case_results=verdict.get("test_case_results", []),
     )
     await db.commit()
-
-    # Best-effort error annotation (non-blocking)
-    try:
-        await create_or_update_error_annotation(db, new_submission.id, verdict)
-    except Exception as e:
-        logger.warning(
-            "Failed to create error annotation for submission %s: %s",
-            new_submission.id,
-            e,
-        )
 
     response = VerdictResponse(**verdict)
     response.submission_id = new_submission.id

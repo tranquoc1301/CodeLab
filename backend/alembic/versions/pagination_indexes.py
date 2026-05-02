@@ -53,8 +53,7 @@ def upgrade() -> None:
         'problems',
         ['frontend_id'],
         unique=False,
-        postgresql_using='btree',
-        postgresql_concurrently=True
+        postgresql_using='btree'
     )
     
     op.create_index(
@@ -62,8 +61,7 @@ def upgrade() -> None:
         'problems',
         ['created_at'],
         unique=False,
-        postgresql_using='btree',
-        postgresql_concurrently=True
+        postgresql_using='btree'
     )
     
     op.create_index(
@@ -71,8 +69,7 @@ def upgrade() -> None:
         'problems',
         ['difficulty', 'created_at'],
         unique=False,
-        postgresql_using='btree',
-        postgresql_concurrently=True
+        postgresql_using='btree'
     )
 
 
