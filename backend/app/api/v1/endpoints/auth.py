@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -61,6 +61,7 @@ async def _check_verify_rate_limit(
 
 @router.post("/login", response_model=Token)
 async def login(
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db_session: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -75,7 +76,25 @@ async def login(
             detail="Invalid credentials",
         )
     access_token = create_access_token(data={"sub": user.username})
+
+    # Set HTTP-only cookie for cookie-based auth
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax",
+        max_age=86400,  # 24 hours
+    )
+
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/logout")
+async def logout(response: Response) -> dict:
+    """Logout user by clearing the access token cookie."""
+    response.delete_cookie(key="access_token")
+    return {"message": "Logged out successfully"}
 
 
 @router.post("/send-otp")

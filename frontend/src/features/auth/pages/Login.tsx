@@ -1,10 +1,7 @@
 import { useNavigate, Link } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { User, LogIn } from "lucide-react";
-import api from "@/shared/api";
 import { useAuth } from "@/app/store/auth";
 import { getAndClearIntent } from "@/app/store/authGuard";
 import {
@@ -19,20 +16,17 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { PasswordInput } from "@/features/auth/components/PasswordInput";
-import {API, COPY} from "@/shared/config";
+import {COPY} from "@/shared/config";
 import { ROUTES } from "@/app/router";
 import type { User as UserData } from "@/shared/types";
 import { loginSchema } from "@/shared/utils/validation";
-
-type LoginFormData = z.infer<typeof loginSchema>;
-
-export interface LoginProps {
-  minimal?: boolean;
-}
+import { authApi } from "@/features/auth/api";
+import { useLoginMutation } from "@/features/auth/hooks";
+import type { LoginFormData, LoginProps } from "@/features/auth/types";
 
 export default function Login({ minimal = false }: LoginProps) {
   const navigate = useNavigate();
-  const { setToken, setUser, closeLoginModal, loginRedirectPath } = useAuth();
+  const { setUser, closeLoginModal, loginRedirectPath } = useAuth();
 
   const {
     register,
@@ -48,21 +42,11 @@ export default function Login({ minimal = false }: LoginProps) {
     mode: "onBlur",
   });
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: LoginFormData) => {
-      const formData = new URLSearchParams();
-      formData.append("username", data.username);
-      formData.append("password", data.password);
-      const res = await api.post(API.ENDPOINTS.AUTH_LOGIN, formData, {
-        headers: { "Content-Type": API.HEADERS.FORM_URLENCODED },
-      });
-      return res.data;
-    },
-    onSuccess: async (data) => {
-      setToken(data.access_token);
-
+  const loginMutation = useLoginMutation({
+    onSuccess: async () => {
+      // Cookie is set by backend automatically, just fetch user data
       try {
-        const userRes = await api.get(API.ENDPOINTS.AUTH_ME);
+        const userRes = await authApi.getMe();
         setUser(userRes.data as UserData);
       } catch (err) {
         console.error("Failed to fetch user data:", err);

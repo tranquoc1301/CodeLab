@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Clock, Zap, FileCode } from "lucide-react";
-import { useProblemSubmissions } from "@/shared/hooks/useProblemSubmissions";
+import { useProblemSubmissions } from "@/features/problems/hooks/useProblemSubmissions";
 import type { SubmissionResult } from "@/shared/types";
 import { getStatusConfig } from "@/shared/config/status";
 

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bookmark, Plus, Check, Loader2, AlertCircle } from "lucide-react";
-import { problemListApi, type ProblemList } from "@/shared/api/problem-lists";
+import { problemListApi, type ProblemList } from "@/features/problems/api";
 import { useAuth } from "@/app/store/auth";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -95,7 +95,6 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
       setError("Problem is already in this list");
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["problemLists"] });
       queryClient.invalidateQueries({ queryKey: ["problemLists", "containing", problemId] });
     },
   });
@@ -131,7 +130,6 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["problemLists"] });
       queryClient.invalidateQueries({ queryKey: ["problemLists", "containing", problemId] });
     },
   });

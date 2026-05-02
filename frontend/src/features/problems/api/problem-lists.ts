@@ -1,4 +1,4 @@
-import api from ".";
+import api from "@/shared/api";
 import {API} from "@/shared/config";
 import type { ProblemSummary } from "@/shared/types/problem";
 

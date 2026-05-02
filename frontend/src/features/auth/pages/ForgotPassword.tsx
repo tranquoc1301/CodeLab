@@ -3,10 +3,9 @@ import { useNavigate, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { isAxiosError } from "axios";
 import { Mail, Lock, AlertCircle, CheckCircle, ArrowLeft } from "lucide-react";
-import api from "@/shared/api";
+import { authApi } from "@/features/auth/api";
 import {
   Card,
   CardContent,
@@ -22,18 +21,13 @@ import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { PasswordInput } from "@/features/auth/components/PasswordInput";
 import { PasswordStrength } from "@/features/auth/components/PasswordStrength";
 import { OTPInput } from "@/features/auth/components/OTPInput";
-import {API, COPY} from "@/shared/config";
+import {COPY} from "@/shared/config";
 import { ROUTES } from "@/app/router";
 import { emailSchema, otpSchema, resetSchema } from "@/shared/utils/validation";
-
-type Step = "email" | "otp" | "reset";
-
-type EmailFormData = z.infer<typeof emailSchema>;
-type OtpFormData = z.infer<typeof otpSchema>;
-type ResetFormData = z.infer<typeof resetSchema>;
+import type { ForgotPasswordStep, EmailFormData, OtpFormData, ResetFormData } from "@/features/auth/types";
 
 export default function ForgotPassword() {
-  const [step, setStep] = useState<Step>("email");
+  const [step, setStep] = useState<ForgotPasswordStep>("email");
   const [countdown, setCountdown] = useState(0);
   const [tempToken, setTempToken] = useState("");
   const [storedEmail, setStoredEmail] = useState("");
@@ -98,10 +92,7 @@ export default function ForgotPassword() {
   // Send OTP mutation
   const sendOtpMutation = useMutation({
     mutationFn: async (email: string) => {
-      const res = await api.post(API.ENDPOINTS.AUTH_SEND_OTP, {
-        email,
-        otp_type: "forgot_password",
-      });
+      const res = await authApi.sendOtp(email, "forgot_password");
       return res.data;
     },
     onSuccess: () => {
@@ -122,11 +113,7 @@ export default function ForgotPassword() {
   // Verify OTP mutation
   const verifyOtpMutation = useMutation({
     mutationFn: async ({ email, otp }: { email: string; otp: string }) => {
-      const res = await api.post(API.ENDPOINTS.AUTH_VERIFY_OTP, {
-        email,
-        otp_code: otp,
-        otp_type: "forgot_password",
-      });
+      const res = await authApi.verifyOtp(email, otp, "forgot_password");
       return res.data;
     },
     onSuccess: (data) => {
@@ -154,11 +141,7 @@ export default function ForgotPassword() {
       tempToken: string;
       password: string;
     }) => {
-      const res = await api.post(API.ENDPOINTS.AUTH_RESET_PASSWORD, {
-        email,
-        temp_token: tempToken,
-        new_password: password,
-      });
+      const res = await authApi.resetPassword(email, tempToken, password);
       return res.data;
     },
     onSuccess: () => {

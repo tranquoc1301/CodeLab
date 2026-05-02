@@ -1,15 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { FileCode, Filter, AlertCircle, RefreshCw } from "lucide-react";
-import api from "@/shared/api";
-import {API, COPY} from "@/shared/config";
+import {COPY} from "@/shared/config";
 import { Button } from "@/shared/components/ui/button";
 import { ROUTES } from "@/app/router";
-import { useSubmissionFilters } from "@/shared/hooks/useSubmissionFilters";
+import { useSubmissionFilters } from "@/features/submissions/hooks/useSubmissionFilters";
 import { FilterDropdown } from "@/shared/components/FilterDropdown";
 import { SubmissionCard } from "@/features/submissions/components/SubmissionCard";
 import { SubmissionSkeleton } from "@/features/submissions/components/SubmissionSkeleton";
-import type { Submission } from "@/shared/types";
+import { useSubmissions } from "@/features/submissions/hooks";
 import { useState } from "react";
 
 export default function Submissions() {
@@ -21,17 +19,7 @@ export default function Submissions() {
     isLoading,
     error,
     refetch,
-  } = useQuery<Submission[]>({
-    queryKey: ["submissions", page],
-    queryFn: async () => {
-      const res = await api.get(API.ENDPOINTS.SUBMISSIONS, {
-        params: { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE },
-      });
-      return res.data;
-    },
-    staleTime: 1000 * 30, // 30 seconds - user may submit frequently
-    placeholderData: (previousData) => previousData, // Keep previous data while fetching next page
-  });
+  } = useSubmissions(page, PAGE_SIZE);
 
   // Filter state
   const {

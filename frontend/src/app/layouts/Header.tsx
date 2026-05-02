@@ -17,7 +17,6 @@ import { useAuth } from "@/app/store/auth";
 import { useThemeStore } from "@/app/store/theme";
 import { cn } from "@/shared/utils/utils";
 import { ROUTES, COPY } from "@/app/router";
-import { AuthModal } from "@/features/auth/components/AuthModal";
 import { Button } from "@/shared/components/ui/button";
 
 function ThemeToggle() {
@@ -41,7 +40,7 @@ function ThemeToggle() {
 }
 
 export function Header() {
-  const { isAuthenticated, user, logout, showLoginModal } =
+  const { isAuthenticated, user, logout } =
     useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -375,7 +374,6 @@ export function Header() {
         )}
       </header>
 
-      {showLoginModal && <AuthModal />}
     </>
   );
 }

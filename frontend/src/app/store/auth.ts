@@ -1,51 +1,47 @@
 import { create } from "zustand";
-import {STORAGE_KEYS} from "@/shared/config";
 import type { User } from "@/shared/types";
-import { isTokenExpired } from "@/shared/utils/jwt";
+import api from "@/shared/api";
 
 interface AuthState {
-  token: string | null;
   user: User | null;
+  isLoading: boolean;
   showLoginModal: boolean;
   loginRedirectPath: string | null;
   showAuthModal: boolean;
   authModalTab: "login" | "register";
-  setToken: (token: string) => void;
   setUser: (user: User) => void;
-  logout: () => void;
+  fetchUser: () => Promise<void>;
+  logout: () => Promise<void>;
   openLoginModal: (redirectPath?: string) => void;
   closeLoginModal: () => void;
   openAuthModal: (tab?: "login" | "register") => void;
   closeAuthModal: () => void;
   setAuthModalTab: (tab: "login" | "register") => void;
-  checkTokenExpiration: () => boolean;
 }
 
-const getInitialToken = (): string | null => {
-  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-  if (token && isTokenExpired(token)) {
-    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-    return null;
-  }
-  return token;
-};
-
-export const useAuthStore = create<AuthState>((set, get) => ({
-  token: getInitialToken(),
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
+  isLoading: true,
   showLoginModal: false,
   loginRedirectPath: null,
   showAuthModal: false,
   authModalTab: "login",
-  setToken: (token: string) => {
-    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
-    set({ token });
-  },
   setUser: (user: User) => set({ user }),
-  logout: () => {
-    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  fetchUser: async () => {
+    try {
+      const response = await api.get('/auth/me');
+      set({ user: response.data, isLoading: false });
+    } catch {
+      set({ user: null, isLoading: false });
+    }
+  },
+  logout: async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Ignore errors
+    }
     set({
-      token: null,
       user: null,
       showLoginModal: false,
       loginRedirectPath: null,
@@ -68,36 +64,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setAuthModalTab: (tab: "login" | "register") => {
     set({ authModalTab: tab });
   },
-  checkTokenExpiration: () => {
-    const { token, logout } = get();
-    if (token && isTokenExpired(token)) {
-      logout();
-      return true;
-    }
-    return false;
-  },
 }));
 
 export const useAuth = () => {
   const state = useAuthStore();
-  const isAuthenticated = !!state.token;
+  const isAuthenticated = !!state.user;
 
   return {
-    token: state.token,
     user: state.user,
     isAuthenticated,
+    isLoading: state.isLoading,
     showLoginModal: state.showLoginModal,
     loginRedirectPath: state.loginRedirectPath,
     showAuthModal: state.showAuthModal,
     authModalTab: state.authModalTab,
-    setToken: state.setToken,
     setUser: state.setUser,
+    fetchUser: state.fetchUser,
     logout: state.logout,
     openLoginModal: state.openLoginModal,
     closeLoginModal: state.closeLoginModal,
     openAuthModal: state.openAuthModal,
     closeAuthModal: state.closeAuthModal,
     setAuthModalTab: state.setAuthModalTab,
-    checkTokenExpiration: state.checkTokenExpiration,
   };
 };

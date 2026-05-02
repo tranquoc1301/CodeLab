@@ -36,6 +36,7 @@ export function useProblemCursorList(
   } = options;
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [cursor, setCursor] = useState<string | null>(null);
   const [accumulatedProblems, setAccumulatedProblems] = useState<ProblemSummary[]>([]);
   const [hasNext, setHasNext] = useState(true);
@@ -113,7 +114,10 @@ export function useProblemCursorList(
         abortControllerRef.current.abort();
       }
     };
-  }, [difficulty, topics, sortBy, initialLimit, search, fetchProblems]);
+    // fetchProblems is intentionally omitted: it is a useCallback derived from
+    // these same filter deps, so including it would cause a double re-fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [difficulty, topics, sortBy, initialLimit, search, refreshKey]);
 
   const loadMore = useCallback(async () => {
     if (!cursor || isLoadingMore || !hasNext) return;
@@ -136,37 +140,8 @@ export function useProblemCursorList(
   }, [cursor, isLoadingMore, hasNext, fetchProblems]);
 
   const refresh = useCallback(() => {
-    // Abort any in-flight requests to prevent race conditions
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
-    setAccumulatedProblems([]);
-    setCursor(null);
-    setHasNext(true);
-    setError(null);
-    setIsLoading(true);
-
-    const params = buildQueryParams(null);
-    api.get<ProblemCursorResponse>(
-      `${API.ENDPOINTS.PROBLEMS_PAGINATED}?${params}`,
-      { signal: abortControllerRef.current.signal }
-    )
-      .then((response) => {
-        setAccumulatedProblems(response.data.items);
-        setCursor(response.data.next_cursor);
-        setHasNext(response.data.has_next);
-        setTotalCount(response.data.total_count);
-        setIsLoading(false);
-      })
-      .catch((err) => {
-        if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
-          setError(err);
-          setIsLoading(false);
-        }
-      });
-  }, [buildQueryParams]);
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   const isEmpty = accumulatedProblems.length === 0 && !isLoading;
 

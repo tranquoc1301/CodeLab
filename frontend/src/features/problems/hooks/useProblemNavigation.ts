@@ -25,16 +25,26 @@ export function useProblemNavigation(
   useEffect(() => {
     if (!currentSlug) return;
 
+    let cancelled = false;
+
     api
       .get(API.ENDPOINTS.PROBLEM_NAVIGATION(currentSlug))
       .then((res) => {
-        setPrevProblem(res.data.prev);
-        setNextProblem(res.data.next);
+        if (!cancelled) {
+          setPrevProblem(res.data.prev);
+          setNextProblem(res.data.next);
+        }
       })
       .catch(() => {
-        setPrevProblem(null);
-        setNextProblem(null);
+        if (!cancelled) {
+          setPrevProblem(null);
+          setNextProblem(null);
+        }
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentSlug]);
 
   const navigatePrev = useCallback(() => {

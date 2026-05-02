@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_current_user, oauth2_scheme
+from app.api.dependencies import get_current_user, get_token_from_request
 from app.core.database import get_db
 from app.models.problem import Problem, Topic
 from app.models.user import User
@@ -18,14 +18,15 @@ router = APIRouter(prefix="/problems", tags=["problems"])
 
 
 async def get_optional_current_user(
-    token: str | None = Depends(oauth2_scheme),
+    request: Request,
+    token: str | None = Depends(get_token_from_request),
     db: AsyncSession = Depends(get_db),
 ) -> User | None:
     """Get current user if authenticated, otherwise return None."""
     if token is None:
         return None
     try:
-        return await get_current_user(token=token, db=db)
+        return await get_current_user(request=request, token=token, db=db)
     except HTTPException:
         return None
 

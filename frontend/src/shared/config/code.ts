@@ -15,20 +15,22 @@ export function getCodeTemplate(language: Language): string {
 
 /**
  * Gets saved code from localStorage or returns default template.
- * Storage key format: code-{slug}-{language}
+ * Storage key format: code-{userId}-{slug}-{language}
  */
-export function getSavedCode(slug: string | undefined, language: Language): string | null {
+export function getSavedCode(slug: string | undefined, language: Language, userId: number | undefined): string | null {
   if (!slug) return null;
-  return localStorage.getItem(`code-${slug}-${language}`);
+  const key = userId ? `code-${userId}-${slug}-${language}` : `code-guest-${slug}-${language}`;
+  return localStorage.getItem(key);
 }
 
 /**
  * Saves code to localStorage.
- * Storage key format: code-{slug}-{language}
+ * Storage key format: code-{userId}-{slug}-{language}
  */
-export function saveCode(slug: string | undefined, language: Language, code: string): void {
+export function saveCode(slug: string | undefined, language: Language, code: string, userId: number | undefined): void {
   if (!slug) return;
-  localStorage.setItem(`code-${slug}-${language}`, code);
+  const key = userId ? `code-${userId}-${slug}-${language}` : `code-guest-${slug}-${language}`;
+  localStorage.setItem(key, code);
 }
 
 /**
@@ -38,18 +40,21 @@ export function resolveCode(
   problem: { code_snippets?: { language: string; code: string }[] } | undefined,
   slug: string | undefined,
   language: Language,
+  userId: number | undefined,
 ): string {
+  // User's saved edits take priority over the DB snippet
+  if (slug) {
+    const key = userId ? `code-${userId}-${slug}-${language}` : `code-guest-${slug}-${language}`;
+    const savedCode = localStorage.getItem(key);
+    if (savedCode) {
+      return savedCode;
+    }
+  }
+
   if (problem) {
     const snippet = problem.code_snippets?.find((cs) => cs.language === language);
     if (snippet) {
       return snippet.code;
-    }
-  }
-
-  if (slug) {
-    const savedCode = localStorage.getItem(`code-${slug}-${language}`);
-    if (savedCode) {
-      return savedCode;
     }
   }
 

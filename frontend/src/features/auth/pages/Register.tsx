@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { isAxiosError } from "axios";
 import { User, Mail, UserPlus, AlertCircle, CheckCircle } from "lucide-react";
-import api from "@/shared/api";
+import { authApi } from "@/features/auth/api";
 import {
   Card,
   CardContent,
@@ -21,15 +21,14 @@ import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { PasswordInput } from "@/features/auth/components/PasswordInput";
 import { PasswordStrength } from "@/features/auth/components/PasswordStrength";
 import { OTPInput } from "@/features/auth/components/OTPInput";
-import {API, COPY, VALIDATION} from "@/shared/config";
+import {COPY, VALIDATION} from "@/shared/config";
 import { ROUTES } from "@/app/router";
-import { registerSchema, type RegisterFormData } from "@/shared/utils/validation";
-import { useCheckUsername, useCheckEmail } from "@/shared/hooks/useAvailabilityCheck";
-
-type Step = "form" | "otp" | "success";
+import { registerSchema } from "@/shared/utils/validation";
+import type { RegisterFormData, RegisterStep } from "@/features/auth/types";
+import { useCheckUsername, useCheckEmail } from "@/features/auth/hooks/useAvailabilityCheck";
 
 export default function Register() {
-  const [step, setStep] = useState<Step>("form");
+  const [step, setStep] = useState<RegisterStep>("form");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [countdown, setCountdown] = useState(0);
@@ -60,10 +59,7 @@ export default function Register() {
   // Send OTP mutation
   const sendOtpMutation = useMutation({
     mutationFn: async (data: RegisterFormData) => {
-      const res = await api.post(API.ENDPOINTS.AUTH_SEND_OTP, {
-        email: data.email,
-        otp_type: "register",
-      });
+      const res = await authApi.sendOtp(data.email, "register");
       return res.data;
     },
     onSuccess: () => {
@@ -89,11 +85,7 @@ export default function Register() {
   // Verify OTP mutation
   const verifyOtpMutation = useMutation({
     mutationFn: async (data: RegisterFormData) => {
-      const res = await api.post(API.ENDPOINTS.AUTH_VERIFY_OTP, {
-        email: data.email,
-        otp_code: otp,
-        otp_type: "register",
-      });
+      const res = await authApi.verifyOtp(data.email, otp, "register");
       return res.data;
     },
     onSuccess: (data: { temp_token: string }) => {
@@ -119,11 +111,7 @@ export default function Register() {
       token: string;
       data: RegisterFormData;
     }) => {
-      const res = await api.post(
-        API.ENDPOINTS.AUTH_REGISTER,
-        { username: data.username, email: data.email, password: data.password, otp_code: otp },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const res = await authApi.register(data, otp, token);
       return res.data;
     },
     onSuccess: () => {

@@ -4,7 +4,6 @@ import { ROUTES } from '@/app/router';
 
 const STORAGE_KEYS = {
   INTENT: 'authGuard:intent',
-  TIMESTAMP: 'authGuard:timestamp',
 } as const;
 
 const INTENT_TIMEOUT = 5 * 60 * 1000;
@@ -27,7 +26,6 @@ export function getStoredIntent(): IntentData | null {
     const data: IntentData = JSON.parse(stored);
     if (Date.now() - data.timestamp > INTENT_TIMEOUT) {
       sessionStorage.removeItem(STORAGE_KEYS.INTENT);
-      sessionStorage.removeItem(STORAGE_KEYS.TIMESTAMP);
       return null;
     }
     return data;
@@ -39,12 +37,10 @@ export function getStoredIntent(): IntentData | null {
 export function setStoredIntent(path: string): void {
   const data: IntentData = { path, timestamp: Date.now() };
   sessionStorage.setItem(STORAGE_KEYS.INTENT, JSON.stringify(data));
-  sessionStorage.setItem(STORAGE_KEYS.TIMESTAMP, String(data.timestamp));
 }
 
 export function clearStoredIntent(): void {
   sessionStorage.removeItem(STORAGE_KEYS.INTENT);
-  sessionStorage.removeItem(STORAGE_KEYS.TIMESTAMP);
 }
 
 export function getStoredPath(): string | null {

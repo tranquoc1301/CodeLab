@@ -6,16 +6,14 @@ import { X } from "lucide-react";
 import { cn } from "@/shared/utils/utils";
 import { useAuth } from "@/app/store/auth";
 import { PasswordInput } from "./PasswordInput";
-import { PasswordStrength } from "./PasswordStrength";
 import {COPY} from "@/shared/config";
 import { useMutation } from "@tanstack/react-query";
-import api from "@/shared/api";
-import { isAxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
+import type { User } from "@/shared/types";
 import {
   Tabs,
   TabsList,
@@ -23,11 +21,13 @@ import {
   TabsContent,
 } from "@/shared/components/ui/tabs";
 import { getAndClearIntent } from "@/app/store/authGuard";
-import { loginSchema, registerSchema } from "@/shared/utils/validation";
-import type { LoginFormData, RegisterFormData } from "@/shared/utils/validation";
+import { loginSchema } from "@/shared/utils/validation";
+import type { LoginFormData } from "@/shared/utils/validation";
+import { authApi } from "@/features/auth/api";
+import { ROUTES } from "@/app/router";
 
 export const AuthModal = () => {
-  const { closeAuthModal, authModalTab, setAuthModalTab, setToken, setUser } = useAuth();
+  const { closeAuthModal, authModalTab, setAuthModalTab, setUser } = useAuth();
   const navigate = useNavigate();
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -41,20 +41,8 @@ export const AuthModal = () => {
     },
   });
 
-  // Register form with react-hook-form
-  const registerForm = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      username: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
-  });
-
   // API error states
   const [loginApiError, setLoginApiError] = React.useState("");
-  const [registerApiError, setRegisterApiError] = React.useState("");
 
   // Focus trap and focus management
   useEffect(() => {
@@ -88,19 +76,14 @@ export const AuthModal = () => {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
-      const formData = new URLSearchParams();
-      formData.append("username", data.username);
-      formData.append("password", data.password);
-      const res = await api.post("/auth/login", formData, {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
+      const res = await authApi.login(data.username, data.password);
       return res.data;
     },
-    onSuccess: async (data) => {
-      setToken(data.access_token);
+    onSuccess: async () => {
+      // Cookie is set by backend automatically, just fetch user data
       try {
-        const userRes = await api.get("/auth/me");
-        setUser(userRes.data);
+        const userRes = await authApi.getMe();
+        setUser(userRes.data as User);
       } catch (err) {
         console.error("Failed to fetch user data:", err);
       }
@@ -118,68 +101,28 @@ export const AuthModal = () => {
     },
   });
 
-  const registerMutation = useMutation({
-    mutationFn: async (data: Omit<RegisterFormData, "confirmPassword">) => {
-      const res = await api.post("/auth/register", {
-        username: data.username,
-        email: data.email,
-        password: data.password,
-      });
-      return res.data;
-    },
-    onSuccess: () => {
-      closeAuthModal();
-      setAuthModalTab("login");
-      loginForm.reset();
-      registerForm.reset();
-    },
-    onError: (err: unknown) => {
-      registerForm.clearErrors();
-      if (isAxiosError(err)) {
-        const detail = (err.response?.data as { detail?: string })?.detail;
-        if (detail?.toLowerCase().includes("username")) {
-          registerForm.setError("username", { message: detail });
-        } else if (detail?.toLowerCase().includes("email")) {
-          registerForm.setError("email", { message: detail });
-        } else {
-          setRegisterApiError(detail || COPY.REGISTER.ERROR);
-        }
-      } else {
-        setRegisterApiError(COPY.REGISTER.ERROR);
-      }
-    },
-  });
-
   const handleLoginSubmit = loginForm.handleSubmit((data) => {
     setLoginApiError("");
     loginMutation.mutate(data);
   });
 
-  const handleRegisterSubmit = registerForm.handleSubmit((data) => {
-    setRegisterApiError("");
-    // Exclude confirmPassword - only needed for client-side validation, not sent to API
-    registerMutation.mutate({
-      username: data.username,
-      email: data.email,
-      password: data.password,
-    });
-  });
+  // Register tab redirects to the full /register page which includes OTP verification
+  const handleRegisterRedirect = () => {
+    closeAuthModal();
+    navigate(ROUTES.REGISTER);
+  };
 
   const handleTabChange = (value: string) => {
     setAuthModalTab(value as "login" | "register");
     setLoginApiError("");
-    setRegisterApiError("");
     loginForm.reset();
-    registerForm.reset();
   };
 
   const handleClose = () => {
     closeAuthModal();
     setTimeout(() => {
       setLoginApiError("");
-      setRegisterApiError("");
       loginForm.reset();
-      registerForm.reset();
     }, 200);
   };
 
@@ -284,94 +227,19 @@ export const AuthModal = () => {
               </form>
             </TabsContent>
 
-            {/* Register Tab */}
+            {/* Register Tab — redirects to /register for full OTP-verified flow */}
             <TabsContent value="register">
-              {registerApiError && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertDescription>{registerApiError}</AlertDescription>
-                </Alert>
-              )}
-              <form onSubmit={handleRegisterSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="auth-register-username">{COPY.FORM_LABELS.USERNAME}</Label>
-                  <Input
-                    id="auth-register-username"
-                    type="text"
-                    {...registerForm.register("username")}
-                    aria-describedby={registerForm.formState.errors.username ? "auth-register-username-error" : undefined}
-                    aria-invalid={!!registerForm.formState.errors.username}
-                    required
-                    autoComplete="username"
-                    placeholder={COPY.PLACEHOLDER.USERNAME}
-                  />
-                  {registerForm.formState.errors.username && (
-                    <p id="auth-register-username-error" className="text-sm text-destructive">
-                      {registerForm.formState.errors.username.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="auth-register-email">{COPY.FORM_LABELS.EMAIL}</Label>
-                  <Input
-                    id="auth-register-email"
-                    type="email"
-                    {...registerForm.register("email")}
-                    aria-describedby={registerForm.formState.errors.email ? "auth-register-email-error" : undefined}
-                    aria-invalid={!!registerForm.formState.errors.email}
-                    required
-                    autoComplete="email"
-                    placeholder={COPY.PLACEHOLDER.EMAIL}
-                  />
-                  {registerForm.formState.errors.email && (
-                    <p id="auth-register-email-error" className="text-sm text-destructive">
-                      {registerForm.formState.errors.email.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="auth-register-password">{COPY.FORM_LABELS.PASSWORD}</Label>
-                  <PasswordInput
-                    id="auth-register-password"
-                    {...registerForm.register("password")}
-                    aria-describedby={registerForm.formState.errors.password ? "auth-register-password-error" : undefined}
-                    aria-invalid={!!registerForm.formState.errors.password}
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    placeholder={COPY.PLACEHOLDER.PASSWORD}
-                  />
-                  {registerForm.watch("password") && <PasswordStrength password={registerForm.watch("password") as string} />}
-                  {registerForm.formState.errors.password && (
-                    <p id="auth-register-password-error" className="text-sm text-destructive">
-                      {registerForm.formState.errors.password.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="auth-register-confirm">{COPY.FORM_LABELS.CONFIRM_PASSWORD}</Label>
-                  <PasswordInput
-                    id="auth-register-confirm"
-                    {...registerForm.register("confirmPassword")}
-                    aria-describedby={registerForm.formState.errors.confirmPassword ? "auth-register-confirm-error" : undefined}
-                    aria-invalid={!!registerForm.formState.errors.confirmPassword}
-                    required
-                    autoComplete="new-password"
-                    placeholder={COPY.PLACEHOLDER.CONFIRM_PASSWORD}
-                  />
-                  {registerForm.formState.errors.confirmPassword && (
-                    <p id="auth-register-confirm-error" className="text-sm text-destructive">
-                      {registerForm.formState.errors.confirmPassword.message}
-                    </p>
-                  )}
-                </div>
+              <div className="space-y-4 py-2">
+                <p className="text-sm text-muted-foreground text-center">
+                  Create an account with email verification.
+                </p>
                 <Button
-                  type="submit"
                   className="w-full gap-2"
-                  disabled={registerMutation.isPending}
+                  onClick={handleRegisterRedirect}
                 >
-                  {registerMutation.isPending ? COPY.REGISTER.CREATING : COPY.REGISTER.CREATE}
+                  {COPY.REGISTER.CREATE}
                 </Button>
-              </form>
+              </div>
             </TabsContent>
           </Tabs>
         </div>

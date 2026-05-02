@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
   Maximize2,
@@ -11,18 +11,18 @@ import {
 import { ErrorBoundary } from "@/shared/components/ErrorBoundary";
 import { useAuth } from "@/app/store/auth";
 import { setStoredIntent } from "@/app/store/authGuard";
-import { useProblemNavigation } from "@/shared/hooks/useProblemNavigation";
-import { useCodeExecution } from "@/shared/hooks/useCodeExecution";
-import { useSplitResize } from "@/shared/hooks/useSplitResize";
-import { useProblemCode } from "@/shared/hooks/useProblemCode";
-import { useAutosave } from "@/shared/hooks/useAutosave";
-import { useLoginGate } from "@/shared/hooks/useLoginGate";
-import { useNumericSlugRedirect } from "@/shared/hooks/useNumericSlugRedirect";
-import api from "@/shared/api";
-import {API, COPY, DEFAULTS} from "@/shared/config";
+import { useProblemNavigation } from "@/features/problems/hooks/useProblemNavigation";
+import { useCodeExecution } from "@/features/problems/hooks/useCodeExecution";
+import { useSplitResize } from "@/features/problems/hooks/useSplitResize";
+import { useProblemCode } from "@/features/problems/hooks/useProblemCode";
+import { useAutosave } from "@/features/problems/hooks/useAutosave";
+import { useLoginGate } from "@/features/problems/hooks/useLoginGate";
+import { useNumericSlugRedirect } from "@/features/problems/hooks/useNumericSlugRedirect";
+import {COPY, DEFAULTS} from "@/shared/config";
+import { useProblemDetail } from "@/features/problems/hooks";
 import { ROUTES } from "@/app/router";
 import { getCodeTemplate } from "@/shared/config/code";
-import type { Problem, SubmissionResult } from "@/shared/types";
+import type { SubmissionResult } from "@/shared/types";
 // Language: used via useProblemCode (language), ProblemToolbar (language), ProblemEditorPanel (language)
 
 // Extracted sub-components
@@ -38,7 +38,7 @@ import { SubmissionDetail } from "@/features/problems/components/SubmissionDetai
 // Main component
 export default function ProblemDetail() {
   const { slug } = useParams<{ slug: string }>();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
   // Hooks
@@ -50,23 +50,16 @@ export default function ProblemDetail() {
       navigate(ROUTES.problemDetail(nextSlug));
     });
 
-  const { data: problem, isLoading } = useQuery<Problem>({
-    queryKey: ["problem", slug],
-    queryFn: async () => {
-      const res = await api.get(API.ENDPOINTS.PROBLEM_BY_SLUG(slug!));
-      return res.data;
-    },
-    enabled: !!slug,
-    staleTime: 1000 * 60 * 5, // 5 minutes - problem data rarely changes
-  });
+  const { data: problem, isLoading } = useProblemDetail(slug);
 
   const { status: autosaveStatus, save: autosave } = useAutosave(
     slug,
     DEFAULTS.LANGUAGE,
+    user?.id,
   );
 
   const { language, code, setCode, handleLanguageChange, handleCodeChange } =
-    useProblemCode(problem, slug, autosave);
+    useProblemCode(problem, slug, autosave, user?.id);
 
   const {
     verdict,
@@ -131,11 +124,6 @@ export default function ProblemDetail() {
   const [descriptionExpanded, setDescriptionExpanded] = useState(true);
   const [editorMaximized, setEditorMaximized] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-
-  // Compute split width directly (avoid CSS custom property for smooth resize)
-  const leftPanelWidth = descriptionExpanded
-    ? `calc(${splitPercent}% - 1px)`  // -1px accounts for border
-    : `calc(${splitPercent}%)`;
 
   const wrappedCodeChange = useCallback(
     (value: string | undefined) => {
@@ -239,7 +227,7 @@ export default function ProblemDetail() {
             }`}
             style={
               !editorMaximized && descriptionExpanded
-                ? { width: leftPanelWidth }
+                ? { width: "calc(var(--split-percent, 38%) - 1px)" }
                 : editorMaximized
                   ? { width: "0px" }
                   : undefined
@@ -375,8 +363,8 @@ export default function ProblemDetail() {
                  width: editorMaximized
                    ? "100%"
                    : descriptionExpanded
-                     ? `calc(100% - ${splitPercent}% - 1px)`
-                     : `calc(100% - 3rem)`,
+                     ? "calc(100% - var(--split-percent, 38%) - 1px)"
+                     : "calc(100% - 3rem)",
                }}
              >
               {selectedSubmission !== null ? (
@@ -408,8 +396,8 @@ export default function ProblemDetail() {
                  width: editorMaximized
                    ? "100%"
                    : descriptionExpanded
-                     ? `calc(100% - ${splitPercent}% - 1px)`
-                     : `calc(100% - 3rem)`,
+                     ? "calc(100% - var(--split-percent, 38%) - 1px)"
+                     : "calc(100% - 3rem)",
                }}
              >
               <LoginGate onLogin={() => setShowLoginPrompt(true)} />

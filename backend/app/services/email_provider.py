@@ -57,6 +57,7 @@ async def send_otp_email(
 
     # Build template variables matching the email template
     template_vars = {
+        "otp_code": otp_code,
         "d1": otp_digits[0],
         "d2": otp_digits[1],
         "d3": otp_digits[2],

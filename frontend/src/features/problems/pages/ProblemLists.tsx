@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { FolderPlus, Pencil, Trash2, FolderOpen, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/shared/components/ui/skeleton";
@@ -23,15 +22,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
-import { toast } from "sonner";
 import {COPY} from "@/shared/config";
 import { ROUTES } from "@/app/router";
-import { problemListApi, type ProblemList } from "@/shared/api/problem-lists";
+import type { ProblemList } from "@/features/problems/api";
+import { useProblemLists, useProblemListsMutations } from "@/features/problems/hooks";
 
 export default function ProblemLists() {
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   // State for modals
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -46,63 +44,26 @@ export default function ProblemLists() {
   const [editListDescription, setEditListDescription] = useState("");
 
   // Fetch user's problem lists
-  const { data: lists, isLoading: listsLoading } = useQuery<ProblemList[]>({
-    queryKey: ["problemLists", user?.id],
-    queryFn: () => problemListApi.getAll().then((r) => r.data),
-    enabled: !!user,
-    staleTime: 1000 * 60 * 2, // 2 minutes - user lists don't change often
-  });
+  const { data: lists, isLoading: listsLoading } = useProblemLists(user?.id);
 
-  // Create list mutation
-  const createMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string }) =>
-      problemListApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["problemLists"] });
-      setCreateDialogOpen(false);
-      setNewListName("");
-      setNewListDescription("");
-      toast.success("List created successfully");
-    },
-    onError: () => {
-      toast.error("Failed to create list. Please try again.");
-    },
-  });
-
-  // Update list mutation
-  const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: number;
-      data: { name: string; description?: string };
-    }) => problemListApi.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["problemLists"] });
-      setEditDialogOpen(false);
-      setSelectedList(null);
-      toast.success("List updated successfully");
-    },
-    onError: () => {
-      toast.error("Failed to update list. Please try again.");
-    },
-  });
-
-  // Delete list mutation
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => problemListApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["problemLists"] });
-      setDeleteDialogOpen(false);
-      setSelectedList(null);
-      navigate(ROUTES.problemLists());
-      toast.success("List deleted successfully");
-    },
-    onError: () => {
-      toast.error("Failed to delete list. Please try again.");
-    },
-  });
+  // Mutations
+  const { createMutation, updateMutation, deleteMutation } =
+    useProblemListsMutations({
+      onCreateSuccess: () => {
+        setCreateDialogOpen(false);
+        setNewListName("");
+        setNewListDescription("");
+      },
+      onEditSuccess: () => {
+        setEditDialogOpen(false);
+        setSelectedList(null);
+      },
+      onDeleteSuccess: () => {
+        setDeleteDialogOpen(false);
+        setSelectedList(null);
+        navigate(ROUTES.problemLists());
+      },
+    });
 
   // Handlers
   const handleCreateList = useCallback(() => {

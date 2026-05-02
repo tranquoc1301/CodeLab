@@ -15,27 +15,29 @@ export function useProblemCode(
   problem: Problem | undefined,
   slug: string | undefined,
   autosave: (code: string) => void,
+  userId: number | undefined,
 ): UseProblemCodeReturn {
   const [language, setLanguage] = useState<Language>(DEFAULTS.LANGUAGE);
   const [code, setCode] = useState<string>("");
 
-  // Sync code to problem/language changes — this is a legitimate use of
+  // Sync code to problem/language/user changes — this is a legitimate use of
   // setState in effect because we're syncing external data (problem snippet)
   // to local editable state. The value can't be purely derived because the
   // user edits it between syncs.
+  // userId is included so that when a different user logs in, their saved code loads.
   useEffect(() => {
     if (problem) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setCode(resolveCode(problem, slug, language));
+      setCode(resolveCode(problem, slug, language, userId));
     }
-  }, [problem, language, slug]);
+  }, [problem, slug, language, userId]);
 
   const handleLanguageChange = useCallback(
     (lang: Language) => {
       setLanguage(lang);
-      setCode(resolveCode(problem, slug, lang));
+      setCode(resolveCode(problem, slug, lang, userId));
     },
-    [problem, slug],
+    [problem, slug, userId],
   );
 
   const handleCodeChange = useCallback(

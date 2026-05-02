@@ -4,14 +4,7 @@ import { API } from '@/shared/config';
 
 const api = axios.create({
   baseURL: API.BASE_URL,
-});
-
-api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().token;
-  if (token) {
-    config.headers.Authorization = `${API.HEADERS.AUTH_PREFIX}${token}`;
-  }
-  return config;
+  withCredentials: true,  // Enable sending cookies with requests
 });
 
 api.interceptors.response.use(
@@ -20,7 +13,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const isLoginRequest = error.config?.url?.includes('/auth/login');
       const isRegisterRequest = error.config?.url?.includes('/auth/register');
-      
+
       // Only redirect to login if NOT a login/register attempt
       // This allows the login form to handle 401 errors itself
       if (!isLoginRequest && !isRegisterRequest) {

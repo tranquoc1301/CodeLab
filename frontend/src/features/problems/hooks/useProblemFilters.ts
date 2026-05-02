@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useFilters } from "./useFilters";
+import { useFilters } from "@/shared/hooks/useFilters";
 
 interface UseProblemFiltersReturn {
   search: string;

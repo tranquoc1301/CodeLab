@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Trash2,
   Check,
@@ -11,12 +10,6 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { useAuth } from "@/app/store/auth";
-import { toast } from "sonner";
-import {
-  problemListApi,
-  type ProblemList,
-  type ProblemSummary as ProblemSummaryType,
-} from "@/shared/api/problem-lists";
 import { ROUTES } from "@/app/router";
 import { ProblemCard } from "@/features/problems/components/ProblemCard";
 import { cn } from "@/shared/utils/utils";
@@ -24,15 +17,10 @@ import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { ProblemCardSkeleton } from "@/features/problems/components/ProblemCardSkeleton";
-
-interface ListProblemsResponse {
-  problems: ProblemSummaryType[];
-  total_count: number;
-}
+import { useListDetail, useListMutations } from "@/features/problems/hooks";
 
 export default function ListDetail() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
   const { id } = useParams<{ id: string }>();
   const numericListId = Number(id);
@@ -44,21 +32,12 @@ export default function ListDetail() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   // Queries
-  const { data: list, isLoading: isLoadingList } = useQuery<ProblemList>({
-    queryKey: ["problemList", numericListId],
-    queryFn: () => problemListApi.get(numericListId).then((r) => r.data),
-    enabled: isAuthenticated && !isNaN(numericListId),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-  });
-
-  const { data: listProblems, isLoading: isLoadingProblems } =
-    useQuery<ListProblemsResponse>({
-      queryKey: ["listProblems", numericListId],
-      queryFn: () =>
-        problemListApi.getProblems(numericListId).then((r) => r.data),
-      enabled: isAuthenticated && !isNaN(numericListId),
-      staleTime: 1000 * 60, // 1 minute
-    });
+  const { listQuery, problemsQuery } = useListDetail(
+    numericListId,
+    isAuthenticated,
+  );
+  const { data: list, isLoading: isLoadingList } = listQuery;
+  const { data: listProblems, isLoading: isLoadingProblems } = problemsQuery;
 
   // Derived Data
   const problems = useMemo(() => listProblems?.problems ?? [], [listProblems]);
@@ -68,51 +47,15 @@ export default function ListDetail() {
   );
 
   // Mutations
-  const removeMutation = useMutation({
-    mutationFn: (problemId: number) =>
-      problemListApi.removeProblem(numericListId, problemId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["listProblems", numericListId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["problemList", numericListId],
-      });
-      toast.success("Problem removed from list");
-    },
-    onError: () => {
-      toast.error("Failed to remove problem from list");
-    },
-  });
+  const resetSelection = useCallback(() => {
+    setSelectedProblems(new Set());
+    setIsSelectionMode(false);
+  }, []);
 
-  const bulkRemoveMutation = useMutation({
-    mutationFn: async (problemIds: number[]) => {
-      await Promise.all(
-        problemIds.map((pid) =>
-          problemListApi.removeProblem(numericListId, pid),
-        ),
-      );
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["listProblems", numericListId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["problemList", numericListId],
-      });
-      const count = variables.length;
-      setSelectedProblems(new Set());
-      setIsSelectionMode(false);
-      toast.success(
-        `${count} problem${count !== 1 ? "s" : ""} removed from list`,
-      );
-    },
-    onError: () => {
-      setSelectedProblems(new Set());
-      setIsSelectionMode(false);
-      toast.error("Failed to remove problems from list");
-    },
-  });
+  const { removeMutation, bulkRemoveMutation } = useListMutations(
+    numericListId,
+    { onBulkRemoveSettled: resetSelection },
+  );
 
   // Handlers
   const handleProblemClick = useCallback(

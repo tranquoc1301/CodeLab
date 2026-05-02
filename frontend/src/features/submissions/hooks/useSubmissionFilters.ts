@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
 import type { Submission } from "@/shared/types";
-import { useFilters } from "./useFilters";
 
 interface UseSubmissionFiltersReturn {
   statusFilter: string;
@@ -19,12 +18,9 @@ interface UseSubmissionFiltersReturn {
 export function useSubmissionFilters(
   submissions: Submission[] | undefined,
 ): UseSubmissionFiltersReturn {
-  const { sortBy, setSortBy, clearFilters: clearBaseFilters, hasActiveFilters: baseHasFilters } = useFilters({
-    defaultStatus: "all",
-    defaultSort: "newest",
-  });
   const [statusFilter, setStatusFilter] = useState("all");
   const [languageFilter, setLanguageFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
 
   const filteredSubmissions = useMemo(() => {
     if (!submissions) return [];
@@ -65,12 +61,12 @@ export function useSubmissionFilters(
   }, [submissions]);
 
   const clearFilters = useCallback(() => {
-    clearBaseFilters();
     setStatusFilter("all");
     setLanguageFilter("all");
-  }, [clearBaseFilters]);
+    setSortBy("newest");
+  }, []);
 
-  const hasActiveFilters = statusFilter !== "all" || languageFilter !== "all" || baseHasFilters;
+  const hasActiveFilters = statusFilter !== "all" || languageFilter !== "all" || sortBy !== "newest";
 
   return {
     statusFilter,
