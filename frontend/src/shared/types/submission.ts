@@ -28,6 +28,7 @@ export interface VerdictResult {
   total_test_cases: number;
   runtime_ms: number | null;
   memory_kb: number | null;
+  submission_id: number | null;
   submission_type: "run" | "submit" | null;
   last_test_case_output: string | null;
   expected_output: string | null;
@@ -66,4 +67,10 @@ export interface SubmissionResult {
   total_count: number | null;
   created_at: string;
   test_case_results: TestCaseResult[];
+}
+
+export interface HintResponse {
+  hint: string | null;
+  hint_level: number;
+  exhausted: boolean;
 }

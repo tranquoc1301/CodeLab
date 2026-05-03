@@ -2,6 +2,7 @@ from app.models.base import Base
 from app.models.email_verification import EmailVerification
 from app.models.problem_list import ProblemList, ProblemListItem
 from app.models.submission import Submission, SubmissionTestResult
+from app.models.submission_hint import SubmissionHint
 from app.models.user import User
 from app.models.problem import (
     CodeSnippet,
@@ -27,6 +28,7 @@ __all__ = [
     "ProblemSolution",
     "ProblemTopic",
     "Submission",
+    "SubmissionHint",
     "SubmissionTestResult",
     "Topic",
     "User",

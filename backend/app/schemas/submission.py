@@ -140,10 +140,6 @@ class VerdictResponse(BaseModel):
         default=None,
         description="ID of the created submission (for dataset generation)",
     )
-    submission_id: int | None = Field(
-        default=None,
-        description="ID of the created submission (for dataset generation)",
-    )
     runtime_ms: int | None = Field(
         default=None,
         description="Maximum execution time in ms across all test cases",

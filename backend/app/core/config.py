@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     )
     JUDGE0_AUTH_TOKEN: str = Field(default="", description="Judge0 API token")
 
+    # LLM (OpenRouter)
+    LLM_API_KEY: str = Field(default="", description="OpenRouter API key")
+    LLM_MODEL: str = Field(default="openai/gpt-4o-mini", description="LLM model identifier")
+    LLM_BASE_URL: str = Field(... ,description="LLM API base URL")
+    LLM_TIMEOUT: int = Field(default=30, description="LLM request timeout in seconds")
+
     # Mailtrap Email - REQUIRED
     MAILTRAP_API_TOKEN: str = Field(..., description="Mailtrap API key")
     MAILTRAP_USE_SANDBOX: bool = Field(

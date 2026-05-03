@@ -11,6 +11,7 @@ from app.models.submission import Submission, SubmissionTestResult
 from app.models.user import User
 from app.schemas.submission import SubmissionCreate, SubmissionResponse, VerdictResponse
 from app.services.evaluation import evaluate_submission
+from app.services.llm_hint import reset_hint_progress
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,13 @@ async def evaluate_code(
         test_case_results=verdict.get("test_case_results", []),
     )
     await db.commit()
+
+    # Reset hint progress on successful submission
+    if verdict.get("status") == "Accepted" and submission_data.problem_id is not None:
+        try:
+            await reset_hint_progress(db, user.id, submission_data.problem_id)
+        except Exception as e:
+            logger.warning("Failed to reset hint progress: %s", e)
 
     response = VerdictResponse(**verdict)
     response.submission_id = new_submission.id
@@ -224,6 +232,19 @@ def _truncate(value: str | None, max_len: int) -> str | None:
     if value is None:
         return None
     return value[:max_len] if len(value) > max_len else value
+
+
+async def get_topic_slugs_for_problem(db: AsyncSession, problem_id: int) -> list[str]:
+    """Fetch topic slugs for a problem joined through ProblemTopic."""
+    from app.models.problem import ProblemTopic, Topic
+    
+    stmt = (
+        select(Topic.slug)
+        .join(ProblemTopic, Topic.id == ProblemTopic.topic_id)
+        .where(ProblemTopic.problem_id == problem_id)
+    )
+    result = await db.execute(stmt)
+    return [row[0] for row in result.all()]
 
 
 async def _persist_test_results(

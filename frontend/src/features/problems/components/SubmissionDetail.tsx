@@ -50,6 +50,11 @@ export const SubmissionDetail = memo(function SubmissionDetail({
       ? (submission.passed_count / submission.total_count) * 100
       : 0;
 
+  // Compute failed cases once
+  const failedCases = submission.test_case_results?.filter(
+    (tc) => tc.status !== "Accepted",
+  ) ?? [];
+
   // Format datetime
   const formattedDate = new Date(submission.created_at).toLocaleString();
 
@@ -127,119 +132,108 @@ export const SubmissionDetail = memo(function SubmissionDetail({
         )}
 
         {/* Test case results list - only failed test cases */}
-        {submission.test_case_results &&
-          submission.test_case_results.length > 0 && (
-            <div className="space-y-3">
-              {(() => {
-                const failedCases = submission.test_case_results.filter(
-                  (tc) => tc.status !== "Accepted",
-                );
-                if (failedCases.length === 0) return null;
+        {failedCases.length > 0 && (
+          <div className="space-y-3">
+            {/* Section header */}
+            <div className="flex items-center gap-2">
+              <XCircle className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
+              <h4 className="text-xs font-semibold text-rose-500 dark:text-rose-400">
+                Failed Test Cases
+              </h4>
+              <span className="ml-auto rounded-full bg-rose-100 dark:bg-rose-500/15 px-2 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/25">
+                {failedCases.length} failed
+              </span>
+            </div>
 
-                return (
-                  <>
-                    {/* Section header */}
-                    <div className="flex items-center gap-2">
-                      <XCircle className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
-                      <h4 className="text-xs font-semibold text-rose-500 dark:text-rose-400">
-                        Failed Test Cases
-                      </h4>
-                      <span className="ml-auto rounded-full bg-rose-100 dark:bg-rose-500/15 px-2 py-0.5 text-xs font-medium text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/25">
-                        {failedCases.length} failed
-                      </span>
+            <div className="space-y-3">
+              {failedCases.map((tc, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-lg border border-border/60 bg-card overflow-hidden shadow-sm"
+                >
+                  {/* Card header */}
+                  <div className="flex items-center justify-between px-3.5 py-2 bg-muted/50 border-b border-border/60">
+                    <span className="text-xs font-semibold text-foreground">
+                      Case #{tc.index + 1}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/25">
+                      <XCircle className="h-3 w-3" />
+                      {tc.status}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 space-y-3">
+                    {/* Expected Output */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                        <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 tracking-wide uppercase">
+                          Expected
+                        </p>
+                      </div>
+                      <pre
+                        className="rounded-md
+                  bg-emerald-50 border-emerald-200 text-emerald-800
+                  dark:bg-emerald-950/50 dark:border-emerald-800/40 dark:text-emerald-200
+                  border px-3 py-2.5 text-xs font-mono whitespace-pre-wrap leading-relaxed"
+                      >
+                        {tc.expected_output || "(empty)"}
+                      </pre>
                     </div>
 
-                    <div className="space-y-3">
-                      {failedCases.map((tc, idx) => (
-                        <div
-                          key={idx}
-                          className="rounded-lg border border-border/60 bg-card overflow-hidden shadow-sm"
-                        >
-                          {/* Card header */}
-                          <div className="flex items-center justify-between px-3.5 py-2 bg-muted/50 border-b border-border/60">
-                            <span className="text-xs font-semibold text-foreground">
-                              Case #{tc.index + 1}
-                            </span>
-                            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/25">
-                              <XCircle className="h-3 w-3" />
-                              {tc.status}
-                            </span>
-                          </div>
+                    {/* Divider */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-px bg-border/50" />
+                      <span className="text-[10px] text-muted-foreground/50 font-mono">
+                        vs
+                      </span>
+                      <div className="flex-1 h-px bg-border/50" />
+                    </div>
 
-                          <div className="p-3.5 space-y-3">
-                            {/* Expected Output */}
-                            <div className="space-y-1.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
-                                <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 tracking-wide uppercase">
-                                  Expected
-                                </p>
-                              </div>
-                              <pre
-                                className="rounded-md
-                      bg-emerald-50 border-emerald-200 text-emerald-800
-                      dark:bg-emerald-950/50 dark:border-emerald-800/40 dark:text-emerald-200
-                      border px-3 py-2.5 text-xs font-mono whitespace-pre-wrap leading-relaxed"
-                              >
-                                {tc.expected_output || "(empty)"}
-                              </pre>
-                            </div>
+                    {/* Actual Output */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500 dark:bg-rose-400" />
+                        <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 tracking-wide uppercase">
+                          Your Output
+                        </p>
+                      </div>
+                      <pre
+                        className="rounded-md
+                  bg-rose-50 border-rose-200 text-rose-800
+                  dark:bg-rose-950/50 dark:border-rose-800/40 dark:text-rose-200
+                  border px-3 py-2.5 text-xs font-mono whitespace-pre-wrap leading-relaxed"
+                      >
+                        {tc.stdout || "(empty)"}
+                      </pre>
+                    </div>
 
-                            {/* Divider */}
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 h-px bg-border/50" />
-                              <span className="text-[10px] text-muted-foreground/50 font-mono">
-                                vs
-                              </span>
-                              <div className="flex-1 h-px bg-border/50" />
-                            </div>
-
-                            {/* Actual Output */}
-                            <div className="space-y-1.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 dark:bg-rose-400" />
-                                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 tracking-wide uppercase">
-                                  Your Output
-                                </p>
-                              </div>
-                              <pre
-                                className="rounded-md
-                      bg-rose-50 border-rose-200 text-rose-800
-                      dark:bg-rose-950/50 dark:border-rose-800/40 dark:text-rose-200
-                      border px-3 py-2.5 text-xs font-mono whitespace-pre-wrap leading-relaxed"
-                              >
-                                {tc.stdout || "(empty)"}
-                              </pre>
-                            </div>
-
-                            {/* Stderr nếu có */}
-                            {tc.stderr && (
-                              <div className="space-y-1.5">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
-                                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 tracking-wide uppercase">
-                                    Error
-                                  </p>
-                                </div>
-                                <pre
-                                  className="rounded-md
+                    {/* Stderr if any */}
+                    {tc.stderr && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
+                          <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 tracking-wide uppercase">
+                            Error
+                          </p>
+                        </div>
+                        <pre
+                          className="rounded-md
                         bg-amber-50 border-amber-200 text-amber-800
                         dark:bg-amber-950/40 dark:border-amber-800/40 dark:text-amber-200
                         border px-3 py-2.5 text-xs font-mono whitespace-pre-wrap leading-relaxed"
-                                >
-                                  {tc.stderr}
-                                </pre>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                );
-              })()}
+                        >
+                          {tc.stderr}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
+        )}
+
         {/* Source code */}
         <div className="space-y-2">
           <h4 className="text-xs font-medium text-muted-foreground">Code</h4>

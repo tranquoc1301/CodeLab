@@ -6,8 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
 from app.models.user import User
+from app.schemas.hint import HintResponse
 from app.schemas.submission import SubmissionCreate, SubmissionResponse, VerdictResponse
 from app.services import submissions as submission_service
+from app.services.llm_hint import request_next_hint
+from app.services.submissions import get_topic_slugs_for_problem
 
 logger = logging.getLogger(__name__)
 
@@ -115,3 +118,71 @@ async def get_submission(
             detail="Submission not found",
         )
     return submission
+
+
+@router.post("/{submission_id}/hint", response_model=HintResponse)
+async def get_hint(
+    submission_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> HintResponse:
+    """Request a progressive hint for a submission."""
+    # 1. Get submission
+    submission = await submission_service.get_submission_by_id(
+        db=db,
+        user=current_user,
+        submission_id=submission_id,
+    )
+    if submission is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Submission not found",
+        )
+    
+    # 2. Check problem exists
+    if submission.problem_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No problem associated with this submission",
+        )
+    
+    # 3. Check not already accepted
+    if submission.status == "Accepted":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No hints needed for Accepted submission",
+        )
+    
+    # 4. Build verdict dict
+    verdict = {
+        "status": submission.status,
+        "stderr": submission.stderr,
+        "stdout": submission.stdout,
+        "error_message": submission.error_type,
+        "stdin": None,
+        "expected_output": None,
+    }
+    
+    # 5. Get topic slugs
+    topic_slugs = await get_topic_slugs_for_problem(db, submission.problem_id)
+    
+    # 6. Request hint
+    try:
+        result = await request_next_hint(
+            db=db,
+            user_id=current_user.id,
+            problem_id=submission.problem_id,
+            verdict=verdict,
+            topic_slugs=topic_slugs,
+            source_code=submission.source_code or "",
+            problem_description="",
+        )
+    except Exception as e:
+        logger.exception("Failed to generate hint for submission %s: %s", submission_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate hint: {type(e).__name__}: {str(e)[:100]}",
+        )
+    
+    # 7. Return response
+    return HintResponse(**result)

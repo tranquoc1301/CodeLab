@@ -11,12 +11,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const isLoginRequest = error.config?.url?.includes('/auth/login');
-      const isRegisterRequest = error.config?.url?.includes('/auth/register');
+      const url = error.config?.url || '';
+      const isAuthRequest = url.includes('/auth/login') ||
+                            url.includes('/auth/register') ||
+                            url.includes('/auth/me');
 
-      // Only redirect to login if NOT a login/register attempt
-      // This allows the login form to handle 401 errors itself
-      if (!isLoginRequest && !isRegisterRequest) {
+      // Only redirect to login if NOT an auth endpoint
+      // Auth endpoints legitimately return 401 when not authenticated
+      if (!isAuthRequest) {
         useAuthStore.getState().logout();
         window.location.href = '/login';
       }
