@@ -1,10 +1,12 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
+from app.models.problem import Problem
 from app.models.user import User
 from app.schemas.hint import HintResponse
 from app.schemas.submission import SubmissionCreate, SubmissionResponse, VerdictResponse
@@ -154,28 +156,42 @@ async def get_hint(
         )
     
     # 4. Build verdict dict
+    failing_result = next(
+        (
+            result
+            for result in submission.test_case_results
+            if result.status != "Accepted"
+        ),
+        None,
+    )
     verdict = {
         "status": submission.status,
-        "stderr": submission.stderr,
-        "stdout": submission.stdout,
+        "stderr": submission.stderr or getattr(failing_result, "stderr", None),
+        "stdout": getattr(failing_result, "stdout", None) if failing_result else submission.stdout,
         "error_message": submission.error_type,
-        "stdin": None,
-        "expected_output": None,
+        "stdin": getattr(failing_result, "input", None) if failing_result else None,
+        "expected_output": getattr(failing_result, "expected_output", None) if failing_result else None,
     }
     
     # 5. Get topic slugs
     topic_slugs = await get_topic_slugs_for_problem(db, submission.problem_id)
+    problem_result = await db.execute(select(Problem).where(Problem.id == submission.problem_id))
+    problem = problem_result.scalar_one_or_none()
+    problem_description = ""
+    if problem is not None:
+        problem_description = f"{problem.title}\n{problem.description or ''}".strip()
     
     # 6. Request hint
     try:
         result = await request_next_hint(
             db=db,
             user_id=current_user.id,
-            problem_id=submission.problem_id,
+            submission_id=submission_id,
             verdict=verdict,
             topic_slugs=topic_slugs,
             source_code=submission.source_code or "",
-            problem_description="",
+            problem_description=problem_description,
+            language=submission.language,
         )
     except Exception as e:
         logger.exception("Failed to generate hint for submission %s: %s", submission_id, e)

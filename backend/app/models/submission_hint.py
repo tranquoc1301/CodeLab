@@ -19,10 +19,11 @@ class SubmissionHint(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    problem_id: Mapped[int] = mapped_column(
+    submission_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("problems.id", ondelete="CASCADE"),
+        ForeignKey("submissions.id", ondelete="CASCADE"),
         nullable=False,
+        unique=True,  # One hint row per submission
     )
     current_level: Mapped[int] = mapped_column(
         SmallInteger,
@@ -38,12 +39,4 @@ class SubmissionHint(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
-    )
-
-    __table_args__ = (
-        UniqueConstraint(
-            "user_id",
-            "problem_id",
-            name="uq_submission_hints_user_problem",
-        ),
     )

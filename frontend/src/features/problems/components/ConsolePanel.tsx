@@ -7,11 +7,14 @@ import {
   XCircle,
   AlertCircle,
   Clock,
+  Lightbulb,
 } from "lucide-react";
 import type { VerdictResult } from "@/shared/types";
 import { TestCaseStatusGrid } from "./TestCaseStatusGrid";
+import { Button } from "@/shared/components/ui/button";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 
-type ConsoleTab = "result" | "executed";
+type ConsoleTab = "result" | "executed" | "hint";
 
 interface TabDef {
   key: ConsoleTab;
@@ -22,18 +25,33 @@ interface TabDef {
 const TABS: TabDef[] = [
   { key: "result", label: "Test Result", icon: CheckCircle },
   { key: "executed", label: "Judge's Result", icon: Zap },
+  { key: "hint", label: "AI Hint", icon: Lightbulb },
 ];
 
 interface ConsolePanelProps {
   verdict: VerdictResult | null;
   isRunning: boolean;
   totalTestCases: number;
+  // Hint props
+  hints: string[];
+  hintLevel: number;
+  isHintExhausted: boolean;
+  isLoadingHint: boolean;
+  hintError: string | null;
+  onFetchHint: () => void;
 }
 
 export const ConsolePanel = memo(function ConsolePanel({
   verdict,
   isRunning,
   totalTestCases,
+  // Hint props
+  hints,
+  hintLevel,
+  isHintExhausted,
+  isLoadingHint,
+  hintError,
+  onFetchHint,
 }: ConsolePanelProps) {
   const [activeTab, setActiveTab] = useState<ConsoleTab>("result");
 
@@ -74,7 +92,7 @@ export const ConsolePanel = memo(function ConsolePanel({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-4" style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {activeTab === "result" && (
           <div className="space-y-4">
             {isRunning ? (
@@ -223,6 +241,80 @@ export const ConsolePanel = memo(function ConsolePanel({
               <p className="text-sm text-muted-foreground">
                 No execution data yet
               </p>
+            )}
+          </div>
+        )}
+
+        {activeTab === "hint" && (
+          <div className="space-y-3">
+            {!verdict?.submission_id || verdict?.status === "Accepted" ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                {verdict?.status === "Accepted" 
+                  ? "Problem accepted. No hints needed."
+                  : "Submit to get AI hints."}
+              </p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4 text-warning" />
+                    <h4 className="text-sm font-semibold text-foreground">
+                      AI Hint
+                    </h4>
+                  </div>
+                  {!isHintExhausted && hintLevel < 3 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onFetchHint}
+                      disabled={isLoadingHint}
+                      className="text-xs border-warning/30 hover:bg-warning/10"
+                    >
+                      {isLoadingHint ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          Loading...
+                        </>
+                      ) : hintLevel === 0 ? (
+                        "Get Hint"
+                      ) : (
+                        `Next Hint (${hintLevel}/3)`
+                      )}
+                    </Button>
+                  )}
+                </div>
+                
+                {hintError && (
+                  <Alert variant="destructive" className="text-xs">
+                    <AlertDescription>{hintError}</AlertDescription>
+                  </Alert>
+                )}
+                
+                {hints.length > 0 && (
+                  <div className="space-y-3">
+                    {hints.map((hint, index) => (
+                      <div
+                        key={index}
+                        className="p-3 rounded-lg bg-card border border-border/60"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-medium text-warning">
+                            Hint {index + 1}/3
+                          </span>
+                        </div>
+                        <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
+                          {hint}
+                        </p>
+                      </div>
+                    ))}
+                    {isHintExhausted && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        All hints displayed for this submission. Submit new code to get fresh hints!
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

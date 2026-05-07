@@ -8,113 +8,95 @@ Prompts are designed to guide students without revealing solutions.
 # SYSTEM PROMPT - Applied to all hint levels
 # =============================================================================
 
-SYSTEM_PROMPT = """You are a code debugging assistant embedded in an online judge platform.
-Your only job is to guide the student toward fixing the specific error
-in their submitted code. Nothing else.
+SYSTEM_PROMPT = """You are a programming tutor embedded in an online judge platform.
+Your job is to help the student reason toward the cause of the observed
+failure through progressive hints. Do not act like a direct debugger.
 
 Strict rules:
-- Focus exclusively on the error shown in the context
+- Use only the verdict, problem statement, submitted code structure, stderr, actual output, expected output, and failing input provided in the context
+- Do not infer hidden test cases, unstated constraints, or requirements not present in the context
+- Use progressive disclosure: broad guidance first, narrower attention second, concrete direction third
+- At Level 1, do not mention exact identifiers, expressions, function names, line numbers, or replacement code from the student's submission
+- At Level 2, point to a code region by role and ask the student to inspect the value or condition used there
+- At Level 3, give a concrete correction direction with generic pseudocode, but still require the student to adapt it
+- Avoid repeating the same wording or diagnosis across levels
 - Never write a complete working solution
 - Never reveal the full correct algorithm
 - Never give general programming advice unrelated to this specific error
-- Never praise, motivate, or add filler sentences
 - Never suggest refactoring, style improvements, or optimizations
   unless they are the direct cause of the error
 - Reply in English
-- Maximum 100 words per response
-"""
-
-# =============================================================================
-# CONTEXT TEMPLATE - Injected before each level prompt
-# =============================================================================
-
-CONTEXT_TEMPLATE = """Verdict      : {status}
-Error type   : {error_context}
-Language     : {language}
-Problem      : {problem_description}
-Student code :
-```
-{source_code}
-```
-stderr       : {stderr}
-error_message: {error_message}
-Failing input: {stdin}
-Actual output: {stdout}
-Expected     : {expected_output}
+- Maximum 120 words per response
+- Respond with valid JSON only. No Markdown. No prose outside JSON.
 """
 
 # =============================================================================
 # LEVEL 1 PROMPT - Identify the error category
 # =============================================================================
 
-LEVEL1_USER_PROMPT = """Based on the error type in the context above:
-1. Explain in plain terms what this error type means
-   and how it typically manifests in code execution
-2. Explain what consequence this error has on the output
-   or runtime behavior the student is seeing
-3. Ask one precise question the student must answer
-   by examining their own code
+LEVEL1_USER_PROMPT = """You are writing Hint 1 of 3. Give broad tutor guidance only.
+
+Return exactly this JSON object:
+{"bug_type":"broad concept to review, not a classifier label","effect":"short observed consequence without guessing beyond the context","question":"one non-leading question that helps the student inspect their reasoning"}
 
 Constraints:
-- Do NOT name any variable, function, or line from their code
+- Required keys: bug_type, effect, question
+- Values must be short strings
+- Do not include extra keys
+- Do NOT name any variable, function, expression, index, or line from their code
+- Do NOT point to the exact suspicious operation
 - Do NOT suggest any fix or technique yet
 - Do NOT re-classify or rename the error type
-- Do NOT add anything beyond the 3 points above"""
+- Do NOT add anything outside the JSON object"""
 
 LEVEL1_INSTRUCTION = (
-    "Explain ONLY the general type of error in 2-3 sentences. "
+    "Return JSON with only the general type of error, observed effect, and one question. "
     "Do NOT reference the student's specific code. "
-    "Do NOT suggest any fix yet. Be encouraging."
+    "Do NOT suggest any fix yet."
 )
 
 # =============================================================================
 # LEVEL 2 PROMPT - Point to the problematic area
 # =============================================================================
 
-LEVEL2_USER_PROMPT = """Based on the context above:
-1. Identify which structural part of the student's code contains
-   the fault — describe it by its role, not by name
-   (e.g. "the loop that iterates over input elements",
-         "the condition that decides when to stop recursion",
-         "the step where the result is accumulated")
-2. Name the programming concept that needs to be correctly applied
-   in that part to fix the error
-   (e.g. "inclusive upper bound", "memoization base case",
-         "in-place mutation during iteration")
-3. Ask one precise question the student must answer
-   by re-reading that specific part
+LEVEL2_USER_PROMPT = """You are writing Hint 2 of 3. Narrow the student's attention without solving it.
+
+Return exactly this JSON object:
+{"fault_area":"short role-based area to inspect, not a copied code expression","concept":"short programming concept involved","question":"one question about the value, condition, or index used in that area"}
 
 Constraints:
+- Required keys: fault_area, concept, question
+- Values must be short strings
+- Do not include extra keys
+- Describe the code location by role, such as "the expression that computes the comparison value" or "the loop condition"
+- Do NOT simply repeat the broad Level 1 concept
 - Do NOT show any corrected code or pseudo-code
 - Do NOT explain how to fix it yet
-- Do NOT add anything beyond the 3 points above"""
+- Do NOT add anything outside the JSON object"""
 
 LEVEL2_INSTRUCTION = (
-    "Identify WHICH part of the code (function, loop, condition, or "
-    "data structure) is likely causing the issue. Suggest the correct "
-    "technique or approach. Do NOT provide a working solution or code."
+    "Return JSON identifying the structural code area, related concept, "
+    "and one question. Do NOT provide a working solution or code."
 )
 
 # =============================================================================
 # LEVEL 3 PROMPT - Give a concrete fix direction
 # =============================================================================
 
-LEVEL3_USER_PROMPT = """Based on the context above:
-1. State in one sentence exactly what is wrong in the identified part
-   (e.g. "the loop exits before processing the last element",
-         "the base case returns before all recursive paths are covered",
-         "the index is computed from the original array length
-          instead of the remaining slice length")
-2. Show a pseudo-code pattern of 5–8 lines that illustrates
-   the correct structure — use generic placeholder names,
-   never the student's own variable names
-3. State in one sentence why this structure produces the correct result
+LEVEL3_USER_PROMPT = """You are writing Hint 3 of 3. Give a concrete fix direction without a full solution.
+
+Return exactly this JSON object:
+{"exact_issue":"one sentence identifying the concrete issue to check","pseudocode":"3-6 lines of generic pseudocode using placeholder names","why_it_works":"one sentence explaining why this direction addresses the observed failure"}
 
 Constraints:
+- Required keys: exact_issue, pseudocode, why_it_works
+- Values must be short strings
+- Do not include extra keys
 - The pseudo-code must be generic enough to require adaptation —
   do NOT paste the student's code with corrections applied
+- Avoid vague phrases like "the failing behavior must be isolated" or "inspect failing context"
 - Do NOT reveal the complete algorithm
-- Do NOT add anything beyond the 3 points above"""
+- Do NOT add anything outside the JSON object"""
 
 LEVEL3_INSTRUCTION = (
     "Give a concrete fix direction with a short pseudo-code snippet "
@@ -149,7 +131,8 @@ def build_full_prompt(
     source_code: str,
     problem_description: str,
     language: str = "python",
-) -> str:
+    include_error_context: bool = True,
+) -> tuple[str, str]:
     """Build a complete prompt for the LLM.
 
     Combines the system prompt, context block, and level-specific user prompt.
@@ -165,30 +148,40 @@ def build_full_prompt(
     truncated_expected = (verdict.get("expected_output") or "")[:200]
 
     # Build context block
-    context = CONTEXT_TEMPLATE.format(
-        status=verdict.get("status", "Unknown"),
-        error_context=error_context,
-        language=language,
-        problem_description=truncated_description,
-        source_code=truncated_code,
-        stderr=truncated_stderr,
-        error_message=truncated_error_msg,
-        stdin=truncated_stdin,
-        stdout=truncated_stdout,
-        expected_output=truncated_expected,
+    context_lines = [
+        f"Verdict      : {verdict.get('status', 'Unknown')}",
+        f"Language     : {language}",
+        f"Problem      : {truncated_description}",
+        "Student code :",
+        "```",
+        truncated_code,
+        "```",
+    ]
+    if include_error_context:
+        context_lines.insert(1, f"Error type   : {error_context}")
+    optional_fields = (
+        ("stderr       ", truncated_stderr),
+        ("error_message", truncated_error_msg),
+        ("Failing input", truncated_stdin),
+        ("Actual output", truncated_stdout),
+        ("Expected     ", truncated_expected),
     )
+    for label, value in optional_fields:
+        if value.strip():
+            context_lines.append(f"{label}: {value}")
+    context = "\n".join(context_lines)
 
     # Get the user prompt for this level
     user_prompt = HINT_LEVEL_USER_PROMPTS.get(next_level, LEVEL1_USER_PROMPT)
 
     # Combine into full prompt
-    full_prompt = f"{SYSTEM_PROMPT}\n\n{context}\n\n{user_prompt}"
+    user_content = f"{context}\n\n{user_prompt}"
 
-    return full_prompt
+    return SYSTEM_PROMPT, user_content
 
 
 # Vietnamese fallback message when LLM is unavailable
-FALLBACK_MESSAGE = "Hiện tại hệ thống gợi ý đang bảo trì. Vui lòng thử lại sau."
+FALLBACK_MESSAGE = "System is currently unavailable. Please try again later or check your internet connection."
 
 
 # Error context mapping for display
@@ -224,7 +217,6 @@ def get_user_prompt(next_level: int) -> str:
 
 __all__ = [
     "SYSTEM_PROMPT",
-    "CONTEXT_TEMPLATE",
     "LEVEL1_USER_PROMPT",
     "LEVEL2_USER_PROMPT",
     "LEVEL3_USER_PROMPT",
