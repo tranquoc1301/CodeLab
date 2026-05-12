@@ -14,7 +14,7 @@ interface UseProblemCodeReturn {
 export function useProblemCode(
   problem: Problem | undefined,
   slug: string | undefined,
-  autosave: (code: string) => void,
+  autosave: (code: string, language: Language) => void,
   userId: number | undefined,
 ): UseProblemCodeReturn {
   const [language, setLanguage] = useState<Language>(DEFAULTS.LANGUAGE);
@@ -44,9 +44,9 @@ export function useProblemCode(
     (value: string | undefined) => {
       const newCode = value ?? "";
       setCode(newCode);
-      autosave(newCode);
+      autosave(newCode, language);
     },
-    [autosave],
+    [autosave, language],
   );
 
   return { language, code, setCode, handleLanguageChange, handleCodeChange };

@@ -18,12 +18,11 @@ import { useProblemCode } from "@/features/problems/hooks/useProblemCode";
 import { useAutosave } from "@/features/problems/hooks/useAutosave";
 import { useLoginGate } from "@/features/problems/hooks/useLoginGate";
 import { useNumericSlugRedirect } from "@/features/problems/hooks/useNumericSlugRedirect";
-import {COPY, DEFAULTS} from "@/shared/config";
+import { COPY } from "@/shared/config";
 import { useProblemDetail } from "@/features/problems/hooks";
 import { ROUTES } from "@/app/router";
 import { getCodeTemplate } from "@/shared/config/code";
 import type { SubmissionResult } from "@/shared/types";
-// Language: used via useProblemCode (language), ProblemToolbar (language), ProblemEditorPanel (language)
 
 // Extracted sub-components
 import { LoadingState } from "@/features/problems/components/LoadingState";
@@ -52,11 +51,7 @@ export default function ProblemDetail() {
 
   const { data: problem, isLoading } = useProblemDetail(slug);
 
-  const { status: autosaveStatus, save: autosave } = useAutosave(
-    slug,
-    DEFAULTS.LANGUAGE,
-    user?.id,
-  );
+  const { status: autosaveStatus, save: autosave } = useAutosave(slug, user?.id);
 
   const { language, code, setCode, handleLanguageChange, handleCodeChange } =
     useProblemCode(problem, slug, autosave, user?.id);
@@ -136,15 +131,15 @@ export default function ProblemDetail() {
   // Reset code handler — resets to the problem's default snippet from DB
   const handleResetCode = useCallback(() => {
     if (problem) {
-      // Try to get the problem's default code snippet for this language from DB
       const dbSnippet = problem.code_snippets?.find(
         (cs) => cs.language === language,
       );
       const defaultCode = dbSnippet?.code ?? getCodeTemplate(language);
       setCode(defaultCode);
+      autosave(defaultCode, language);
       setShowResetConfirm(false);
     }
-  }, [problem, language, setCode]);
+  }, [problem, language, setCode, autosave]);
 
   // Run / Submit handlers
   const handleRunCode = useCallback(() => {

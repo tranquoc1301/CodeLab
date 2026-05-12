@@ -7,7 +7,7 @@ type AutosaveStatus = "idle" | "saving" | "saved";
 const AUTOSAVE_DELAY = 1000;
 const CLEAR_STATUS_DELAY = 2000;
 
-export function useAutosave(slug: string | undefined, language: Language, userId: number | undefined) {
+export function useAutosave(slug: string | undefined, userId: number | undefined) {
   const [status, setStatus] = useState<AutosaveStatus>("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -24,7 +24,7 @@ export function useAutosave(slug: string | undefined, language: Language, userId
   }, []);
 
   const save = useCallback(
-    (code: string) => {
+    (code: string, language: Language) => {
       clearTimers();
 
       timerRef.current = setTimeout(() => {
@@ -39,7 +39,7 @@ export function useAutosave(slug: string | undefined, language: Language, userId
         }, CLEAR_STATUS_DELAY);
       }, AUTOSAVE_DELAY);
     },
-    [slug, language, userId, clearTimers],
+    [slug, userId, clearTimers],
   );
 
   // Clean up timers on unmount
