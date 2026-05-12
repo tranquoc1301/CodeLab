@@ -1,8 +1,7 @@
-"""Submission hint model for tracking progressive LLM hints per user-problem pair."""
-
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, SmallInteger, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Integer, SmallInteger, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -33,6 +32,9 @@ class SubmissionHint(Base):
     hint_1: Mapped[str | None] = mapped_column(Text, nullable=True)
     hint_2: Mapped[str | None] = mapped_column(Text, nullable=True)
     hint_3: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payload_1: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    payload_2: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    payload_3: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     last_error_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

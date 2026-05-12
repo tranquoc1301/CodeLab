@@ -3,7 +3,7 @@ import { FileCode, Minimize2 } from "lucide-react";
 import CodeEditor from "@/features/editor/components/CodeEditor";
 import { ConsolePanel } from "@/features/problems/components/ConsolePanel";
 import { COPY } from "@/shared/config";
-import type { Language, VerdictResult } from "@/shared/types";
+import type { HintResponse, Language, VerdictResult } from "@/shared/types";
 import { submissionsApi } from "@/features/submissions/api";
 
 interface ProblemEditorPanelProps {
@@ -21,6 +21,13 @@ interface ProblemEditorPanelProps {
   editorPanelRef: React.RefObject<HTMLDivElement | null>;
 }
 
+const FILE_EXTENSIONS: Record<Language, string> = {
+  python3: ".py",
+  java: ".java",
+  cpp: ".cpp",
+  c: ".c",
+};
+
 export const ProblemEditorPanel = memo(function ProblemEditorPanel({
   language,
   languageLabel,
@@ -35,24 +42,13 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
   onVerticalResize,
   editorPanelRef,
 }: ProblemEditorPanelProps) {
-  const FILE_EXTENSION: Record<Language, string> = {
-    python3: ".py",
-    java: ".java",
-    cpp: ".cpp",
-    c: ".c",
-  };
-
-  // Hint state
-  const [hints, setHints] = useState<string[]>([]);
+  const [hints, setHints] = useState<HintResponse[]>([]);
   const [hintLevel, setHintLevel] = useState(0);
   const [isHintExhausted, setIsHintExhausted] = useState(false);
   const [isLoadingHint, setIsLoadingHint] = useState(false);
   const [hintError, setHintError] = useState<string | null>(null);
-
-  // Check if we have a failed submission with submission_id
   const submissionId = verdict?.submission_id ?? null;
 
-  // Reset hints when verdict changes (new submission)
   useEffect(() => {
     setHints([]);
     setHintLevel(0);
@@ -60,30 +56,30 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
     setHintError(null);
   }, [submissionId]);
 
-  // Fetch hint handler
   const fetchHint = useCallback(async () => {
-    if (isHintExhausted || !submissionId) return;
-    
+    if (isHintExhausted || !submissionId) {
+      return;
+    }
+
     setIsLoadingHint(true);
     setHintError(null);
-    
+
     try {
       const response = await submissionsApi.getHint(submissionId);
       const data = response.data;
-      
+
       if (data.hint) {
-        setHints((prev) => [...prev, data.hint!]);
+        setHints((prev) => [...prev, data]);
       }
       setHintLevel(data.hint_level);
       setIsHintExhausted(data.exhausted);
     } catch {
-      setHintError("Unable to fetch hint. Please try again later.");
+      setHintError("Không lấy được gợi ý lúc này. Hãy thử lại sau.");
     } finally {
       setIsLoadingHint(false);
     }
   }, [submissionId, isHintExhausted]);
 
-  // Use consoleHeight to avoid TS warning about unused variable
   const consoleHeightPercent = "var(--console-height, 45%)";
 
   return (
@@ -99,7 +95,7 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
         <div className="flex items-center gap-2">
           <FileCode className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
           <span className="text-xs font-mono text-muted-foreground">
-            solution{FILE_EXTENSION[language]}
+            solution{FILE_EXTENSIONS[language]}
           </span>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
             {languageLabel}
@@ -130,7 +126,6 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
         <CodeEditor language={language} value={code} onChange={onCodeChange} />
       </div>
 
-      {/* Vertical resize handle between editor and console */}
       <div
         className="h-2 bg-border/50 hover:bg-primary/40 cursor-row-resize transition-all relative group select-none flex items-center justify-center"
         onMouseDown={onVerticalResize}
@@ -138,7 +133,6 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
         aria-orientation="horizontal"
         aria-label="Resize console panel"
       >
-        {/* Horizontal drag indicator */}
         <div className="flex gap-0.5 opacity-50 group-hover:opacity-100 transition-opacity">
           <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/60" />
           <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/60" />
@@ -154,7 +148,6 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
           verdict={verdict}
           isRunning={isRunning || isSubmitting}
           totalTestCases={verdict?.total_test_cases ?? 0}
-          // Hint props
           hints={hints}
           hintLevel={hintLevel}
           isHintExhausted={isHintExhausted}

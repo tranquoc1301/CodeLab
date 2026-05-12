@@ -193,6 +193,11 @@ async def get_hint(
             problem_description=problem_description,
             language=submission.language,
         )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except Exception as e:
         logger.exception("Failed to generate hint for submission %s: %s", submission_id, e)
         raise HTTPException(

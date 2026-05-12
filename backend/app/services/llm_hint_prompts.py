@@ -1,111 +1,71 @@
-"""LLM Hint Prompts for progressive hint generation.
+from app.services.hint_diagnostics import DiagnosticSnapshot
 
-This module contains structured prompts for the three-level hint system.
-Prompts are designed to guide students without revealing solutions.
+
+SYSTEM_PROMPT = """Bạn là tutor lập trình trong một nền tảng online judge.
+Nhiệm vụ của bạn là giúp học viên tự tìm ra nguyên nhân lỗi qua 3 mức gợi ý tăng dần.
+
+Quy tắc bắt buộc:
+- Chỉ dùng thông tin có trong context: đề bài, code đã nộp, verdict, stderr, input fail, actual output, expected output, và snapshot chẩn đoán
+- Không bịa hidden test, hidden constraint, hoặc yêu cầu không xuất hiện trong context
+- Luôn giữ tiến trình 3 mức: quan sát lỗi -> khoanh vùng -> hướng sửa
+- Level 1 chỉ được nói ở mức khái quát, không chỉ thẳng biến, biểu thức, line number, hay đoạn code cụ thể
+- Level 2 được mô tả vùng logic theo vai trò và đặt câu hỏi để học viên tự kiểm tra
+- Level 3 được nói cụ thể hơn về vùng lỗi hoặc biểu thức đáng nghi, nhưng không được đưa patch hoàn chỉnh, code copy-paste, hay full algorithm
+- Không lặp lại cùng một chẩn đoán ở các mức sau; mỗi mức phải thu hẹp phạm vi rõ hơn mức trước
+- Không đưa lời khuyên chung chung ngoài lỗi hiện tại
+- Không khuyên refactor hay tối ưu trừ khi đó là nguyên nhân trực tiếp
+- Trả lời bằng tiếng Việt tự nhiên, giọng tutor, ngắn gọn
+- Không dùng Markdown fence
+- Trả về JSON hợp lệ duy nhất, không có văn bản ngoài JSON
 """
 
-# =============================================================================
-# SYSTEM PROMPT - Applied to all hint levels
-# =============================================================================
+LEVEL1_USER_PROMPT = """Bạn đang viết Hint 1/3. Chỉ giúp học viên nhìn ra kiểu sai và hậu quả đang xảy ra.
 
-SYSTEM_PROMPT = """You are a programming tutor embedded in an online judge platform.
-Your job is to help the student reason toward the cause of the observed
-failure through progressive hints. Do not act like a direct debugger.
+Trả về đúng JSON này:
+{"observation":"kiểu sai cần xem lại ở mức khái quát","impact":"mô tả hậu quả quan sát được từ ca fail hiện tại","question":"một câu hỏi không dẫn đáp án để học viên tự kiểm tra lập luận"}
 
-Strict rules:
-- Use only the verdict, problem statement, submitted code structure, stderr, actual output, expected output, and failing input provided in the context
-- Do not infer hidden test cases, unstated constraints, or requirements not present in the context
-- Use progressive disclosure: broad guidance first, narrower attention second, concrete direction third
-- At Level 1, do not mention exact identifiers, expressions, function names, line numbers, or replacement code from the student's submission
-- At Level 2, point to a code region by role and ask the student to inspect the value or condition used there
-- At Level 3, give a concrete correction direction with generic pseudocode, but still require the student to adapt it
-- Avoid repeating the same wording or diagnosis across levels
-- Never write a complete working solution
-- Never reveal the full correct algorithm
-- Never give general programming advice unrelated to this specific error
-- Never suggest refactoring, style improvements, or optimizations
-  unless they are the direct cause of the error
-- Reply in English
-- Maximum 120 words per response
-- Respond with valid JSON only. No Markdown. No prose outside JSON.
-"""
+Ràng buộc:
+- Bắt buộc đủ 3 key: observation, impact, question
+- Mỗi value là chuỗi ngắn
+- Không thêm key khác
+- Không nêu tên biến, hàm, biểu thức, chỉ số, hay vị trí cụ thể trong code
+- Không nói cách sửa
+- Không nhắc lại nguyên văn diagnosis_label của hệ thống
+- Không viết gì ngoài JSON"""
 
-# =============================================================================
-# LEVEL 1 PROMPT - Identify the error category
-# =============================================================================
+LEVEL1_INSTRUCTION = "Mức 1 chỉ cho học viên thấy lỗi đang thuộc nhóm suy nghĩ nào và hậu quả hiện ra ở verdict."
 
-LEVEL1_USER_PROMPT = """You are writing Hint 1 of 3. Give broad tutor guidance only.
+LEVEL2_USER_PROMPT = """Bạn đang viết Hint 2/3. Hãy khoanh vùng chỗ cần kiểm tra nhưng chưa giải hộ.
 
-Return exactly this JSON object:
-{"bug_type":"broad concept to review, not a classifier label","effect":"short observed consequence without guessing beyond the context","question":"one non-leading question that helps the student inspect their reasoning"}
+Trả về đúng JSON này:
+{"focus_area":"vùng logic cần kiểm tra, mô tả theo vai trò","concept":"khái niệm lập trình đang bị lệch ở vùng đó","question":"một câu hỏi buộc học viên đối chiếu giá trị, điều kiện, hoặc trạng thái tại vùng đó"}
 
-Constraints:
-- Required keys: bug_type, effect, question
-- Values must be short strings
-- Do not include extra keys
-- Do NOT name any variable, function, expression, index, or line from their code
-- Do NOT point to the exact suspicious operation
-- Do NOT suggest any fix or technique yet
-- Do NOT re-classify or rename the error type
-- Do NOT add anything outside the JSON object"""
+Ràng buộc:
+- Bắt buộc đủ 3 key: focus_area, concept, question
+- Mỗi value là chuỗi ngắn
+- Không thêm key khác
+- Focus area phải mô tả theo vai trò logic, không copy expression từ code
+- Phải thu hẹp hơn Level 1 và không lặp lại wording của Level 1
+- Không đưa pseudo-code hay code sửa
+- Không viết gì ngoài JSON"""
 
-LEVEL1_INSTRUCTION = (
-    "Return JSON with only the general type of error, observed effect, and one question. "
-    "Do NOT reference the student's specific code. "
-    "Do NOT suggest any fix yet."
-)
+LEVEL2_INSTRUCTION = "Mức 2 phải chỉ ra đúng vùng logic cần soi lại và buộc học viên tự đối chiếu trạng thái tại đó."
 
-# =============================================================================
-# LEVEL 2 PROMPT - Point to the problematic area
-# =============================================================================
+LEVEL3_USER_PROMPT = """Bạn đang viết Hint 3/3. Hãy cho hướng sửa cụ thể nhưng vẫn buộc học viên tự chỉnh code.
 
-LEVEL2_USER_PROMPT = """You are writing Hint 2 of 3. Narrow the student's attention without solving it.
+Trả về đúng JSON này:
+{"exact_issue":"một câu chỉ rõ vùng logic hoặc biểu thức đáng nghi cần sửa","next_step":"hướng chỉnh sửa ở mức thao tác logic, không phải patch hoàn chỉnh","why_it_works":"một câu giải thích vì sao hướng này xử lý đúng triệu chứng hiện tại"}
 
-Return exactly this JSON object:
-{"fault_area":"short role-based area to inspect, not a copied code expression","concept":"short programming concept involved","question":"one question about the value, condition, or index used in that area"}
+Ràng buộc:
+- Bắt buộc đủ 3 key: exact_issue, next_step, why_it_works
+- Mỗi value là chuỗi ngắn
+- Không thêm key khác
+- Được phép nói cụ thể hơn về vùng logic hoặc biểu thức đáng nghi, nhưng không paste code sửa
+- Không đưa full algorithm, full function, hay patch line-by-line
+- Không dùng các câu mơ hồ như "kiểm tra lại ngữ cảnh fail"
+- Không viết gì ngoài JSON"""
 
-Constraints:
-- Required keys: fault_area, concept, question
-- Values must be short strings
-- Do not include extra keys
-- Describe the code location by role, such as "the expression that computes the comparison value" or "the loop condition"
-- Do NOT simply repeat the broad Level 1 concept
-- Do NOT show any corrected code or pseudo-code
-- Do NOT explain how to fix it yet
-- Do NOT add anything outside the JSON object"""
-
-LEVEL2_INSTRUCTION = (
-    "Return JSON identifying the structural code area, related concept, "
-    "and one question. Do NOT provide a working solution or code."
-)
-
-# =============================================================================
-# LEVEL 3 PROMPT - Give a concrete fix direction
-# =============================================================================
-
-LEVEL3_USER_PROMPT = """You are writing Hint 3 of 3. Give a concrete fix direction without a full solution.
-
-Return exactly this JSON object:
-{"exact_issue":"one sentence identifying the concrete issue to check","pseudocode":"3-6 lines of generic pseudocode using placeholder names","why_it_works":"one sentence explaining why this direction addresses the observed failure"}
-
-Constraints:
-- Required keys: exact_issue, pseudocode, why_it_works
-- Values must be short strings
-- Do not include extra keys
-- The pseudo-code must be generic enough to require adaptation —
-  do NOT paste the student's code with corrections applied
-- Avoid vague phrases like "the failing behavior must be isolated" or "inspect failing context"
-- Do NOT reveal the complete algorithm
-- Do NOT add anything outside the JSON object"""
-
-LEVEL3_INSTRUCTION = (
-    "Give a concrete fix direction with a short pseudo-code snippet "
-    "(5-10 lines max). Explain briefly why this resolves the problem."
-)
-
-# =============================================================================
-# HINT LEVEL MAPPING
-# =============================================================================
+LEVEL3_INSTRUCTION = "Mức 3 phải đủ cụ thể để học viên biết sửa ở đâu và sửa theo hướng nào, nhưng vẫn không làm thay."
 
 HINT_LEVEL_INSTRUCTIONS = {
     1: LEVEL1_INSTRUCTION,
@@ -118,101 +78,96 @@ HINT_LEVEL_USER_PROMPTS = {
     2: LEVEL2_USER_PROMPT,
     3: LEVEL3_USER_PROMPT,
 }
-
-
-# =============================================================================
-# PROMPT BUILDER FUNCTION
-# =============================================================================
+DEFAULT_ERROR_CONTEXT = "Chưa đủ tín hiệu để phân loại hẹp"
+DEFAULT_LEVEL_INSTRUCTION = "Provide helpful guidance for fixing the error."
 
 def build_full_prompt(
     next_level: int,
-    error_context: str,
+    diagnostic_snapshot: DiagnosticSnapshot,
     verdict: dict,
     source_code: str,
     problem_description: str,
     language: str = "python",
     include_error_context: bool = True,
+    previous_hints: list[str] | None = None,
 ) -> tuple[str, str]:
-    """Build a complete prompt for the LLM.
-
-    Combines the system prompt, context block, and level-specific user prompt.
-    All content is truncated to stay within token limits.
-    """
-    # Truncate fields
-    truncated_description = (problem_description or "")[:400]
-    truncated_code = (source_code or "")[:2000]
-    truncated_stderr = (verdict.get("stderr") or "")[:300]
-    truncated_error_msg = (verdict.get("error_message") or "")[:200]
-    truncated_stdin = (verdict.get("stdin") or "")[:200]
-    truncated_stdout = (verdict.get("stdout") or "")[:200]
-    truncated_expected = (verdict.get("expected_output") or "")[:200]
-
-    # Build context block
+    truncated_description = _truncate(problem_description, 700)
+    truncated_code = _truncate(source_code, 2600)
+    truncated_stderr = _truncate(verdict.get("stderr"), 400)
+    truncated_error_msg = _truncate(verdict.get("error_message"), 250)
+    truncated_stdin = _truncate(verdict.get("stdin"), 250)
+    truncated_stdout = _truncate(verdict.get("stdout"), 250)
+    truncated_expected = _truncate(verdict.get("expected_output"), 250)
+    previous_hints = previous_hints or []
     context_lines = [
-        f"Verdict      : {verdict.get('status', 'Unknown')}",
-        f"Language     : {language}",
-        f"Problem      : {truncated_description}",
-        "Student code :",
-        "```",
+        f"Verdict: {verdict.get('status', 'Unknown')}",
+        f"Language: {language}",
+        f"Problem: {truncated_description}",
+        "Student code:",
         truncated_code,
-        "```",
     ]
     if include_error_context:
-        context_lines.insert(1, f"Error type   : {error_context}")
+        context_lines.insert(
+            1,
+            f"Diagnosis label: {diagnostic_snapshot.diagnosis_detail_display}",
+        )
+    context_lines.extend(
+        [
+            f"Tutor summary: {diagnostic_snapshot.learner_summary}",
+            f"Observed symptom: {diagnostic_snapshot.observed_symptom}",
+            f"Focus area candidate: {diagnostic_snapshot.focus_area}",
+            f"Concept hint: {diagnostic_snapshot.concept_hint}",
+            f"Failure signal: {diagnostic_snapshot.failure_signal}",
+        ]
+    )
     optional_fields = (
-        ("stderr       ", truncated_stderr),
+        ("Stderr", truncated_stderr),
         ("error_message", truncated_error_msg),
         ("Failing input", truncated_stdin),
         ("Actual output", truncated_stdout),
-        ("Expected     ", truncated_expected),
+        ("Expected output", truncated_expected),
     )
     for label, value in optional_fields:
         if value.strip():
             context_lines.append(f"{label}: {value}")
+    if previous_hints:
+        context_lines.append("Previous hints:")
+        for index, hint in enumerate(previous_hints, start=1):
+            context_lines.append(f"- Level {index}: {hint[:300]}")
     context = "\n".join(context_lines)
-
-    # Get the user prompt for this level
     user_prompt = HINT_LEVEL_USER_PROMPTS.get(next_level, LEVEL1_USER_PROMPT)
-
-    # Combine into full prompt
     user_content = f"{context}\n\n{user_prompt}"
 
     return SYSTEM_PROMPT, user_content
 
 
-# Vietnamese fallback message when LLM is unavailable
-FALLBACK_MESSAGE = "System is currently unavailable. Please try again later or check your internet connection."
-
-
-# Error context mapping for display
+FALLBACK_MESSAGE = '{"observation":"Dịch vụ gợi ý tạm thời gián đoạn","impact":"Hệ thống chưa tạo được gợi ý từ mô hình ở lần gọi này","question":"Bạn hãy thử lại sau ít phút để nhận gợi ý phù hợp hơn."}'
 ERROR_CONTEXT_MAP = {
-    "algorithm_design_error": "Wrong Answer — incorrect algorithm or data structure choice",
-    "logic_calculation_error": "Wrong Answer — math or logical calculation mistake",
-    "boundary_condition_error": "Wrong Answer — unhandled edge case or boundary condition",
-    "complexity_error": "Time Limit Exceeded — algorithm too slow for the constraints",
-    "memory_reference_error": "Runtime Error — null pointer, index out of range, or type error",
-    "recursion_error": "Runtime Error — infinite recursion or call stack overflow",
-    "syntax_error": "Compile Error — syntax or compilation issue",
-    "unknown": "Unknown error — unable to classify automatically",
+    "compile_syntax": "Lỗi biên dịch hoặc cú pháp",
+    "wrong_answer_boundary": "Sai điều kiện biên",
+    "wrong_answer_state_index": "Sai chỉ số hoặc trạng thái",
+    "wrong_answer_parsing_format": "Sai định dạng đầu ra",
+    "runtime_reference_type": "Lỗi truy cập dữ liệu hoặc kiểu",
+    "runtime_recursion": "Lỗi đệ quy",
+    "tle_complexity": "Thuật toán quá chậm",
+    "unknown": "Chưa đủ tín hiệu để phân loại hẹp",
 }
 
 
 def get_error_context(error_label: str) -> str:
-    """Get human-readable error context from error label."""
-    return ERROR_CONTEXT_MAP.get(error_label, "Unknown error")
+    return ERROR_CONTEXT_MAP.get(error_label, DEFAULT_ERROR_CONTEXT)
 
 
 def get_level_instruction(next_level: int) -> str:
-    """Get the instruction for a specific hint level."""
-    return HINT_LEVEL_INSTRUCTIONS.get(
-        next_level,
-        "Provide helpful guidance for fixing the error."
-    )
+    return HINT_LEVEL_INSTRUCTIONS.get(next_level, DEFAULT_LEVEL_INSTRUCTION)
 
 
 def get_user_prompt(next_level: int) -> str:
-    """Get the user prompt for a specific hint level."""
     return HINT_LEVEL_USER_PROMPTS.get(next_level, LEVEL1_USER_PROMPT)
+
+
+def _truncate(value: str | None, limit: int) -> str:
+    return (value or "")[:limit]
 
 
 __all__ = [

@@ -1,16 +1,18 @@
-"""Pydantic schemas for the LLM hint feature."""
+from typing import Literal
 
 from pydantic import BaseModel
 
 
+class HintCard(BaseModel):
+    label: str
+    content: str
+
+
 class HintResponse(BaseModel):
-    """Response model for hint requests.
-    
-    Attributes:
-        hint: The generated hint text, or None when exhausted
-        hint_level: The level just delivered (1, 2, or 3)
-        exhausted: True when hint_level == 3 (no more hints available)
-    """
     hint: str | None
     hint_level: int
     exhausted: bool
+    stage: Literal["observe", "focus", "correct"]
+    diagnosis_label: str | None
+    diagnosis_detail: str | None = None
+    cards: list[HintCard]
