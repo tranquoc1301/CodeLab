@@ -21,6 +21,7 @@ export const API = {
     AUTH_RESET_PASSWORD: "/auth/reset-password",
     AUTH_CHECK_USERNAME: "/auth/check-username",
     AUTH_CHECK_EMAIL: "/auth/check-email",
+    PROFILE_ERROR_PROFILE: "/profile/error-profile",
     PROBLEM_LISTS: "/problem-lists",
     PROBLEM_LIST: (id: number) => `/problem-lists/${id}`,
     LIST_PROBLEMS: (listId: number) => `/problem-lists/${listId}/problems`,

@@ -100,6 +100,25 @@ export const COPY = {
     SKILL_MAP_TITLE: "Skill Map",
     SKILL_MAP_DESCRIPTION:
       "Skill tracking will be available after solving problems.",
+    ERROR_PROFILE_TITLE: "Personal Error Profile",
+    ERROR_PROFILE_DESCRIPTION:
+      "See which failure patterns are showing up most often in your recent submissions.",
+    ERROR_PROFILE_EMPTY:
+      "Submit more solutions to build your personal error profile.",
+    ERROR_PROFILE_RECENT: "Recent profiled submissions",
+    ERROR_PROFILE_LIFETIME: "Lifetime profiled submissions",
+    ERROR_PROFILE_WINDOW: "Recent window",
+    ERROR_PROFILE_CHART_TITLE: "Error Pattern Snapshot",
+    ERROR_PROFILE_CHART_DESCRIPTION:
+      "Recent vs lifetime counts for your most common learning-relevant error labels.",
+    ERROR_PROFILE_TOP_LABELS: "Top weakness areas",
+    ERROR_PROFILE_SHARE: "Recent share",
+    ERROR_PROFILE_TREND_UP: "up",
+    ERROR_PROFILE_TREND_DOWN: "down",
+    ERROR_PROFILE_TREND_FLAT: "flat",
+    ERROR_PROFILE_TOPICS: "Top topics",
+    ERROR_PROFILE_DETAIL: "Dominant pattern",
+    ERROR_PROFILE_PRACTICE: "Practice focus",
     LOGIN_REQUIRED: "Please login to view your profile.",
     PROBLEM_LISTS_TITLE: "My Problem Lists",
     PROBLEM_LISTS_EMPTY: "You haven't created any problem lists yet.",

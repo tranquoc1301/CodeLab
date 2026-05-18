@@ -48,6 +48,11 @@ class Submission(Base):
         back_populates="submission",
         cascade="all, delete-orphan",
     )
+    error_event: Mapped["SubmissionErrorEvent | None"] = relationship(
+        back_populates="submission",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
 
 
 class SubmissionTestResult(Base):

@@ -10,6 +10,7 @@ from app.models.problem import Problem
 from app.models.submission import Submission, SubmissionTestResult
 from app.models.user import User
 from app.schemas.submission import SubmissionCreate, SubmissionResponse, VerdictResponse
+from app.services.error_profile import record_submission_error_event
 from app.services.evaluation import evaluate_submission
 
 logger = logging.getLogger(__name__)
@@ -104,6 +105,14 @@ async def evaluate_code(
         db=db,
         submission_id=new_submission.id,
         test_case_results=verdict.get("test_case_results", []),
+    )
+    topic_slugs = await get_topic_slugs_for_problem(db, submission_data.problem_id)
+    await record_submission_error_event(
+        db=db,
+        submission=new_submission,
+        verdict=verdict,
+        topic_slugs=topic_slugs,
+        problem_difficulty=problem.difficulty,
     )
     await db.commit()
 

@@ -12,6 +12,7 @@ from app.models.problem_list import ProblemList
 if TYPE_CHECKING:
     from app.models.submission import Submission
     from app.models.email_verification import EmailVerification
+    from app.models.submission_error_event import SubmissionErrorEvent
 
 
 class User(Base):
@@ -46,6 +47,11 @@ class User(Base):
     )
 
     problem_lists: Mapped[list[ProblemList]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    error_events: Mapped[list["SubmissionErrorEvent"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin",
