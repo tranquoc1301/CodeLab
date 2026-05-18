@@ -1,10 +1,17 @@
 import axios from 'axios';
 import { useAuthStore } from '@/app/store/auth';
 import { API } from '@/shared/config';
+import { ROUTES } from '@/app/router';
+
+const AUTH_PATHS = [
+  API.ENDPOINTS.AUTH_LOGIN,
+  API.ENDPOINTS.AUTH_REGISTER,
+  API.ENDPOINTS.AUTH_ME,
+];
 
 const api = axios.create({
   baseURL: API.BASE_URL,
-  withCredentials: true,  // Enable sending cookies with requests
+  withCredentials: true,
 });
 
 api.interceptors.response.use(
@@ -12,15 +19,11 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const url = error.config?.url || '';
-      const isAuthRequest = url.includes('/auth/login') ||
-                            url.includes('/auth/register') ||
-                            url.includes('/auth/me');
+      const isAuthRequest = AUTH_PATHS.some((path) => url.includes(path));
 
-      // Only redirect to login if NOT an auth endpoint
-      // Auth endpoints legitimately return 401 when not authenticated
       if (!isAuthRequest) {
         useAuthStore.getState().logout();
-        window.location.href = '/login';
+        window.location.href = ROUTES.LOGIN;
       }
     }
     return Promise.reject(error);

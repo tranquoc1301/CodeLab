@@ -4,6 +4,7 @@ import { RefreshCw, Clock, Zap, FileCode } from "lucide-react";
 import { useProblemSubmissions } from "@/features/problems/hooks/useProblemSubmissions";
 import type { SubmissionResult } from "@/shared/types";
 import { getStatusConfig } from "@/shared/config/status";
+import { COPY } from "@/shared/config";
 
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
@@ -26,19 +27,6 @@ function formatRelativeTime(dateString: string): string {
   if (hours > 0) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
   if (minutes > 0) return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
   return "Just now";
-}
-
-/**
- * Get language display label
- */
-function getLanguageLabel(language: string): string {
-  const labels: Record<string, string> = {
-    python3: "Python 3",
-    java: "Java",
-    cpp: "C++",
-    c: "C",
-  };
-  return labels[language] || language;
 }
 
 export const SubmissionList = memo(function SubmissionList({
@@ -122,7 +110,7 @@ export const SubmissionList = memo(function SubmissionList({
 
               {/* Language */}
               <span className="text-xs text-muted-foreground shrink-0">
-                {getLanguageLabel(submission.language)}
+                {COPY.LANGUAGE_LABELS[submission.language as keyof typeof COPY.LANGUAGE_LABELS] ?? submission.language}
               </span>
 
               {/* Runtime */}

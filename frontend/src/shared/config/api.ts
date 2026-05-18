@@ -27,6 +27,7 @@ export const API = {
     LIST_PROBLEMS: (listId: number) => `/problem-lists/${listId}/problems`,
     LIST_CONTAINING_PROBLEM: (problemId: number) =>
       `/problem-lists/problems/${problemId}/problem-lists`,
+    PROBLEM_REDIRECT: (slug: string | number) => `/problems/redirect/${slug}`,
   },
   HEADERS: {
     AUTH_PREFIX: "Bearer ",

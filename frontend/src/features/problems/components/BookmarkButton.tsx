@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bookmark, Plus, Check, Loader2, AlertCircle } from "lucide-react";
 import { problemListApi, type ProblemList } from "@/features/problems/api";
@@ -17,7 +17,10 @@ interface ListContainingProblem {
   name: string;
 }
 
-export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProps) {
+export function BookmarkButton({
+  problemId,
+  className = "",
+}: BookmarkButtonProps) {
   const { isAuthenticated, openAuthModal } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -29,7 +32,10 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
 
   // Close popover when clicking outside
   const handleClickOutside = useCallback((event: MouseEvent) => {
-    if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+    if (
+      popoverRef.current &&
+      !popoverRef.current.contains(event.target as Node)
+    ) {
       setOpen(false);
       setShowCreateForm(false);
       setError(null);
@@ -39,7 +45,8 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
   useEffect(() => {
     if (open) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [open, handleClickOutside]);
 
@@ -54,7 +61,8 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
   // Get lists that contain this specific problem
   const { data: listsContainingProblem } = useQuery<ListContainingProblem[]>({
     queryKey: ["problemLists", "containing", problemId],
-    queryFn: () => problemListApi.getListsContainingProblem(problemId).then((r) => r.data),
+    queryFn: () =>
+      problemListApi.getListsContainingProblem(problemId).then((r) => r.data),
     enabled: isAuthenticated,
     staleTime: 1000 * 60, // 1 minute - quick stale
   });
@@ -64,7 +72,9 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
     mutationFn: ({ listId }: { listId: number }) =>
       problemListApi.addProblem(listId, problemId),
     onMutate: async ({ listId }) => {
-      await queryClient.cancelQueries({ queryKey: ["problemLists", "containing", problemId] });
+      await queryClient.cancelQueries({
+        queryKey: ["problemLists", "containing", problemId],
+      });
 
       const previousData = queryClient.getQueryData<ListContainingProblem[]>([
         "problemLists",
@@ -74,11 +84,11 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
 
       if (previousData) {
         // Find the list name from the lists we have
-        const list = lists?.find(l => l.id === listId);
+        const list = lists?.find((l) => l.id === listId);
         if (list) {
           queryClient.setQueryData<ListContainingProblem[]>(
             ["problemLists", "containing", problemId],
-            [...previousData, { id: listId, name: list.name }]
+            [...previousData, { id: listId, name: list.name }],
           );
         }
       }
@@ -89,13 +99,15 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
       if (context?.previousData) {
         queryClient.setQueryData(
           ["problemLists", "containing", problemId],
-          context.previousData
+          context.previousData,
         );
       }
       setError("Problem is already in this list");
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["problemLists", "containing", problemId] });
+      queryClient.invalidateQueries({
+        queryKey: ["problemLists", "containing", problemId],
+      });
     },
   });
 
@@ -104,7 +116,9 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
     mutationFn: ({ listId }: { listId: number }) =>
       problemListApi.removeProblem(listId, problemId),
     onMutate: async ({ listId }) => {
-      await queryClient.cancelQueries({ queryKey: ["problemLists", "containing", problemId] });
+      await queryClient.cancelQueries({
+        queryKey: ["problemLists", "containing", problemId],
+      });
 
       const previousData = queryClient.getQueryData<ListContainingProblem[]>([
         "problemLists",
@@ -115,7 +129,7 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
       if (previousData) {
         queryClient.setQueryData<ListContainingProblem[]>(
           ["problemLists", "containing", problemId],
-          previousData.filter(l => l.id !== listId)
+          previousData.filter((l) => l.id !== listId),
         );
       }
 
@@ -125,12 +139,14 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
       if (context?.previousData) {
         queryClient.setQueryData(
           ["problemLists", "containing", problemId],
-          context.previousData
+          context.previousData,
         );
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["problemLists", "containing", problemId] });
+      queryClient.invalidateQueries({
+        queryKey: ["problemLists", "containing", problemId],
+      });
     },
   });
 
@@ -149,8 +165,6 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
       try {
         await addMutation.mutateAsync({ listId: newList.id });
       } catch (addError) {
-        // Handle case where problem might already be in list or other error
-        // The addMutation's onError will handle rolling back the optimistic update
         console.warn("Failed to add problem to newly created list:", addError);
       }
       setNewListName("");
@@ -191,9 +205,9 @@ export function BookmarkButton({ problemId, className = "" }: BookmarkButtonProp
   const isRemoving = removeMutation.isPending;
   const isCreating = createMutation.isPending;
 
-  // Build a set of list IDs containing this problem for quick lookup
-  const problemListIds = new Set(
-    listsContainingProblem?.map(l => l.id) ?? []
+  const problemListIds = useMemo(
+    () => new Set(listsContainingProblem?.map((l) => l.id) ?? []),
+    [listsContainingProblem],
   );
 
   const isInAnyList = problemListIds.size > 0;

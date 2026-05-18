@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { Code2, Heart } from "lucide-react";
 import { cn } from "@/shared/utils/utils";
-import { ROUTES, COPY } from '@/app/router';
+import { ROUTES } from "@/app/router";
+import { COPY } from "@/shared/config";
 import { useAuth } from "@/app/store/auth";
 
 interface FooterProps {

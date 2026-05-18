@@ -14,13 +14,11 @@ interface UseProblemCursorListOptions {
 interface UseProblemCursorListReturn {
   problems: ProblemSummary[];
   isLoading: boolean;
-  isFetching: boolean;
   isLoadingMore: boolean;
   hasNext: boolean;
   error: Error | null;
   loadMore: () => void;
   refresh: () => void;
-  isEmpty: boolean;
   totalCount: number | null;
 }
 
@@ -143,18 +141,14 @@ export function useProblemCursorList(
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const isEmpty = accumulatedProblems.length === 0 && !isLoading;
-
   return {
     problems: accumulatedProblems,
     isLoading,
-    isFetching: isLoading || isLoadingMore,
     isLoadingMore,
     hasNext,
     error,
     loadMore,
     refresh,
-    isEmpty,
     totalCount,
   };
 }

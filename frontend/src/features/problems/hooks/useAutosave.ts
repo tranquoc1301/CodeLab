@@ -47,5 +47,5 @@ export function useAutosave(slug: string | undefined, userId: number | undefined
     return () => clearTimers();
   }, [clearTimers]);
 
-  return { status, save, clearTimers };
+  return { status, save };
 }

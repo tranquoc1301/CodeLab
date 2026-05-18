@@ -16,7 +16,7 @@ import { Input } from "@/shared/components/ui/input";
 import { LoadMoreControl } from "@/shared/components/ui/load-more";
 import { BackToTop } from "@/shared/components/ui/back-to-top";
 import { TopicFilter } from "@/features/problems/components/TopicFilter";
-import {COPY} from "@/shared/config";
+import {COPY, DEFAULTS} from "@/shared/config";
 import { ROUTES } from "@/app/router";
 import { useProblemCursorList } from "@/features/problems/hooks/useProblemCursorList";
 import { useTopics } from "@/features/problems/hooks/useTopics";
@@ -76,7 +76,7 @@ export default function Home() {
             navigate(ROUTES.LOGIN);
           },
         },
-        duration: 6000,
+        duration: DEFAULTS.TOAST_DURATION_MS,
       });
     },
     [navigate],

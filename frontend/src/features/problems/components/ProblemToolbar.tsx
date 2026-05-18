@@ -17,7 +17,8 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { BookmarkButton } from "@/features/problems/components/BookmarkButton";
-import {COPY} from "@/shared/config";
+import { COPY } from "@/shared/config";
+import { FILE_EXTENSIONS } from "@/shared/config/editor";
 import type { Language } from "@/shared/types";
 
 interface NavProblem {
@@ -46,13 +47,6 @@ interface ProblemToolbarProps {
   onShowResetConfirm: () => void;
   onNavigateHome: () => void;
 }
-
-const FILE_EXTENSION: Record<Language, string> = {
-  python3: ".py",
-  java: ".java",
-  cpp: ".cpp",
-  c: ".c",
-};
 
 export const ProblemToolbar = memo(function ProblemToolbar({
   problem,
@@ -150,7 +144,7 @@ export const ProblemToolbar = memo(function ProblemToolbar({
 
         <div className="hidden md:flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground bg-secondary/50 rounded-md border border-border">
           <FileCode className="h-3 w-3" aria-hidden />
-          <span className="font-mono">solution{FILE_EXTENSION[language]}</span>
+          <span className="font-mono">solution{FILE_EXTENSIONS[language]}</span>
         </div>
 
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-15 justify-end">

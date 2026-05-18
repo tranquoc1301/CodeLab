@@ -3,6 +3,7 @@ import { FileCode, Minimize2 } from "lucide-react";
 import CodeEditor from "@/features/editor/components/CodeEditor";
 import { ConsolePanel } from "@/features/problems/components/ConsolePanel";
 import { COPY } from "@/shared/config";
+import { FILE_EXTENSIONS } from "@/shared/config/editor";
 import type { HintResponse, Language, VerdictResult } from "@/shared/types";
 import { submissionsApi } from "@/features/submissions/api";
 
@@ -20,13 +21,6 @@ interface ProblemEditorPanelProps {
   onVerticalResize?: (e: React.MouseEvent) => void;
   editorPanelRef: React.RefObject<HTMLDivElement | null>;
 }
-
-const FILE_EXTENSIONS: Record<Language, string> = {
-  python3: ".py",
-  java: ".java",
-  cpp: ".cpp",
-  c: ".c",
-};
 
 export const ProblemEditorPanel = memo(function ProblemEditorPanel({
   language,

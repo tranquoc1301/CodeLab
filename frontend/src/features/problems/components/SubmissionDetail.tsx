@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import {
   ArrowLeft,
   Clock,
@@ -10,7 +10,7 @@ import {
 import Editor from "@monaco-editor/react";
 import type { SubmissionResult } from "@/shared/types";
 import { getStatusConfig } from "@/shared/config/status";
-import {EDITOR} from "@/shared/config";
+import { COPY, EDITOR } from "@/shared/config";
 import { useThemeStore } from "@/app/store/theme";
 
 interface SubmissionDetailProps {
@@ -24,16 +24,6 @@ const LANGUAGE_MAP: Record<string, string> = {
   cpp: "cpp",
   c: "c",
 };
-
-function getLanguageLabel(language: string): string {
-  const labels: Record<string, string> = {
-    python3: "Python 3",
-    java: "Java",
-    cpp: "C++",
-    c: "C",
-  };
-  return labels[language] || language;
-}
 
 export const SubmissionDetail = memo(function SubmissionDetail({
   submission,
@@ -50,13 +40,15 @@ export const SubmissionDetail = memo(function SubmissionDetail({
       ? (submission.passed_count / submission.total_count) * 100
       : 0;
 
-  // Compute failed cases once
-  const failedCases = submission.test_case_results?.filter(
-    (tc) => tc.status !== "Accepted",
-  ) ?? [];
+  const failedCases = useMemo(
+    () => submission.test_case_results?.filter((tc) => tc.status !== "Accepted") ?? [],
+    [submission.test_case_results],
+  );
 
-  // Format datetime
-  const formattedDate = new Date(submission.created_at).toLocaleString();
+  const formattedDate = useMemo(
+    () => new Date(submission.created_at).toLocaleString(),
+    [submission.created_at],
+  );
 
   return (
     <div className="flex flex-col h-full bg-card">
@@ -99,7 +91,7 @@ export const SubmissionDetail = memo(function SubmissionDetail({
         </span>
         <span className="flex items-center gap-1.5 text-muted-foreground">
           <FileCode className="h-3.5 w-3.5" />
-          {getLanguageLabel(submission.language)}
+          {COPY.LANGUAGE_LABELS[submission.language as keyof typeof COPY.LANGUAGE_LABELS] ?? submission.language}
         </span>
         <span className="flex items-center gap-1.5 text-muted-foreground ml-auto">
           <Clock className="h-3.5 w-3.5" />

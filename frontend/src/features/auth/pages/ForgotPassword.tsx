@@ -3,7 +3,6 @@ import { useNavigate, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { isAxiosError } from "axios";
 import { Mail, Lock, AlertCircle, CheckCircle, ArrowLeft } from "lucide-react";
 import { authApi } from "@/features/auth/api";
 import {
@@ -100,14 +99,6 @@ export default function ForgotPassword() {
       setStep("otp");
       setCountdown(60);
     },
-    onError: (err: unknown) => {
-      if (isAxiosError(err)) {
-        const detail = (err.response?.data as { detail?: string })?.detail;
-        console.error(detail || "Failed to send OTP");
-      } else {
-        console.error("Failed to send OTP");
-      }
-    },
   });
 
   // Verify OTP mutation
@@ -119,14 +110,6 @@ export default function ForgotPassword() {
     onSuccess: (data) => {
       setTempToken(data.temp_token);
       setStep("reset");
-    },
-    onError: (err: unknown) => {
-      if (isAxiosError(err)) {
-        const detail = (err.response?.data as { detail?: string })?.detail;
-        console.error(detail || "Invalid OTP");
-      } else {
-        console.error("Invalid OTP");
-      }
     },
   });
 
@@ -146,14 +129,6 @@ export default function ForgotPassword() {
     },
     onSuccess: () => {
       setTimeout(() => navigate(ROUTES.LOGIN), 2000);
-    },
-    onError: (err: unknown) => {
-      if (isAxiosError(err)) {
-        const detail = (err.response?.data as { detail?: string })?.detail;
-        console.error(detail || "Failed to reset password");
-      } else {
-        console.error("Failed to reset password");
-      }
     },
   });
 

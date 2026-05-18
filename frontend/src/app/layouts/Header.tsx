@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Sun,
@@ -16,8 +16,11 @@ import {
 import { useAuth } from "@/app/store/auth";
 import { useThemeStore } from "@/app/store/theme";
 import { cn } from "@/shared/utils/utils";
-import { ROUTES, COPY } from "@/app/router";
+import { ROUTES } from "@/app/router";
+import { COPY } from "@/shared/config";
 import { Button } from "@/shared/components/ui/button";
+
+const PROBLEM_PATH_PREFIX = "/problems/";
 
 function ThemeToggle() {
   const { theme, toggle } = useThemeStore();
@@ -50,12 +53,15 @@ export function Header() {
   const userMenuButtonRef = useRef<HTMLButtonElement>(null);
   const userMenuItemsRef = useRef<HTMLDivElement>(null);
   const [activeMenuIndex, setActiveMenuIndex] = useState(-1);
-  const isProblemDetailPage = location.pathname.startsWith("/problems/");
+  const isProblemDetailPage = location.pathname.startsWith(PROBLEM_PATH_PREFIX);
 
-  const userMenuItems = [
-    { label: COPY.NAV.PROFILE, to: ROUTES.PROFILE },
-    { label: COPY.NAV.PROBLEM_LISTS, to: ROUTES.PROBLEM_LISTS },
-  ];
+  const userMenuItems = useMemo(
+    () => [
+      { label: COPY.NAV.PROFILE, to: ROUTES.PROFILE },
+      { label: COPY.NAV.PROBLEM_LISTS, to: ROUTES.PROBLEM_LISTS },
+    ],
+    [],
+  );
 
   // Close user menu on click outside
   useEffect(() => {

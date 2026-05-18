@@ -85,14 +85,14 @@ export const AuthModal = () => {
         const userRes = await authApi.getMe();
         setUser(userRes.data as User);
       } catch (err) {
-        console.error("Failed to fetch user data:", err);
+        // User is logged in via cookie; profile fetch failure is non-critical
       }
       closeAuthModal();
       const intentPath = getAndClearIntent();
       if (intentPath) {
         navigate(intentPath);
       } else {
-        navigate("/");
+        navigate(ROUTES.HOME);
       }
     },
     onError: () => {
