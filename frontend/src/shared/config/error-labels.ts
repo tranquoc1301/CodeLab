@@ -61,7 +61,7 @@ export const ERROR_LABELS: Record<string, ErrorLabelConfig> = {
     borderColor: "border-teal-200 dark:border-teal-800/50",
   },
   unknown: {
-    label: "Chưa đủ tín hiệu",
+    label: "Insufficient Signal",
     icon: HelpCircle,
     color: "text-muted-foreground",
     bgColor: "bg-muted/40",
@@ -70,16 +70,16 @@ export const ERROR_LABELS: Record<string, ErrorLabelConfig> = {
 };
 
 export const ERROR_DETAIL_LABELS: Record<string, string> = {
-  compile_syntax: "Lỗi biên dịch",
-  wrong_answer_boundary: "Sai điều kiện biên",
-  wrong_answer_state_index: "Sai chỉ số/trạng thái",
-  wrong_answer_parsing_format: "Sai định dạng đầu ra",
-  runtime_reference_type: "Lỗi truy cập dữ liệu",
-  runtime_recursion: "Lỗi đệ quy",
-  tle_complexity: "Thuật toán quá chậm",
-  logic_calculation: "Sai logic/tính toán",
-  algorithm_design: "Sai thiết kế thuật toán",
-  unknown: "Chưa đủ tín hiệu",
+  compile_syntax: "Compilation Error",
+  wrong_answer_boundary: "Boundary Condition",
+  wrong_answer_state_index: "Index / State Error",
+  wrong_answer_parsing_format: "Output Format Error",
+  runtime_reference_type: "Data Access Error",
+  runtime_recursion: "Recursion Error",
+  tle_complexity: "Algorithm Too Slow",
+  logic_calculation: "Logic / Calculation Error",
+  algorithm_design: "Algorithm Design Error",
+  unknown: "Insufficient Signal",
 };
 
 export function getErrorLabelConfig(label: string): ErrorLabelConfig {
@@ -90,10 +90,10 @@ export function getErrorDetailLabel(detail: string): string {
   return ERROR_DETAIL_LABELS[detail] ?? detail;
 }
 
-export const TUTOR_JOURNEY_LABEL = "Quan sát lỗi -> Khoanh vùng -> Hướng sửa";
+export const TUTOR_JOURNEY_LABEL = "Observe -> Focus -> Correct";
 
 export const HINT_STAGE_LABELS: Record<string, string> = {
-  observe: "Quan sát lỗi",
-  focus: "Khoanh vùng",
-  correct: "Hướng sửa",
+  observe: "Observe Error",
+  focus: "Focus Area",
+  correct: "Fix Direction",
 };

@@ -2,7 +2,7 @@ import { Lightbulb, Loader2 } from "lucide-react";
 import type { HintResponse, VerdictResult } from "@/shared/types";
 import { Button } from "@/shared/components/ui/button";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
-import { TUTOR_JOURNEY_LABEL } from "@/shared/config/error-labels";
+import { getErrorLabelConfig } from "@/shared/config/error-labels";
 import { ErrorLabelBadge } from "./ErrorLabelBadge";
 import { HintStepCard } from "./HintStepCard";
 
@@ -27,6 +27,17 @@ export function HintTab({
 }: HintTabProps) {
   const latestHint = hints[hints.length - 1] ?? null;
   const isAccepted = verdict?.status === "Accepted";
+  const errorLabel = latestHint?.error_code
+    ? getErrorLabelConfig(latestHint.error_code).label
+    : "Chưa phân loại";
+  const currentLevelMessage =
+    hintLevel === 0
+      ? "Bắt đầu từ gợi ý rộng, sau đó hệ thống mới tăng dần mức cụ thể."
+      : hintLevel === 1
+        ? "Bạn đang ở mức nhìn triệu chứng. Mức tiếp theo sẽ khoanh vùng lỗi rõ hơn."
+        : hintLevel === 2
+          ? "Bạn đã được khoanh vùng lỗi. Mức cuối sẽ chỉ rõ điểm sai và hướng sửa."
+          : "Bạn đang ở mức trực diện nhất: chỉ rõ chỗ sai và cách chỉnh logic.";
 
   if (!verdict?.submission_id || isAccepted) {
     return (
@@ -71,20 +82,24 @@ export function HintTab({
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-warning">
-              Lộ trình tutor 3 mức
+              LLM Hint 3 Levels
             </p>
             <p className="mt-1 text-sm text-foreground/80">
-              {TUTOR_JOURNEY_LABEL}
+              {currentLevelMessage}
             </p>
           </div>
           <span className="rounded-full border border-warning/30 bg-background px-2.5 py-1 text-xs font-medium text-warning shrink-0">
             Mức {hintLevel}/3
           </span>
         </div>
-        {latestHint?.diagnosis_label && (
+        {latestHint && (
+          <p className="text-xs text-foreground/70">
+            Mã lỗi hiện tại: <span className="font-medium text-foreground">{errorLabel}</span>
+          </p>
+        )}
+        {latestHint?.error_code && (
           <ErrorLabelBadge
-            label={latestHint.diagnosis_label}
-            detail={latestHint.diagnosis_detail}
+            label={latestHint.error_code}
           />
         )}
       </div>
@@ -98,7 +113,7 @@ export function HintTab({
       {hints.length > 0 && (
         <div className="space-y-3">
           {hints.map((hint, index) => (
-            <HintStepCard key={`${hint.stage}-${index}`} hint={hint} index={index} />
+            <HintStepCard key={`${hint.level}-${index}`} hint={hint} index={index} />
           ))}
           {isHintExhausted && (
             <p className="text-xs text-muted-foreground text-center">

@@ -4,10 +4,12 @@ import json
 import logging
 import re
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import Problem
+from app.services.hint_diagnostics import classify_verdict
 from app.services.judge0 import submit_to_judge0
 
 logger = logging.getLogger(__name__)
@@ -276,6 +278,8 @@ async def evaluate_submission(
 
     Returns a dict matching the VerdictResponse schema fields.
     """
+    topic_slugs = await _get_problem_topic_slugs(db, problem_id)
+
     # Validate code is not empty before proceeding
     if not source_code or not source_code.strip():
         return {
@@ -290,6 +294,7 @@ async def evaluate_submission(
             "stdin": "",
             "stdout": "",
             "stderr": "",
+            "error_label": None,
             "test_case_results": [],
         }
 
@@ -313,6 +318,7 @@ async def evaluate_submission(
             "stdin": "",
             "stdout": "",
             "stderr": "",
+            "error_label": None,
             "test_case_results": [],
         }
 
@@ -329,6 +335,7 @@ async def evaluate_submission(
             "stdin": "",
             "stdout": "",
             "stderr": "",
+            "error_label": None,
             "test_case_results": [],
         }
 
@@ -434,12 +441,22 @@ async def evaluate_submission(
             "stdin": "",
             "stdout": "",
             "stderr": "",
+            "error_label": None,
             "test_case_results": test_case_results,
         }
 
     # Defensive: ensure passed_count is within bounds
     failed_idx = min(passed_count, len(test_cases) - 1)
     failed_test_cases = test_cases[failed_idx]
+    error_message = _build_error_message(first_failure)
+    verdict_payload = {
+        "status": first_failure["status"],
+        "stderr": first_failure["stderr"] or "",
+        "stdout": first_failure["actual_output"] or "",
+        "error_message": error_message,
+        "stdin": failed_test_cases.get("stdin") or "",
+        "expected_output": first_failure["expected_output"] or "",
+    }
     return {
         "status": first_failure["status"],
         "passed_test_cases": passed_count,
@@ -453,12 +470,29 @@ async def evaluate_submission(
         "expected_output": truncate(first_failure["expected_output"])
         if return_test_case_data
         else None,
-        "error_message": _build_error_message(first_failure),
+        "error_message": error_message,
         "stdin": failed_test_cases.get("stdin") or "" if return_test_case_data else "",
         "stdout": first_failure["stdout"] or "" if return_test_case_data else "",
         "stderr": first_failure["stderr"] or "" if return_test_case_data else "",
+        "error_label": classify_verdict(
+            verdict_payload,
+            topic_slugs=topic_slugs,
+            source_code=source_code,
+        ),
         "test_case_results": test_case_results,
     }
+
+
+async def _get_problem_topic_slugs(db: AsyncSession, problem_id: int) -> list[str]:
+    result = await db.execute(
+        select(Problem)
+        .options(selectinload(Problem.topics))
+        .where(Problem.id == problem_id)
+    )
+    problem = result.scalar_one_or_none()
+    if problem is None:
+        return []
+    return [topic.slug for topic in problem.topics]
 
 
 def _determine_verdict(

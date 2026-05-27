@@ -45,6 +45,7 @@ export function ResultTab({ verdict, isRunning, totalTestCases }: ResultTabProps
 
   return (
     <div className="space-y-4">
+      {/* ─ Status Banner (unchanged) ── */}
       <div className={`p-4 rounded-xl border ${
         isAccepted
           ? "bg-success/10 border-success/50"
@@ -76,6 +77,7 @@ export function ResultTab({ verdict, isRunning, totalTestCases }: ResultTabProps
         )}
       </div>
 
+      {/* ─ Test Case Grid (unchanged) ── */}
       {testCaseResults.length > 0 && (
         <div>
           <h4 className="text-sm font-medium text-foreground/80 mb-2">All Test Cases</h4>
@@ -83,11 +85,42 @@ export function ResultTab({ verdict, isRunning, totalTestCases }: ResultTabProps
         </div>
       )}
 
-      {verdict.error_message && (
-        <div className="p-3 bg-destructive/10 border border-destructive/50 rounded-lg text-sm text-destructive">
-          {verdict.error_message}
+      {/* ─ Error Section (new minimal design) ── */}
+      {!isAccepted && (verdict.error_label || verdict.error_message) && (
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 space-y-3">
+          <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Error</h4>
+
+          {verdict.error_message && (
+            <div className="rounded-lg border border-destructive/20 bg-background/80 p-3 text-sm text-destructive/90 font-mono">
+              {verdict.error_message}
+            </div>
+          )}
+
+          {verdict.error_label && (
+            <div className="flex items-center gap-2 text-sm">
+              <AlertCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground">Classified as:</span>
+              <span className="font-medium text-foreground/80">
+                {getErrorLabelDisplay(verdict.error_label)}
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+/* ──────────────────────── Helpers ───────────────────────── */
+
+function getErrorLabelDisplay(label: string): string {
+  const map: Record<string, string> = {
+    logic_calculation_error: "Logic & Calculation",
+    complexity_error: "Complexity & TLE",
+    memory_reference_error: "Memory & Reference",
+    recursion_error: "Recursion",
+    algorithm_design_error: "Algorithm Design",
+    boundary_condition_error: "Boundary & Edge Case",
+  };
+  return map[label] ?? label;
 }

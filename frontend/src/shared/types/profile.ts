@@ -1,45 +1,36 @@
 export interface ErrorProfileTotals {
   recent_profiled_submissions: number;
-  lifetime_profiled_submissions: number;
-}
-
-export interface ErrorProfileChartItem {
-  code: string;
-  display_name: string;
-  recent_count: number;
-  lifetime_count: number;
-}
-
-export interface ErrorProfileChart {
-  labels: ErrorProfileChartItem[];
+  all_time_profiled_submissions: number;
+  active_error_labels: number;
+  active_topics: number;
 }
 
 export interface ErrorProfileTopicStat {
   slug: string;
-  count: number;
+  recent_count: number;
+  all_time_count: number;
 }
 
-export interface ErrorProfileDetailStat {
-  code: string;
-  display_name: string;
-}
-
-export interface ErrorLabelProfileCard {
+export interface ErrorProfileLabelStat {
   code: string;
   display_name: string;
   recent_count: number;
-  lifetime_count: number;
+  all_time_count: number;
   recent_share: number;
-  trend_delta: number;
-  top_topics: ErrorProfileTopicStat[];
-  top_detail: ErrorProfileDetailStat;
-  practice_focus: string;
+  related_topics: ErrorProfileTopicStat[];
+}
+
+export interface ErrorProfileTopicCard {
+  slug: string;
+  recent_count: number;
+  all_time_count: number;
+  top_error_labels: ErrorProfileLabelStat[];
 }
 
 export interface ErrorProfileResponse {
   recent_window_days: number;
   generated_at: string;
   totals: ErrorProfileTotals;
-  chart: ErrorProfileChart;
-  top_labels: ErrorLabelProfileCard[];
+  top_error_labels: ErrorProfileLabelStat[];
+  top_topics: ErrorProfileTopicCard[];
 }

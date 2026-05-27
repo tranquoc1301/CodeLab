@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Problem, Submission, SubmissionErrorEvent, User
 from app.models.problem import Topic
-from app.services.error_profile import get_error_profile, record_submission_error_event
+from app.services.error_profile import (
+    canonical_error_summary_template,
+    get_error_profile,
+    get_user_error_summary,
+    record_submission_error_event,
+)
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUN_DB_TESTS") != "1",
@@ -71,7 +76,7 @@ async def test_record_submission_error_event_persists_supported_submit(
 
     assert event is not None
     assert event.error_label == "algorithm_design_error"
-    assert event.diagnosis_detail == "wrong_answer_state_index"
+    assert event.diagnosis_detail == "algorithm_design_error"
     assert event.topic_slugs == ["array", "binary-search"]
 
 
@@ -124,7 +129,7 @@ async def test_record_submission_error_event_skips_unsupported_cases(
 
 
 @pytest.mark.asyncio
-async def test_get_error_profile_aggregates_recent_lifetime_and_chart(
+async def test_get_error_profile_aggregates_recent_and_all_time_stats(
     db_session: AsyncSession,
     test_user: User,
 ):
@@ -158,7 +163,7 @@ async def test_get_error_profile_aggregates_recent_lifetime_and_chart(
                 user_id=test_user.id,
                 problem_id=None,
                 error_label="boundary_condition_error",
-                diagnosis_detail="wrong_answer_boundary",
+                diagnosis_detail="boundary_condition_error",
                 problem_difficulty="Easy",
                 topic_slugs=["array", "binary-search"],
                 submission_created_at=now - timedelta(days=5),
@@ -168,7 +173,7 @@ async def test_get_error_profile_aggregates_recent_lifetime_and_chart(
                 user_id=test_user.id,
                 problem_id=None,
                 error_label="boundary_condition_error",
-                diagnosis_detail="wrong_answer_boundary",
+                diagnosis_detail="boundary_condition_error",
                 problem_difficulty="Easy",
                 topic_slugs=["array"],
                 submission_created_at=now - timedelta(days=10),
@@ -178,7 +183,7 @@ async def test_get_error_profile_aggregates_recent_lifetime_and_chart(
                 user_id=test_user.id,
                 problem_id=None,
                 error_label="complexity_error",
-                diagnosis_detail="tle_complexity",
+                diagnosis_detail="complexity_error",
                 problem_difficulty="Hard",
                 topic_slugs=["graph"],
                 submission_created_at=now - timedelta(days=12),
@@ -188,7 +193,7 @@ async def test_get_error_profile_aggregates_recent_lifetime_and_chart(
                 user_id=test_user.id,
                 problem_id=None,
                 error_label="boundary_condition_error",
-                diagnosis_detail="wrong_answer_boundary",
+                diagnosis_detail="boundary_condition_error",
                 problem_difficulty="Easy",
                 topic_slugs=["array"],
                 submission_created_at=now - timedelta(days=40),
@@ -201,10 +206,85 @@ async def test_get_error_profile_aggregates_recent_lifetime_and_chart(
 
     assert profile.recent_window_days == 30
     assert profile.totals.recent_profiled_submissions == 3
-    assert profile.totals.lifetime_profiled_submissions == 4
-    assert profile.chart.labels[0].code == "boundary_condition_error"
-    assert profile.chart.labels[0].recent_count == 2
-    assert profile.chart.labels[0].lifetime_count == 3
-    assert profile.top_labels[0].trend_delta == 1
-    assert profile.top_labels[0].top_topics[0].slug == "array"
-    assert "array" in profile.top_labels[0].practice_focus
+    assert profile.totals.all_time_profiled_submissions == 4
+    assert profile.totals.active_error_labels == 2
+    assert profile.totals.active_topics == 3
+    assert profile.top_error_labels[0].code == "boundary_condition_error"
+    assert profile.top_error_labels[0].recent_count == 2
+    assert profile.top_error_labels[0].all_time_count == 3
+    assert profile.top_error_labels[0].related_topics[0].slug == "array"
+    assert profile.top_error_labels[0].related_topics[0].recent_count == 2
+    assert profile.top_topics[0].slug == "array"
+    assert profile.top_topics[0].all_time_count == 3
+    assert profile.top_topics[0].top_error_labels[0].code == "boundary_condition_error"
+
+
+@pytest.mark.asyncio
+async def test_get_user_error_summary_returns_only_canonical_labels_and_total(
+    db_session: AsyncSession,
+    test_user: User,
+):
+    now = datetime.now(timezone.utc)
+    submissions = [
+        Submission(
+            user_id=test_user.id,
+            problem_id=None,
+            source_code=f"print({index})",
+            language="python3",
+            status="Wrong Answer",
+            submission_type="submit",
+            created_at=now - timedelta(days=index),
+        )
+        for index in range(1, 4)
+    ]
+    db_session.add_all(submissions)
+    await db_session.flush()
+    db_session.add_all(
+        [
+            SubmissionErrorEvent(
+                submission_id=submissions[0].id,
+                user_id=test_user.id,
+                problem_id=None,
+                error_label="algorithm_design_error",
+                diagnosis_detail="algorithm_design_error",
+                problem_difficulty="Medium",
+                topic_slugs=["array"],
+                submission_created_at=now - timedelta(days=1),
+            ),
+            SubmissionErrorEvent(
+                submission_id=submissions[1].id,
+                user_id=test_user.id,
+                problem_id=None,
+                error_label="complexity_error",
+                diagnosis_detail="complexity_error",
+                problem_difficulty="Hard",
+                topic_slugs=["array", "graph"],
+                submission_created_at=now - timedelta(days=2),
+            ),
+            SubmissionErrorEvent(
+                submission_id=submissions[2].id,
+                user_id=test_user.id,
+                problem_id=None,
+                error_label="wrong_answer_boundary",
+                diagnosis_detail="wrong_answer_boundary",
+                problem_difficulty="Easy",
+                topic_slugs=["array"],
+                submission_created_at=now - timedelta(days=3),
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    summary = await get_user_error_summary(db_session, test_user.id)
+
+    assert summary["array"] == {
+        **canonical_error_summary_template(),
+        "algorithm_design_error": 1,
+        "complexity_error": 1,
+        "total": 2,
+    }
+    assert summary["graph"] == {
+        **canonical_error_summary_template(),
+        "complexity_error": 1,
+        "total": 1,
+    }

@@ -1,22 +1,7 @@
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  AlertCircle,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { AlertCircle, TrendingUp } from "lucide-react";
 import { useAuth } from "@/app/store/auth";
 import { profileApi } from "@/features/profile/api";
-import { Badge } from "@/shared/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -26,32 +11,22 @@ import {
 } from "@/shared/components/ui/card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { COPY, DEFAULTS } from "@/shared/config";
-import type { ErrorLabelProfileCard } from "@/shared/types";
+import type { ErrorProfileResponse } from "@/shared/types";
 
 export default function Profile() {
   const { isAuthenticated, user } = useAuth();
   const errorProfileQuery = useQuery({
     queryKey: ["profile", "errorProfile", user?.id],
-    queryFn: () => profileApi.getErrorProfile().then((response) => response.data),
+    queryFn: () =>
+      profileApi.getErrorProfile().then((response) => response.data),
     enabled: isAuthenticated,
     staleTime: 1000 * 60,
   });
 
-  const chartData = useMemo(
-    () =>
-      (errorProfileQuery.data?.chart.labels ?? []).map((item) => ({
-        name: shortenLabel(item.display_name),
-        fullName: item.display_name,
-        recent: item.recent_count,
-        lifetime: item.lifetime_count,
-      })),
-    [errorProfileQuery.data],
-  );
-
   if (!isAuthenticated) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-muted-foreground text-lg">
+        <p className="text-lg text-muted-foreground">
           {COPY.PROFILE.LOGIN_REQUIRED}
         </p>
       </div>
@@ -120,104 +95,10 @@ export default function Profile() {
           {errorProfileQuery.isLoading ? (
             <ProfileLoadingState />
           ) : errorProfileQuery.data &&
-            errorProfileQuery.data.totals.lifetime_profiled_submissions > 0 ? (
-            <>
-              <div className="grid gap-4 md:grid-cols-3">
-                <MetricCard
-                  label={COPY.PROFILE.ERROR_PROFILE_RECENT}
-                  value={errorProfileQuery.data.totals.recent_profiled_submissions}
-                  hint={`${errorProfileQuery.data.recent_window_days} days`}
-                />
-                <MetricCard
-                  label={COPY.PROFILE.ERROR_PROFILE_LIFETIME}
-                  value={errorProfileQuery.data.totals.lifetime_profiled_submissions}
-                  hint="All tracked submit failures"
-                />
-                <MetricCard
-                  label={COPY.PROFILE.ERROR_PROFILE_WINDOW}
-                  value={errorProfileQuery.data.recent_window_days}
-                  hint="Days used for recent trends"
-                />
-              </div>
-
-              <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-                <Card className="border-border/70">
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      {COPY.PROFILE.ERROR_PROFILE_CHART_TITLE}
-                    </CardTitle>
-                    <CardDescription>
-                      {COPY.PROFILE.ERROR_PROFILE_CHART_DESCRIPTION}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-72">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={chartData}
-                          margin={{ top: 8, right: 16, left: -12, bottom: 8 }}
-                        >
-                          <CartesianGrid
-                            stroke="hsl(var(--border))"
-                            vertical={false}
-                          />
-                          <XAxis
-                            dataKey="name"
-                            tickLine={false}
-                            axisLine={false}
-                            tickMargin={10}
-                            stroke="hsl(var(--muted-foreground))"
-                            interval={0}
-                            angle={-10}
-                            textAnchor="end"
-                            height={56}
-                          />
-                          <YAxis
-                            allowDecimals={false}
-                            tickLine={false}
-                            axisLine={false}
-                            stroke="hsl(var(--muted-foreground))"
-                          />
-                          <Tooltip
-                            cursor={{ fill: "hsl(var(--muted) / 0.25)" }}
-                            formatter={(value, name) => [
-                              typeof value === "number" ? value : Number(value ?? 0),
-                              name === "recent" ? "Recent" : "Lifetime",
-                            ]}
-                            labelFormatter={(_label, payload) =>
-                              payload?.[0]?.payload?.fullName ?? ""
-                            }
-                          />
-                          <Bar
-                            dataKey="recent"
-                            name="recent"
-                            fill="hsl(var(--chart-2))"
-                            radius={[6, 6, 0, 0]}
-                          />
-                          <Bar
-                            dataKey="lifetime"
-                            name="lifetime"
-                            fill="hsl(var(--chart-4))"
-                            radius={[6, 6, 0, 0]}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="space-y-4">
-                  <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    {COPY.PROFILE.ERROR_PROFILE_TOP_LABELS}
-                  </h2>
-                  {errorProfileQuery.data.top_labels.map((label) => (
-                    <WeaknessCard key={label.code} label={label} />
-                  ))}
-                </div>
-              </div>
-            </>
+            errorProfileQuery.data.totals.all_time_profiled_submissions > 0 ? (
+            <ErrorProfileDashboard data={errorProfileQuery.data} />
           ) : (
-            <div className="flex items-start gap-3 rounded-xl border border-dashed border-border/70 bg-muted/20 p-5 text-sm text-muted-foreground">
+            <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/20 p-5 text-sm text-muted-foreground">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>{COPY.PROFILE.ERROR_PROFILE_EMPTY}</p>
             </div>
@@ -228,25 +109,229 @@ export default function Profile() {
   );
 }
 
+/* ───────────────────────── Loading ───────────────────────── */
+
 function ProfileLoadingState() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, index) => (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
           <Skeleton key={index} className="h-24 rounded-xl" />
         ))}
       </div>
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <Skeleton className="h-80 rounded-xl" />
-        <div className="space-y-4">
+      <Skeleton className="h-52 rounded-xl" />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={index} className="h-44 rounded-xl" />
+            <Skeleton key={index} className="h-24 rounded-xl" />
+          ))}
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-24 rounded-xl" />
           ))}
         </div>
       </div>
     </div>
   );
 }
+
+/* ───────────────────────── Dashboard ───────────────────────── */
+
+function ErrorProfileDashboard({ data }: { data: ErrorProfileResponse }) {
+  const { totals, top_error_labels, top_topics, recent_window_days } = data;
+  const maxLabelCount = Math.max(
+    ...top_error_labels.map((l) => l.all_time_count),
+    1,
+  );
+
+  return (
+    <>
+      {/* ── Summary Metrics ── */}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label={COPY.PROFILE.ERROR_PROFILE_RECENT}
+          value={totals.recent_profiled_submissions}
+          hint={COPY.PROFILE.ERROR_PROFILE_RECENT_HINT.replace(
+            "{days}",
+            String(recent_window_days),
+          )}
+        />
+        <MetricCard
+          label={COPY.PROFILE.ERROR_PROFILE_ALL_TIME}
+          value={totals.all_time_profiled_submissions}
+          hint={COPY.PROFILE.ERROR_PROFILE_ALL_TIME_HINT}
+        />
+        <MetricCard
+          label={COPY.PROFILE.ERROR_PROFILE_ACTIVE_LABELS}
+          value={totals.active_error_labels}
+          hint={COPY.PROFILE.ERROR_PROFILE_ACTIVE_LABELS_HINT}
+        />
+        <MetricCard
+          label={COPY.PROFILE.ERROR_PROFILE_ACTIVE_TOPICS}
+          value={totals.active_topics}
+          hint={COPY.PROFILE.ERROR_PROFILE_ACTIVE_TOPICS_HINT}
+        />
+      </div>
+
+      {/* ── Error Distribution + Labels (single card) ── */}
+      <Card className="border-border/70">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">
+            {COPY.PROFILE.ERROR_PROFILE_DISTRIBUTION}
+          </CardTitle>
+          <CardDescription>
+            {COPY.PROFILE.ERROR_PROFILE_DISTRIBUTION_DESC}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="divide-y">
+            {top_error_labels.map((label) => {
+              const barWidth = (label.all_time_count / maxLabelCount) * 100;
+              const recentShare =
+                label.all_time_count > 0
+                  ? (label.recent_count / label.all_time_count) * 100
+                  : 0;
+
+              return (
+                <div key={label.code} className="py-3 first:pt-0 last:pb-0">
+                  {/* Label name + counts */}
+                  <div className="mb-2 flex items-baseline justify-between">
+                    <span className="text-sm font-medium">
+                      {label.display_name}
+                    </span>
+                    <div className="flex items-center gap-3 text-xs tabular-nums text-muted-foreground">
+                      {recentShare > 33 && (
+                        <span className="text-foreground/60">
+                          {Math.round(recentShare)}% recent
+                        </span>
+                      )}
+                      <span>
+                        {label.recent_count} / {label.all_time_count}
+                      </span>
+                      <span className="min-w-[2rem] text-right font-medium text-foreground/60">
+                        {Math.round(label.recent_share * 100)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Distribution bar */}
+                  <div className="relative h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-muted-foreground/40"
+                      style={{ width: `${barWidth}%` }}
+                    />
+                    {recentShare > 0 && (
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-full bg-foreground/50"
+                        style={{
+                          width: `${(barWidth * recentShare) / 100}%`,
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Related topics (inline) */}
+                  {label.related_topics.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      {label.related_topics.map((topic) => (
+                        <span key={topic.slug}>
+                          {topic.slug}{" "}
+                          <span className="text-muted-foreground/50">
+                            {topic.recent_count}/{topic.all_time_count}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Topics ── */}
+      <Card className="border-border/70">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">
+            {COPY.PROFILE.ERROR_PROFILE_TOP_TOPICS}
+          </CardTitle>
+          <CardDescription>
+            Topics where your errors appear most frequently.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="divide-y">
+            {top_topics.map((topic) => {
+              const recentRate =
+                topic.all_time_count > 0
+                  ? Math.round(
+                      (topic.recent_count / topic.all_time_count) * 100,
+                    )
+                  : 0;
+
+              return (
+                <div key={topic.slug} className="py-3 first:pt-0 last:pb-0">
+                  {/* Topic header */}
+                  <div className="mb-2 flex items-baseline justify-between">
+                    <span className="text-sm font-medium">{topic.slug}</span>
+                    <div className="flex items-center gap-3 text-xs tabular-nums text-muted-foreground">
+                      {recentRate > 33 && (
+                        <span className="text-foreground/60">
+                          {recentRate}% recent
+                        </span>
+                      )}
+                      <span>
+                        {topic.recent_count} / {topic.all_time_count}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Error label breakdown */}
+                  {topic.top_error_labels.length > 0 && (
+                    <div className="space-y-1.5">
+                      {topic.top_error_labels.map((label) => {
+                        const barWidth =
+                          topic.all_time_count > 0
+                            ? (label.all_time_count / topic.all_time_count) *
+                              100
+                            : 0;
+                        return (
+                          <div
+                            key={`${topic.slug}-${label.code}`}
+                            className="flex items-center justify-between text-xs"
+                          >
+                            <span className="text-foreground/70">
+                              {label.display_name}
+                            </span>
+                            <div className="flex items-center gap-3">
+                              <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
+                                <div
+                                  className="h-full rounded-full bg-muted-foreground/40"
+                                  style={{ width: `${barWidth}%` }}
+                                />
+                              </div>
+                              <span className="tabular-nums text-muted-foreground/60 min-w-[2.5rem] text-right">
+                                {label.recent_count}/{label.all_time_count}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+/* ───────────────────────── Metric Card ───────────────────────── */
 
 function MetricCard({
   label,
@@ -258,83 +343,13 @@ function MetricCard({
   hint: string;
 }) {
   return (
-    <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
+    <div className="rounded-xl border border-border/70 bg-card p-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+      </div>
       <p className="mt-2 text-3xl font-semibold tracking-tight">{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
     </div>
   );
-}
-
-function WeaknessCard({ label }: { label: ErrorLabelProfileCard }) {
-  const trend =
-    label.trend_delta > 0
-      ? COPY.PROFILE.ERROR_PROFILE_TREND_UP
-      : label.trend_delta < 0
-        ? COPY.PROFILE.ERROR_PROFILE_TREND_DOWN
-        : COPY.PROFILE.ERROR_PROFILE_TREND_FLAT;
-
-  return (
-    <Card className="border-border/70">
-      <CardHeader className="space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-base">{label.display_name}</CardTitle>
-            <CardDescription className="mt-1">
-              {COPY.PROFILE.ERROR_PROFILE_SHARE}:{" "}
-              {Math.round(label.recent_share * 100)}%
-            </CardDescription>
-          </div>
-          <Badge variant="secondary" className="shrink-0">
-            {label.recent_count} recent
-          </Badge>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>Lifetime {label.lifetime_count}</span>
-          <span className="text-border">/</span>
-          <span className="inline-flex items-center gap-1">
-            {label.trend_delta >= 0 ? (
-              <TrendingUp className="h-3.5 w-3.5" />
-            ) : (
-              <TrendingDown className="h-3.5 w-3.5" />
-            )}
-            {trend} {Math.abs(label.trend_delta)}
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4 text-sm">
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            {COPY.PROFILE.ERROR_PROFILE_DETAIL}
-          </p>
-          <p className="mt-1 font-medium">{label.top_detail.display_name}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            {COPY.PROFILE.ERROR_PROFILE_TOPICS}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {label.top_topics.map((topic) => (
-              <Badge key={topic.slug} variant="outline" className="font-normal">
-                {topic.slug} · {topic.count}
-              </Badge>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            {COPY.PROFILE.ERROR_PROFILE_PRACTICE}
-          </p>
-          <p className="mt-1 text-muted-foreground">{label.practice_focus}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function shortenLabel(label: string) {
-  return label
-    .replace(" Error", "")
-    .replace(" & ", " / ")
-    .replace("Complexity / TLE", "Complexity");
 }

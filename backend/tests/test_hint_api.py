@@ -48,16 +48,12 @@ async def hint_submission(db_session: AsyncSession, test_user: User) -> Submissi
 async def test_hint_endpoint_returns_structured_payload(client, auth_headers, hint_submission, monkeypatch):
     async def fake_request_next_hint(**kwargs):
         return {
-            "hint": "1. Quan sát lỗi: ...",
-            "hint_level": 1,
-            "exhausted": False,
-            "stage": "observe",
-            "diagnosis_label": "algorithm_design_error",
-            "diagnosis_detail": "wrong_answer_state_index",
-            "cards": [
-                {"label": "Quan sát lỗi", "content": "Bạn đang lấy nhầm trạng thái."},
-                {"label": "Dấu hiệu", "content": "Output lệch khỏi expected output."},
-                {"label": "Câu hỏi tự kiểm tra", "content": "Bạn đang dùng dữ liệu của bước nào?"},
+            "error_code": "algorithm_design_error",
+            "level": 1,
+            "items": [
+                "Bạn đang lấy nhầm trạng thái.",
+                "Output lệch khỏi expected output.",
+                "Bạn đang dùng dữ liệu của bước nào?",
             ],
         }
 
@@ -69,10 +65,9 @@ async def test_hint_endpoint_returns_structured_payload(client, auth_headers, hi
 
     assert response.status_code == 200
     body = response.json()
-    assert body["stage"] == "observe"
-    assert body["diagnosis_label"] == "algorithm_design_error"
-    assert body["diagnosis_detail"] == "wrong_answer_state_index"
-    assert len(body["cards"]) == 3
+    assert body["error_code"] == "algorithm_design_error"
+    assert body["level"] == 1
+    assert len(body["items"]) == 3
 
 
 @pytest.mark.asyncio
@@ -147,13 +142,9 @@ async def test_submission_hint_cache_payload_round_trip(db_session, test_user, h
         current_level=1,
         hint_1="1. Quan sát lỗi: ...",
         payload_1={
-            "hint": "1. Quan sát lỗi: ...",
-            "hint_level": 1,
-            "exhausted": False,
-            "stage": "observe",
-            "diagnosis_label": "algorithm_design_error",
-            "diagnosis_detail": "wrong_answer_state_index",
-            "cards": [{"label": "Quan sát lỗi", "content": "..."}, {"label": "Dấu hiệu", "content": "..."}, {"label": "Câu hỏi tự kiểm tra", "content": "..."}],
+            "error_code": "algorithm_design_error",
+            "level": 1,
+            "items": ["...", "...", "..."],
         },
         last_error_label="algorithm_design_error",
     )
@@ -161,4 +152,4 @@ async def test_submission_hint_cache_payload_round_trip(db_session, test_user, h
     await db_session.commit()
 
     stored = await db_session.get(SubmissionHint, hint.id)
-    assert stored.payload_1["stage"] == "observe"
+    assert stored.payload_1["level"] == 1

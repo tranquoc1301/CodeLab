@@ -1,74 +1,40 @@
 import json
 import logging
 import re
-from dataclasses import dataclass, field
 
-import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.submission_hint import SubmissionHint
+from app.services.llm_client import call_llm_json
 from app.services.hint_diagnostics import (
     DiagnosticSnapshot,
-    diagnose_submission,
-    get_diagnosis_display,
     SUPPORTED_HINT_LABELS,
+    diagnose_submission,
 )
 from app.services.llm_hint_prompts import (
     FALLBACK_MESSAGE,
-    LEVEL_PROMPTS,
-    SYSTEM_PROMPT,
     build_full_prompt,
 )
 
 logger = logging.getLogger(__name__)
 
-@dataclass(frozen=True)
-class LevelConfig:
-    fields: tuple[str, str, str]
-    card_labels: tuple[str, str, str]
+FIELD_MAX_LENGTH = 220
+LLM_MAX_TOKENS = 1000
+ITEM_COUNT = 3
+HINT_PAYLOAD_VERSION = 3
 
-
-LEVEL_CONFIG: dict[int, LevelConfig] = {
-    1: LevelConfig(
-        fields=("observation", "impact", "question"),
-        card_labels=("Quan sát lỗi", "Dấu hiệu", "Câu hỏi tự kiểm tra"),
-    ),
-    2: LevelConfig(
-        fields=("focus_area", "concept", "question"),
-        card_labels=("Khoanh vùng", "Khái niệm liên quan", "Câu hỏi tự kiểm tra"),
-    ),
-    3: LevelConfig(
-        fields=("exact_issue", "next_step", "why_it_works"),
-        card_labels=("Điểm lệch cụ thể", "Hướng sửa", "Vì sao hướng này đúng"),
-    ),
-}
-
-STAGE_MAP = {1: "observe", 2: "focus", 3: "correct"}
-
-EXHAUSTED_HINT_MESSAGE = (
-    "Bài nộp này đã nhận đủ 3 mức gợi ý. Bạn cần submit phiên bản code mới để bắt đầu chuỗi hint mới."
-)
-
-FIELD_MAX_LENGTH = 350
-LLM_MAX_TOKENS = 650
-
-FORBIDDEN_PATTERNS_ALL_LEVELS: tuple[re.Pattern, ...] = (
+FORBIDDEN_PATTERNS_ALL_LEVELS: tuple[re.Pattern[str], ...] = (
     re.compile(r"```"),
     re.compile(r"\bcomplete\s+(working\s+)?solution\b", re.IGNORECASE),
     re.compile(r"\bfull\s+(correct\s+)?algorithm\b", re.IGNORECASE),
     re.compile(r"\bcopy\s+and\s+paste\b", re.IGNORECASE),
     re.compile(r"\bline\s+\d+\b", re.IGNORECASE),
 )
-FORBIDDEN_PATTERNS_EARLY_LEVELS: tuple[re.Pattern, ...] = (
+FORBIDDEN_PATTERNS_EARLY_LEVELS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\boptimi[sz](e|ation)\b", re.IGNORECASE),
 )
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 
 async def request_next_hint(
@@ -81,27 +47,39 @@ async def request_next_hint(
     problem_description: str = "",
     language: str = "python",
 ) -> dict:
-    """Return the next tutor hint level for a submission."""
     hint_row = await _get_or_create_hint_row(db, user_id, submission_id)
+    if _hint_row_has_stale_payloads(hint_row):
+        _reset_hint_row(hint_row)
+        await db.commit()
+        await db.refresh(hint_row)
 
     if hint_row.current_level >= 3:
-        return _build_exhausted_payload(hint_row.last_error_label)
+        cached_payload = getattr(hint_row, "payload_3", None)
+        if cached_payload:
+            return _normalize_cached_payload(cached_payload, 3)
+        raise ValueError("Bài nộp này đã dùng hết 3 mức gợi ý.")
 
     next_level = hint_row.current_level + 1
-    cached_hint = getattr(hint_row, f"hint_{next_level}", None)
-
-    if cached_hint:
+    cached_payload = getattr(hint_row, f"payload_{next_level}", None)
+    if cached_payload:
         hint_row.current_level = next_level
         await db.commit()
         await db.refresh(hint_row)
-        cached_payload = getattr(hint_row, f"payload_{next_level}", None)
-        if cached_payload:
-            return _normalize_cached_payload(cached_payload, cached_hint, next_level, hint_row.last_error_label)
-        return _build_cached_fallback(next_level, hint_row)
+        return _normalize_cached_payload(cached_payload, next_level)
 
     snapshot = diagnose_submission(verdict, topic_slugs=topic_slugs, source_code=source_code)
     if snapshot.diagnosis_label not in SUPPORTED_HINT_LABELS:
         raise ValueError(_unsupported_hint_message(snapshot))
+
+    deterministic_payload = _build_deterministic_hint(next_level, snapshot, source_code)
+    if deterministic_payload is not None:
+        setattr(hint_row, f"hint_{next_level}", _serialize_hint_items(deterministic_payload["items"]))
+        setattr(hint_row, f"payload_{next_level}", _cache_payload(deterministic_payload))
+        hint_row.current_level = next_level
+        hint_row.last_error_label = snapshot.diagnosis_label
+        await db.commit()
+        await db.refresh(hint_row)
+        return deterministic_payload
 
     system_prompt, user_content = build_full_prompt(
         next_level=next_level,
@@ -115,74 +93,47 @@ async def request_next_hint(
     )
 
     llm_output = await _call_llm(system_prompt, user_content, get_settings())
-
     try:
-        hint_payload = parse_validate_format_hint(llm_output, next_level, snapshot)
-    except ValueError as e:
+        payload = parse_validate_format_hint(llm_output, next_level, diagnostic_snapshot=snapshot)
+    except ValueError as exc:
         logger.warning(
-            "Invalid LLM hint output for submission=%s level=%s length=%s reason=%s preview=%r",
-            submission_id, next_level, len(llm_output or ""), e, _preview(llm_output),
+            "Invalid LLM hint output for submission=%s level=%s reason=%s preview=%r",
+            submission_id,
+            next_level,
+            exc,
+            _preview(llm_output),
         )
-        hint_row.current_level = next_level
-        hint_row.last_error_label = snapshot.diagnosis_label
-        await db.commit()
-        await db.refresh(hint_row)
-        return _build_hint_response(next_level, _fallback_data(next_level, snapshot), snapshot)
+        payload = build_fallback_hint(next_level, snapshot, source_code=source_code)
 
-    setattr(hint_row, f"hint_{next_level}", hint_payload["hint"])
-    setattr(hint_row, f"payload_{next_level}", hint_payload)
+    setattr(hint_row, f"hint_{next_level}", _serialize_hint_items(payload["items"]))
+    setattr(hint_row, f"payload_{next_level}", _cache_payload(payload))
     hint_row.current_level = next_level
     hint_row.last_error_label = snapshot.diagnosis_label
     await db.commit()
     await db.refresh(hint_row)
-    return hint_payload
+    return payload
 
 
 def parse_validate_format_hint(
     raw_content: str,
     level: int,
-    diagnostic_snapshot: DiagnosticSnapshot,
+    diagnostic_snapshot: DiagnosticSnapshot | None = None,
 ) -> dict:
-    config = LEVEL_CONFIG.get(level)
-    if config is None:
-        raise ValueError("unsupported hint level")
-    if not raw_content:
-        raise ValueError("empty response")
-
-    patterns = _forbidden_patterns(level)
-    if any(p.search(raw_content) for p in patterns):
-        raise ValueError("forbidden pattern")
-
-    try:
-        data = json.loads(raw_content)
-    except json.JSONDecodeError as e:
-        raise ValueError("malformed json") from e
-    if not isinstance(data, dict):
-        raise ValueError("response is not a json object")
-
-    expected = set(config.fields)
-    if set(data.keys()) != expected:
-        missing = expected - data.keys()
-        extra = data.keys() - expected
-        raise ValueError(f"schema mismatch missing={sorted(missing)} extra={sorted(extra)}")
-
-    cleaned = {}
-    for f_name in config.fields:
-        value = data[f_name]
-        if not isinstance(value, str):
-            raise ValueError(f"{f_name} is not a string")
-        cleaned_value = _sanitize(value)
-        if not cleaned_value:
-            raise ValueError(f"{f_name} is empty")
-        if any(p.search(cleaned_value) for p in patterns):
-            raise ValueError(f"{f_name} contains forbidden pattern")
-        cleaned[f_name] = cleaned_value
-
-    return _build_hint_response(level, cleaned, diagnostic_snapshot)
+    items = _parse_items(raw_content, level)
+    _validate_level_specificity(items, level)
+    return _build_public_hint_response(level, items, diagnostic_snapshot)
 
 
-def build_fallback_hint(level: int, diagnostic_snapshot: DiagnosticSnapshot) -> dict:
-    return _build_hint_response(level, _fallback_data(level, diagnostic_snapshot), diagnostic_snapshot)
+def build_fallback_hint(
+    level: int,
+    diagnostic_snapshot: DiagnosticSnapshot,
+    source_code: str = "",
+) -> dict:
+    return _build_public_hint_response(
+        level,
+        _fallback_items(level, diagnostic_snapshot, source_code),
+        diagnostic_snapshot,
+    )
 
 
 def _build_prompt(
@@ -194,7 +145,6 @@ def _build_prompt(
     language: str = "python",
     previous_hints: list[str] | None = None,
 ) -> tuple[str, str]:
-    """Build prompt with error context hidden at level 1."""
     return build_full_prompt(
         next_level=next_level,
         diagnostic_snapshot=diagnostic_snapshot,
@@ -207,13 +157,10 @@ def _build_prompt(
     )
 
 
-# ---------------------------------------------------------------------------
-# Internal: DB helpers
-# ---------------------------------------------------------------------------
-
-
 async def _get_or_create_hint_row(
-    db: AsyncSession, user_id: int, submission_id: int,
+    db: AsyncSession,
+    user_id: int,
+    submission_id: int,
 ) -> SubmissionHint:
     stmt = select(SubmissionHint).where(
         SubmissionHint.user_id == user_id,
@@ -234,186 +181,275 @@ async def _get_or_create_hint_row(
     return hint_row
 
 
-# ---------------------------------------------------------------------------
-# Internal: LLM call
-# ---------------------------------------------------------------------------
-
-
 async def _call_llm(system_prompt: str, user_content: str, settings) -> str:
-    if not settings.LLM_API_KEY:
-        logger.warning("LLM_API_KEY not configured, returning fallback message")
-        return FALLBACK_MESSAGE
-
     try:
-        async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT) as client:
-            response = await client.post(
-                f"{settings.LLM_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.LLM_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": settings.LLM_MODEL,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_content},
-                    ],
-                    "max_tokens": LLM_MAX_TOKENS,
-                    "temperature": 0.1,
-                    "response_format": {"type": "json_object"},
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            choices = data.get("choices", [])
-            if choices:
-                content = choices[0].get("message", {}).get("content", "")
-                if content:
-                    return content.strip()
-
-            logger.warning("LLM returned empty response")
-            return FALLBACK_MESSAGE
-
-    except httpx.TimeoutException:
-        logger.warning("LLM request timed out")
-        return FALLBACK_MESSAGE
-    except httpx.HTTPStatusError as e:
-        logger.error("LLM HTTP error: %s", e.response.status_code)
+        content = await call_llm_json(
+            system_prompt=system_prompt,
+            user_content=user_content,
+            settings=settings,
+            max_tokens=LLM_MAX_TOKENS,
+            temperature=0.1,
+        )
+        if content:
+            return content
         return FALLBACK_MESSAGE
     except Exception:
         logger.exception("Unexpected error calling LLM")
         return FALLBACK_MESSAGE
 
 
-# ---------------------------------------------------------------------------
-# Internal: response builders
-# ---------------------------------------------------------------------------
+def _parse_items(raw_content: str, level: int) -> list[str]:
+    if not raw_content:
+        raise ValueError("empty response")
+    patterns = _forbidden_patterns(level)
+    if any(pattern.search(raw_content) for pattern in patterns):
+        raise ValueError("forbidden pattern")
+
+    try:
+        data = json.loads(raw_content)
+    except json.JSONDecodeError as exc:
+        raise ValueError("malformed json") from exc
+
+    if not isinstance(data, dict) or set(data.keys()) != {"items"}:
+        raise ValueError("response must contain exactly one key: items")
+
+    items = data["items"]
+    if not isinstance(items, list) or len(items) != ITEM_COUNT:
+        raise ValueError("items must contain exactly 3 entries")
+
+    cleaned_items: list[str] = []
+    for item in items:
+        if not isinstance(item, str):
+            raise ValueError("item is not a string")
+        cleaned_item = _sanitize(item)
+        if not cleaned_item:
+            raise ValueError("item is empty")
+        if any(pattern.search(cleaned_item) for pattern in patterns):
+            raise ValueError("item contains forbidden pattern")
+        cleaned_items.append(cleaned_item)
+    return cleaned_items
 
 
-def _build_hint_response(
+def _build_public_hint_response(
     level: int,
-    data: dict[str, str],
-    diagnostic_snapshot: DiagnosticSnapshot,
+    items: list[str],
+    diagnostic_snapshot: DiagnosticSnapshot | None = None,
 ) -> dict:
-    config = LEVEL_CONFIG[level]
     return {
-        "hint": _format_hint(config, data),
-        "hint_level": level,
-        "exhausted": level >= 3,
-        "stage": STAGE_MAP[level],
-        "diagnosis_label": diagnostic_snapshot.diagnosis_label,
-        "diagnosis_detail": diagnostic_snapshot.diagnosis_detail,
-        "cards": _build_cards(config, data),
+        "error_code": getattr(diagnostic_snapshot, "diagnosis_label", None),
+        "level": level,
+        "items": items,
     }
 
 
-def _format_hint(config: LevelConfig, data: dict[str, str]) -> str:
-    return "\n".join(
-        f"{i}. {label}: {data[f_name]}"
-        for i, (label, f_name) in enumerate(zip(config.card_labels, config.fields), start=1)
-    )
-
-
-def _build_cards(config: LevelConfig, data: dict[str, str]) -> list[dict[str, str]]:
-    return [
-        {"label": label, "content": data[f_name]}
-        for label, f_name in zip(config.card_labels, config.fields)
-    ]
-
-
-def _build_exhausted_payload(diagnosis_label: str | None) -> dict:
-    return {
-        "hint": None,
-        "hint_level": 3,
-        "exhausted": True,
-        "stage": STAGE_MAP[3],
-        "diagnosis_label": diagnosis_label,
-        "diagnosis_detail": None,
-        "cards": [
-            {"label": "Đã dùng hết 3 mức", "content": EXHAUSTED_HINT_MESSAGE}
-        ],
-    }
-
-
-def _build_cached_fallback(level: int, hint_row: SubmissionHint) -> dict:
-    label = hint_row.last_error_label or "unknown"
-    snapshot = DiagnosticSnapshot(
-        diagnosis_label=label,
-        diagnosis_display=get_diagnosis_display(label),
-        diagnosis_detail="unknown",
-        diagnosis_detail_display="Chưa đủ tín hiệu",
-        learner_summary="Hệ thống đang dùng lại hint đã cache cho bài nộp này.",
-        observed_symptom="Hint cũ đã được lưu trước đó.",
-        focus_area="vùng logic đã được gợi ý ở mức trước",
-        concept_hint="đối chiếu lại ca fail hiện tại",
-        failure_signal="",
-    )
-    return _build_hint_response(level, _fallback_data(level, snapshot), snapshot)
-
-
-def _normalize_cached_payload(
-    cached_payload: dict,
-    cached_hint: str,
-    hint_level: int,
-    diagnosis_label: str | None,
-) -> dict:
+def _normalize_cached_payload(cached_payload: dict, level: int) -> dict:
     payload = dict(cached_payload)
-    payload.setdefault("hint", cached_hint)
-    payload.setdefault("hint_level", hint_level)
-    payload.setdefault("exhausted", hint_level >= 3)
-    payload.setdefault("stage", STAGE_MAP[hint_level])
-    payload.setdefault("diagnosis_label", diagnosis_label)
-    payload.setdefault("diagnosis_detail", None)
-    payload.setdefault("cards", [])
+    payload["error_code"] = payload.get("error_code") or payload.get("diagnosis_label")
+    payload.setdefault("level", level)
+    payload["payload_version"] = payload.get("payload_version") or 1
+    payload["items"] = _extract_items_from_cached_payload(payload)
+    for key in ("stage", "title", "diagnosis_label", "diagnosis_detail", "next_enabled", "cards", "hint", "hint_level", "exhausted"):
+        payload.pop(key, None)
     return payload
 
 
-# ---------------------------------------------------------------------------
-# Internal: fallback data
-# ---------------------------------------------------------------------------
+def _fallback_items(level: int, snapshot: DiagnosticSnapshot, source_code: str) -> list[str]:
+    anchored_items = _source_code_specific_fallback(level, source_code)
+    if anchored_items is not None:
+        return anchored_items
 
-
-def _fallback_data(level: int, snapshot: DiagnosticSnapshot) -> dict[str, str]:
-    if level == 1:
-        return {
-            "observation": snapshot.learner_summary,
-            "impact": snapshot.observed_symptom,
-            "question": "Nếu lần theo ca fail này, ở bước nào trong lập luận của bạn kết quả bắt đầu lệch khỏi yêu cầu bài toán?",
-        }
-    if level == 2:
-        return {
-            "focus_area": snapshot.focus_area,
-            "concept": snapshot.concept_hint,
-            "question": "Tại vùng này, giá trị hoặc điều kiện nào đang được dùng khác với điều bạn thực sự muốn so sánh ở ca fail?",
-        }
-    return {
-        "exact_issue": f"Hãy kiểm tra lại {snapshot.focus_area} vì đây là nơi phù hợp nhất với triệu chứng hiện tại.",
-        "next_step": f"Giữ nguyên ý tưởng chung, nhưng sửa cách bạn lấy hoặc cập nhật giá trị ở vùng đó để nó bám sát ca fail: {snapshot.failure_signal}",
-        "why_it_works": "Khi vùng logic này dùng đúng giá trị và đúng thời điểm cập nhật, output sẽ khớp hơn với tín hiệu fail mà judge đang trả về.",
+    fallback_by_level = {
+        1: [
+            snapshot.learner_summary,
+            snapshot.observed_symptom,
+            "Hãy rà lại giả định hoặc bước suy luận ngay trước khi kết quả cuối cùng được tạo ra.",
+        ],
+        2: [
+            f"Vùng cần soi kỹ hơn là {snapshot.focus_area}.",
+            f"Điểm dễ lệch ở vùng này thường liên quan đến {snapshot.concept_hint}.",
+            "Hãy kiểm tra lại giá trị, điều kiện, hoặc trạng thái ngay tại vùng này trước khi đi tiếp.",
+        ],
+        3: [
+            f"Sai ở {snapshot.focus_area}.",
+            f"Hãy sửa cách lấy, so sánh, hoặc cập nhật giá trị ở vùng này theo đúng {snapshot.concept_hint}.",
+            "Sửa như vậy sẽ giúp bước này dùng đúng dữ liệu và đúng điều kiện để kết quả cuối khớp lại với ca fail hiện tại.",
+        ],
     }
+    return fallback_by_level.get(level, fallback_by_level[1])
 
 
-# ---------------------------------------------------------------------------
-# Internal: utilities
-# ---------------------------------------------------------------------------
+def _build_deterministic_hint(
+    level: int,
+    diagnostic_snapshot: DiagnosticSnapshot,
+    source_code: str,
+) -> dict | None:
+    anchored_items = _source_code_specific_fallback(level, source_code)
+    if anchored_items is None:
+        return None
+    return _build_public_hint_response(level, anchored_items, diagnostic_snapshot)
 
 
 def _collect_previous_hints(hint_row: SubmissionHint) -> list[str]:
-    return [h for h in (hint_row.hint_1, hint_row.hint_2) if h]
+    return [hint for hint in (hint_row.hint_1, hint_row.hint_2) if hint]
 
 
-def _forbidden_patterns(level: int) -> tuple[re.Pattern, ...]:
+def _serialize_hint_items(items: list[str]) -> str:
+    return "\n".join(f"{index}. {item}" for index, item in enumerate(items, start=1))
+
+
+def _cache_payload(payload: dict) -> dict:
+    cached = dict(payload)
+    cached["payload_version"] = HINT_PAYLOAD_VERSION
+    return cached
+
+
+def _hint_row_has_stale_payloads(hint_row: SubmissionHint) -> bool:
+    for level in (1, 2, 3):
+        payload = getattr(hint_row, f"payload_{level}", None)
+        if payload and payload.get("payload_version") != HINT_PAYLOAD_VERSION:
+            return True
+    return False
+
+
+def _reset_hint_row(hint_row: SubmissionHint) -> None:
+    hint_row.current_level = 0
+    hint_row.hint_1 = None
+    hint_row.hint_2 = None
+    hint_row.hint_3 = None
+    hint_row.payload_1 = None
+    hint_row.payload_2 = None
+    hint_row.payload_3 = None
+
+
+def _source_code_specific_fallback(level: int, source_code: str) -> list[str] | None:
+    normalized_code = source_code.lower()
+
+    if _looks_like_wrong_carry_base_in_add_two_numbers(normalized_code):
+        if level == 1:
+            return [
+                "Phần cộng từng chữ số đang lệch ở bước tách chữ số mới và số nhớ cho lượt kế tiếp.",
+                "Vì vậy kết quả có thể đúng ở vài nút đầu nhưng bắt đầu sai khi phép cộng cần truyền số nhớ.",
+                "Hãy rà lại quy tắc tách tổng hiện tại thành `digit` và `carry` trước khi tạo node mới.",
+            ]
+        if level == 2:
+            return [
+                "Vùng cần soi là đoạn tính `sum`, `digit`, và đặc biệt là `carry` trong mỗi vòng lặp của `addTwoNumbers`.",
+                "Ở bài cộng hai số theo từng chữ số, `digit` và `carry` phải được tách theo cùng một cơ số; nếu một bên theo 10 mà bên kia theo số khác thì kết quả sẽ lệch ngay.",
+                "Hãy kiểm tra xem công thức cập nhật `carry` có đang dùng cùng cơ số với `digit = sum % 10` hay không.",
+            ]
+        return [
+            "Sai ở dòng cập nhật `carry`: bạn đang dùng `carry = sum // 12` trong khi chữ số mới lại được lấy bằng `sum % 10`.",
+            "Hãy sửa công thức này để `carry` cũng tách theo cơ số 10, tức là ăn khớp với cách bạn đang lấy `digit`.",
+            "Sửa như vậy sẽ giúp các lượt cộng có nhớ như `5 + 5`, `9 + 1`, hoặc chuỗi nhớ liên tiếp tạo ra đúng các node tiếp theo.",
+        ]
+
+    if _looks_like_unbalanced_two_pointer_check(normalized_code):
+        if level == 1:
+            return [
+                "Phần kiểm tra palindrome đang lệch ở cách duyệt hai đầu chuỗi.",
+                "Vì vậy một số chuỗi đối xứng hợp lệ vẫn có thể bị kết luận là không phải palindrome.",
+                "Hãy rà lại cách hai con trỏ được cập nhật sau mỗi lần so sánh.",
+            ]
+        if level == 2:
+            return [
+                "Vùng cần soi là hàm `isPalindrome` và hai con trỏ `left`/`right` trong vòng lặp kiểm tra.",
+                "Sau mỗi lần so khớp, hai đầu chuỗi phải cùng tiến vào giữa; nếu chỉ một phía thay đổi thì phép kiểm tra sẽ lệch.",
+                "Hãy kiểm tra xem trong vòng lặp bạn đã cập nhật cả `left` lẫn `right` sau mỗi lần so sánh chưa.",
+            ]
+        return [
+            "Sai ở chỗ trong `isPalindrome()` bạn đang tăng `left` nhưng chưa giảm `right` sau mỗi lần so khớp.",
+            "Hãy thêm bước giảm `right` để mỗi vòng lặp luôn so đúng cặp ký tự đối xứng từ hai đầu chuỗi.",
+            "Sửa như vậy sẽ giúp hai con trỏ cùng tiến về giữa để các chuỗi như `abba` được nhận diện đúng là palindrome.",
+        ]
+
+    return None
+
+
+def _looks_like_unbalanced_two_pointer_check(normalized_code: str) -> bool:
+    left_update = any(token in normalized_code for token in ("++left", "left++", "left +=", "left = left +"))
+    right_update = any(token in normalized_code for token in ("--right", "right--", "right -=", "right = right -"))
+    has_two_pointer_names = "left" in normalized_code and "right" in normalized_code
+    has_palindrome_compare = any(
+        pattern in normalized_code
+        for pattern in ("str[left] != str[right]", "s[left] != s[right]", "str[left] == str[right]", "s[left] == s[right]")
+    )
+    return has_two_pointer_names and has_palindrome_compare and left_update != right_update
+
+
+def _looks_like_wrong_carry_base_in_add_two_numbers(normalized_code: str) -> bool:
+    if "carry" not in normalized_code or "% 10" not in normalized_code:
+        return False
+    if "addtwonumbers" not in normalized_code and "listnode" not in normalized_code:
+        return False
+    return any(
+        token in normalized_code
+        for token in ("carry = sum // 12", "carry=sum//12", "carry = total // 12", "carry=total//12")
+    )
+
+
+def _validate_level_specificity(items: list[str], level: int) -> None:
+    lowered_items = [item.lower() for item in items]
+
+    if level == 1:
+        if any(marker in item for item in lowered_items for marker in ("hãy sửa", "sửa thế nào", "sai ở")):
+            raise ValueError("level 1 is too direct")
+        return
+
+    if level == 2:
+        if any(marker in lowered_items[1] for marker in ("hãy sửa", "sửa thế nào")):
+            raise ValueError("level 2 should not give the fix directly")
+        if not lowered_items[2].startswith(("hãy kiểm tra", "hãy đối chiếu", "hãy xem lại", "hãy rà lại")):
+            raise ValueError("level 2 needs a targeted self-check instruction")
+        return
+
+    if not lowered_items[0].startswith("sai ở"):
+        raise ValueError("level 3 must identify the wrong spot directly")
+    if not lowered_items[1].startswith("hãy sửa"):
+        raise ValueError("level 3 must state the fix direction directly")
+    if not lowered_items[2].startswith("sửa như vậy"):
+        raise ValueError("level 3 must explain why the fix helps")
+
+
+def _extract_items_from_cached_payload(payload: dict) -> list[str]:
+    items = payload.get("items")
+    if isinstance(items, list) and len(items) == ITEM_COUNT and all(isinstance(item, str) for item in items):
+        return [_sanitize(item) for item in items]
+
+    cards = payload.get("cards")
+    if isinstance(cards, list):
+        card_items = [
+            _sanitize(card.get("content", ""))
+            for card in cards
+            if isinstance(card, dict) and isinstance(card.get("content"), str)
+        ]
+        if len(card_items) == ITEM_COUNT and all(card_items):
+            return card_items
+
+    legacy_fields = (
+        payload.get("observation"),
+        payload.get("impact"),
+        payload.get("question"),
+        payload.get("focus_area"),
+        payload.get("concept"),
+        payload.get("exact_issue"),
+        payload.get("next_step"),
+        payload.get("why_it_works"),
+    )
+    extracted = [_sanitize(value) for value in legacy_fields if isinstance(value, str) and _sanitize(value)]
+    return extracted[:ITEM_COUNT]
+
+
+def _forbidden_patterns(level: int) -> tuple[re.Pattern[str], ...]:
     if level < 3:
         return FORBIDDEN_PATTERNS_ALL_LEVELS + FORBIDDEN_PATTERNS_EARLY_LEVELS
     return FORBIDDEN_PATTERNS_ALL_LEVELS
 
 
 def _sanitize(value: str) -> str:
-    lines = [" ".join(line.split()) for line in value.strip().splitlines()]
-    cleaned = "\n".join(line for line in lines if line)
-    if len(cleaned) > FIELD_MAX_LENGTH:
-        cleaned = cleaned[:FIELD_MAX_LENGTH].rstrip()
-    return cleaned
+    collapsed = " ".join(value.strip().split())
+    if len(collapsed) > FIELD_MAX_LENGTH:
+        collapsed = collapsed[:FIELD_MAX_LENGTH].rstrip()
+    return collapsed
 
 
 def _preview(value: str | None) -> str:
@@ -421,6 +457,6 @@ def _preview(value: str | None) -> str:
 
 
 def _unsupported_hint_message(snapshot: DiagnosticSnapshot) -> str:
-    if snapshot.diagnosis_detail == "compile_syntax":
+    if snapshot.unsupported_reason == "compile_error":
         return "Hint hiện chỉ hỗ trợ các nhóm lỗi đã cấu hình, không áp dụng cho lỗi biên dịch."
     return "Hint chỉ được tạo khi bài nộp được phân loại vào một trong các nhóm lỗi đã cấu hình."

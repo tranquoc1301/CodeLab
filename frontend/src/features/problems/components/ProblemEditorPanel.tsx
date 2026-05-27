@@ -62,11 +62,11 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
       const response = await submissionsApi.getHint(submissionId);
       const data = response.data;
 
-      if (data.hint) {
+      if (data.items.length > 0) {
         setHints((prev) => [...prev, data]);
       }
-      setHintLevel(data.hint_level);
-      setIsHintExhausted(data.exhausted);
+      setHintLevel(data.level);
+      setIsHintExhausted(data.level >= 3);
     } catch {
       setHintError("Không lấy được gợi ý lúc này. Hãy thử lại sau.");
     } finally {

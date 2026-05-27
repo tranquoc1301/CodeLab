@@ -176,6 +176,10 @@ class VerdictResponse(BaseModel):
         default="",
         description="Captured stderr from the first failing test case",
     )
+    error_label: str | None = Field(
+        default=None,
+        description="Canonical error label inferred from the verdict and problem topics",
+    )
     test_case_results: List[TestCaseResult] = Field(
         default_factory=list,
         description="Per-test-case results including status, time, and memory",

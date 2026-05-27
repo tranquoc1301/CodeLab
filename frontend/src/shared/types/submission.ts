@@ -36,6 +36,7 @@ export interface VerdictResult {
   stdin: string;
   stdout: string;
   stderr: string;
+  error_label: string | null;
   test_case_results: TestCaseResult[];
 }
 
@@ -69,17 +70,8 @@ export interface SubmissionResult {
   test_case_results: TestCaseResult[];
 }
 
-export interface HintCard {
-  label: string;
-  content: string;
-}
-
 export interface HintResponse {
-  hint: string | null;
-  hint_level: number;
-  exhausted: boolean;
-  stage: "observe" | "focus" | "correct";
-  diagnosis_label: string | null;
-  diagnosis_detail?: string | null;
-  cards: HintCard[];
+  error_code?: string | null;
+  level: number;
+  items: string[];
 }

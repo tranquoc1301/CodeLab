@@ -48,7 +48,7 @@ def test_diagnose_submission_detects_format_issue_from_whitespace_only_diff():
     )
 
     assert snapshot.diagnosis_label == "boundary_condition_error"
-    assert snapshot.diagnosis_detail == "wrong_answer_parsing_format"
+    assert snapshot.diagnosis_detail == "boundary_condition_error"
     assert "định dạng" in snapshot.learner_summary.lower()
 
 
@@ -62,8 +62,9 @@ def test_diagnose_submission_marks_compile_errors_as_unsupported():
         source_code="print(",
     )
 
-    assert snapshot.diagnosis_label == "unknown"
-    assert snapshot.diagnosis_detail == "compile_syntax"
+    assert snapshot.diagnosis_label is None
+    assert snapshot.diagnosis_detail is None
+    assert snapshot.unsupported_reason == "compile_error"
 
 
 def test_diagnose_submission_prefers_state_index_for_array_logic():
@@ -79,8 +80,8 @@ def test_diagnose_submission_prefers_state_index_for_array_logic():
     )
 
     assert snapshot.diagnosis_label == "algorithm_design_error"
-    assert snapshot.diagnosis_detail == "wrong_answer_state_index"
-    assert "chỉ số" in snapshot.diagnosis_detail_display.lower() or "trạng thái" in snapshot.diagnosis_detail_display.lower()
+    assert snapshot.diagnosis_detail == "algorithm_design_error"
+    assert "algorithm" in snapshot.diagnosis_detail_display.lower()
 
 
 def test_diagnose_submission_falls_back_to_boundary_for_generic_wrong_answer():
@@ -95,4 +96,20 @@ def test_diagnose_submission_falls_back_to_boundary_for_generic_wrong_answer():
         source_code="return 0",
     )
 
-    assert snapshot.diagnosis_label in {"logic_calculation_error", "boundary_condition_error", "algorithm_design_error"}
+    assert snapshot.diagnosis_label == "logic_calculation_error"
+
+
+def test_classify_verdict_wrong_answer_math_topic_maps_to_logic_calculation():
+    assert classify_verdict(
+        {"status": "Wrong Answer", "stdout": "8", "expected_output": "9"},
+        topic_slugs=["math"],
+        source_code="return a + b",
+    ) == "logic_calculation_error"
+
+
+def test_classify_verdict_wrong_answer_non_math_non_algorithm_topic_maps_to_boundary():
+    assert classify_verdict(
+        {"status": "Wrong Answer", "stdout": "YES", "expected_output": "NO"},
+        topic_slugs=["implementation"],
+        source_code="print(answer)",
+    ) == "boundary_condition_error"

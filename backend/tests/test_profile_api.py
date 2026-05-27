@@ -22,9 +22,11 @@ async def test_error_profile_endpoint_returns_empty_state(
     assert response.status_code == 200
     body = response.json()
     assert body["totals"]["recent_profiled_submissions"] == 0
-    assert body["totals"]["lifetime_profiled_submissions"] == 0
-    assert body["chart"]["labels"] == []
-    assert body["top_labels"] == []
+    assert body["totals"]["all_time_profiled_submissions"] == 0
+    assert body["totals"]["active_error_labels"] == 0
+    assert body["totals"]["active_topics"] == 0
+    assert body["top_error_labels"] == []
+    assert body["top_topics"] == []
 
 
 @pytest.mark.asyncio
@@ -63,7 +65,7 @@ async def test_error_profile_endpoint_returns_profile_payload(
                 user_id=test_user.id,
                 problem_id=None,
                 error_label="algorithm_design_error",
-                diagnosis_detail="wrong_answer_state_index",
+                diagnosis_detail="algorithm_design_error",
                 problem_difficulty="Medium",
                 topic_slugs=["array", "two-pointers"],
                 submission_created_at=now - timedelta(days=2),
@@ -73,7 +75,7 @@ async def test_error_profile_endpoint_returns_profile_payload(
                 user_id=test_user.id,
                 problem_id=None,
                 error_label="algorithm_design_error",
-                diagnosis_detail="wrong_answer_state_index",
+                diagnosis_detail="algorithm_design_error",
                 problem_difficulty="Medium",
                 topic_slugs=["array"],
                 submission_created_at=now - timedelta(days=8),
@@ -83,7 +85,7 @@ async def test_error_profile_endpoint_returns_profile_payload(
                 user_id=test_user.id,
                 problem_id=None,
                 error_label="memory_reference_error",
-                diagnosis_detail="runtime_reference_type",
+                diagnosis_detail="memory_reference_error",
                 problem_difficulty="Easy",
                 topic_slugs=["linked-list"],
                 submission_created_at=now - timedelta(days=35),
@@ -98,7 +100,11 @@ async def test_error_profile_endpoint_returns_profile_payload(
     body = response.json()
     assert body["recent_window_days"] == 30
     assert body["totals"]["recent_profiled_submissions"] == 2
-    assert body["totals"]["lifetime_profiled_submissions"] == 3
-    assert body["chart"]["labels"][0]["code"] == "algorithm_design_error"
-    assert body["top_labels"][0]["top_detail"]["code"] == "wrong_answer_state_index"
-    assert body["top_labels"][0]["top_topics"][0]["slug"] == "array"
+    assert body["totals"]["all_time_profiled_submissions"] == 3
+    assert body["totals"]["active_error_labels"] == 2
+    assert body["totals"]["active_topics"] == 3
+    assert body["top_error_labels"][0]["code"] == "algorithm_design_error"
+    assert body["top_error_labels"][0]["related_topics"][0]["slug"] == "array"
+    assert body["top_error_labels"][0]["related_topics"][0]["all_time_count"] == 2
+    assert body["top_topics"][0]["slug"] == "array"
+    assert body["top_topics"][0]["top_error_labels"][0]["code"] == "algorithm_design_error"
