@@ -22,6 +22,8 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup and shutdown events."""
+    from app.services.dkt_service import get_dkt_model
+    get_dkt_model()
     yield
     await close_redis()
 
