@@ -10,6 +10,7 @@ from app.models.problem import Problem
 from app.models.submission import Submission, SubmissionTestResult
 from app.models.user import User
 from app.schemas.submission import SubmissionCreate, SubmissionResponse, VerdictResponse
+from app.services.cache import invalidate_cache
 from app.services.error_profile import record_submission_error_event
 from app.services.evaluation import evaluate_submission
 
@@ -115,6 +116,9 @@ async def evaluate_code(
         problem_difficulty=problem.difficulty,
     )
     await db.commit()
+
+    # Invalidate mastery cache so next request recomputes
+    await invalidate_cache(f"dkt:mastery:{new_submission.user_id}")
 
     response = VerdictResponse(**verdict)
     response.submission_id = new_submission.id

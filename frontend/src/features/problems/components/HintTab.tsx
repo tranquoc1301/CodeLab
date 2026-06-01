@@ -2,8 +2,6 @@ import { Lightbulb, Loader2 } from "lucide-react";
 import type { HintResponse, VerdictResult } from "@/shared/types";
 import { Button } from "@/shared/components/ui/button";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
-import { getErrorLabelConfig } from "@/shared/config/error-labels";
-import { ErrorLabelBadge } from "./ErrorLabelBadge";
 import { HintStepCard } from "./HintStepCard";
 
 interface HintTabProps {
@@ -25,14 +23,10 @@ export function HintTab({
   hintError,
   onFetchHint,
 }: HintTabProps) {
-  const latestHint = hints[hints.length - 1] ?? null;
   const isAccepted = verdict?.status === "Accepted";
-  const errorLabel = latestHint?.error_code
-    ? getErrorLabelConfig(latestHint.error_code).label
-    : "Chưa phân loại";
   const currentLevelMessage =
     hintLevel === 0
-      ? "Bắt đầu từ gợi ý rộng, sau đó hệ thống mới tăng dần mức cụ thể."
+      ? "Bắt đầu từ gợi ý chung, sau đó hệ thống mới tăng dần mức cụ thể."
       : hintLevel === 1
         ? "Bạn đang ở mức nhìn triệu chứng. Mức tiếp theo sẽ khoanh vùng lỗi rõ hơn."
         : hintLevel === 2
@@ -54,7 +48,7 @@ export function HintTab({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Lightbulb className="h-4 w-4 text-warning" />
-          <h4 className="text-sm font-semibold text-foreground">AI Tutor Hint</h4>
+          <h4 className="text-sm font-semibold text-foreground">AI Hint</h4>
         </div>
         {!isHintExhausted && hintLevel < 3 && (
           <Button
@@ -92,16 +86,6 @@ export function HintTab({
             Mức {hintLevel}/3
           </span>
         </div>
-        {latestHint && (
-          <p className="text-xs text-foreground/70">
-            Mã lỗi hiện tại: <span className="font-medium text-foreground">{errorLabel}</span>
-          </p>
-        )}
-        {latestHint?.error_code && (
-          <ErrorLabelBadge
-            label={latestHint.error_code}
-          />
-        )}
       </div>
 
       {hintError && (

@@ -67,8 +67,13 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
       }
       setHintLevel(data.level);
       setIsHintExhausted(data.level >= 3);
-    } catch {
-      setHintError("Không lấy được gợi ý lúc này. Hãy thử lại sau.");
+    } catch (error: unknown) {
+      const msg =
+        error && typeof error === "object" && "response" in error
+          ? (error as { response: { data?: { detail?: string } } }).response?.data
+              ?.detail
+          : null;
+      setHintError(msg ?? "Không lấy được gợi ý lúc này. Hãy thử lại sau.");
     } finally {
       setIsLoadingHint(false);
     }

@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
 from app.models.user import User
+from app.models.problem import Topic
 from app.services.dkt_service import get_topic_mastery
 from app.services.error_profile import get_user_error_summary
 from app.services.recommend_service import get_recommended_problems
@@ -15,9 +17,28 @@ async def get_my_mastery(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Trả về điểm thành thạo theo từng topic của user hiện tại."""
+    """Return mastery scores enriched with topic names for radar chart."""
     mastery = await get_topic_mastery(db, current_user.id)
-    return {"user_id": current_user.id, "topic_mastery": mastery}
+
+    topic_result = await db.execute(select(Topic))
+    topics = {t.id: t for t in topic_result.scalars().all()}
+
+    enriched = [
+        {
+            "topic_id": topic_id,
+            "name": topics[topic_id].name if topic_id in topics else str(topic_id),
+            "slug": topics[topic_id].slug if topic_id in topics else None,
+            "score": round(score, 4),
+        }
+        for topic_id, score in mastery.items()
+        if score > 0.0  # only return topics with non-zero mastery
+    ]
+    enriched.sort(key=lambda x: -x["score"])
+
+    return {
+        "user_id": current_user.id,
+        "topic_mastery": enriched,
+    }
 
 
 @router.get("/weak-topics")

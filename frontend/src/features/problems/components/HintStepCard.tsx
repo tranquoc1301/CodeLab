@@ -26,6 +26,9 @@ const LEVEL_COPY: Record<number, { title: string; description: string; accent: s
 export function HintStepCard({ hint, index }: HintStepCardProps) {
   const levelCopy = LEVEL_COPY[hint.level] ?? LEVEL_COPY[index + 1] ?? LEVEL_COPY[1];
 
+  // Split each item by newlines to get individual hint lines
+  const hintLines = hint.items.flatMap((item) => item.split("\n").filter((line) => line.trim()));
+
   return (
     <div className="rounded-xl border border-border/60 bg-card p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -40,13 +43,13 @@ export function HintStepCard({ hint, index }: HintStepCardProps) {
         </span>
       </div>
       <div className="space-y-2.5">
-        {hint.items.map((item, itemIndex) => (
+        {hintLines.map((line, lineIndex) => (
           <div
-            key={`${hint.level}-${itemIndex}`}
+            key={`${hint.level}-${lineIndex}`}
             className="rounded-lg border border-border/50 bg-background p-3"
           >
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/85">
-              {item}
+              {line}
             </p>
           </div>
         ))}

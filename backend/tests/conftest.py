@@ -11,7 +11,7 @@ os.environ.setdefault(
 )
 os.environ.setdefault("SECRET_KEY", "test-secret-key-with-minimum-length-123456")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/15")
-os.environ.setdefault("LLM_BASE_URL", "https://example.test")
+os.environ.setdefault("LLM_TIMEOUT", "10")
 os.environ.setdefault("MAILTRAP_API_TOKEN", "test-mailtrap-token")
 
 from app.main import app

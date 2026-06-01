@@ -11,6 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.submission import Submission
 from app.models.problem import Problem
 from app.ml.topic_skill_mapping import get_dkt_skill_for_topic
+from app.services.cache import get_cached, set_cached, invalidate_cache
+
+MASTERY_CACHE_TTL = 300  # 5 minutes
+MASTERY_CACHE_PREFIX = "dkt:mastery"
 
 # ─── vocabulary ─────────────────────────────────────────────────────
 _VOCAB_PATH = Path(__file__).parent.parent / "ml" / "skill2id.json"
@@ -123,14 +127,24 @@ async def get_topic_mastery(
 
     Steps
     -----
-    1. Fetch user's submissions (oldest first) with their problem topics.
-    2. Build a DKT interaction sequence using **Codeforces skill IDs**.
+    1. Check Redis cache first.
+    2. Fetch user's submissions (oldest first) with their problem topics.
+    3. Build a DKT interaction sequence using **Codeforces skill IDs**.
        - Each problem may have *multiple* topics → one entry per topic.
        - Topics with no DKT mapping are skipped (no ``0`` fallback).
-    3. Run the LSTM → mastery per DKT skill.
-    4. Propagate each DKT skill mastery back to **all** CodeLab topics that
+    4. Run the LSTM → mastery per DKT skill.
+    5. Propagate each DKT skill mastery back to **all** CodeLab topics that
        map to it.  Unmapped topics receive ``0.0``.
+    6. Store result in Redis cache.
     """
+    cache_key = f"{MASTERY_CACHE_PREFIX}:{user_id}"
+
+    # Try cache first
+    cached = await get_cached(cache_key)
+    if cached is not None:
+        # JSON keys are strings; convert back to int
+        return {int(k): v for k, v in cached.items()}
+
     result = await db.execute(
         select(Submission, Problem)
         .join(Problem, Submission.problem_id == Problem.id)
@@ -145,6 +159,7 @@ async def get_topic_mastery(
     }
 
     if not rows:
+        await set_cached(cache_key, {str(k): v for k, v in mastery_by_topic.items()}, ttl=MASTERY_CACHE_TTL)
         return mastery_by_topic
 
     # Build interaction sequence: tokens are DKT skill IDs × 2 states
@@ -193,4 +208,6 @@ async def get_topic_mastery(
         for topic_id in DKT_SKILL_TO_TOPIC_IDS.get(skill_name, ()):
             mastery_by_topic[topic_id] = score
 
+    # Store in cache (keys must be str for JSON)
+    await set_cached(cache_key, {str(k): v for k, v in mastery_by_topic.items()}, ttl=MASTERY_CACHE_TTL)
     return mastery_by_topic

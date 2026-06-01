@@ -169,7 +169,7 @@ async def get_hint(
         "stderr": submission.stderr or getattr(failing_result, "stderr", None),
         "stdout": getattr(failing_result, "stdout", None) if failing_result else submission.stdout,
         "error_message": submission.error_type,
-        "stdin": getattr(failing_result, "input", None) if failing_result else None,
+        "stdin": getattr(failing_result, "stdin", None) if failing_result else None,
         "expected_output": getattr(failing_result, "expected_output", None) if failing_result else None,
     }
     

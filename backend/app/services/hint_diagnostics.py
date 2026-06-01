@@ -29,31 +29,30 @@ SUPPORTED_HINT_LABELS: frozenset[str] = frozenset(label.value for label in CANON
 
 ALGORITHM_TOPICS: frozenset[str] = frozenset(
     {
-        "dynamic-programming", "dp",
-        "graph", "tree", "binary-tree", "binary-search-tree",
-        "breadth-first-search", "bfs", "depth-first-search", "dfs",
-        "greedy", "backtracking", "divide-and-conquer",
-        "sorting", "binary-search",
-        "heap", "priority-queue", "trie",
-        "union-find", "disjoint-set",
-        "segment-tree", "topological-sort",
-        "shortest-path", "minimum-spanning-tree",
-        "two-pointers", "sliding-window",
-        "monotonic-stack", "monotonic-queue",
-        "linked-list", "stack", "queue", "hash-table",
-        "string", "array",
+        "array", "hash-table", "linked-list", "recursion", "string",
+        "sliding-window", "binary-search", "divide-and-conquer",
+        "two-pointers", "dynamic-programming", "greedy", "trie",
+        "sorting", "backtracking", "stack", "heap", "merge-sort",
+        "string-matching", "matrix", "monotonic-stack", "simulation",
+        "memoization", "depth-first-search", "tree", "binary-tree",
+        "binary-search-tree", "breadth-first-search", "union-find",
+        "graph", "doubly-linked-list", "bucket-sort", "radix-sort",
+        "rolling-hash", "hash-function", "enumeration",
+        "topological-sort", "prefix-sum", "quickselect",
+        "binary-indexed-tree", "segment-tree", "ordered-set", "queue",
+        "monotonic-queue", "counting-sort", "interactive",
+        "game-theory", "eulerian-circuit", "shortest-path",
+        "suffix-array", "biconnected-component",
+        "minimum-spanning-tree", "strongly-connected-component", "sort",
     }
 )
 
 MATH_TOPICS: frozenset[str] = frozenset(
     {
-        "math", "mathematics",
-        "bit-manipulation", "bitwise",
-        "number-theory", "combinatorics", "geometry",
-        "modular-arithmetic", "prime",
-        "greatest-common-divisor", "gcd",
-        "least-common-multiple", "lcm",
-        "probability", "statistics",
+        "math", "number-theory", "combinatorics", "counting",
+        "geometry", "randomized", "reservoir-sampling",
+        "rejection-sampling", "probability-and-statistics",
+        "bit-manipulation", "bitmask",
     }
 )
 
@@ -103,10 +102,6 @@ class VerdictContext:
     output_mismatch: str
 
 
-def get_canonical_error_labels() -> tuple[str, ...]:
-    return tuple(label.value for label in CANONICAL_ERROR_LABELS)
-
-
 def is_canonical_error_label(label: str | None) -> bool:
     return label in SUPPORTED_HINT_LABELS
 
@@ -116,10 +111,6 @@ def get_diagnosis_display(label: str | CanonicalErrorLabel | None) -> str:
     if canonical is None:
         return UNKNOWN_DIAGNOSIS_DISPLAY
     return DIAGNOSIS_LABELS[canonical]
-
-
-def get_diagnosis_detail_display(detail: str | CanonicalErrorLabel | None) -> str:
-    return get_diagnosis_display(detail)
 
 
 def diagnose_submission(
@@ -227,8 +218,6 @@ def _insufficient_signal_snapshot(context: VerdictContext) -> DiagnosticSnapshot
 
 
 def _classify_wrong_answer(context: VerdictContext) -> DiagnosticSnapshot:
-    label = _primary_label(context.topic_slugs)
-
     if _is_format_issue(context.actual_output, context.expected_output):
         return _snapshot(
             label=CanonicalErrorLabel.BOUNDARY_CONDITION_ERROR,
@@ -239,13 +228,33 @@ def _classify_wrong_answer(context: VerdictContext) -> DiagnosticSnapshot:
             failure_signal=context.failure_signal,
         )
 
+    from app.services.error_rules import classify_by_rules
+
+    code = context.normalized_code
+    rule_scores = classify_by_rules(code, context.topic_slugs)
+    best_label: str | None = None
+    best_score = 0.0
+    for label, score in rule_scores.items():
+        if score > best_score:
+            best_score = score
+            best_label = label
+
+    label: CanonicalErrorLabel
+    if best_score >= 0.4:
+        label = CanonicalErrorLabel(best_label)
+    else:
+        label = _primary_label(context.topic_slugs)
+
+    if best_score >= 0.4 and best_label in ("recursion_error", "complexity_error", "memory_reference_error"):
+        pass
+
     if _is_state_index_issue(
         context.topic_slugs,
-        context.normalized_code,
+        code,
         context.actual_output,
         context.expected_output,
-    ):
-        focus_area = _state_focus_area(context.normalized_code)
+    ) and best_score < 0.6:
+        focus_area = _state_focus_area(code)
         if label is CanonicalErrorLabel.LOGIC_CALCULATION_ERROR:
             focus_area = "phép tính trung gian, giá trị tích lũy, hoặc biểu thức vừa được cập nhật"
         return _snapshot(
@@ -257,14 +266,60 @@ def _classify_wrong_answer(context: VerdictContext) -> DiagnosticSnapshot:
             failure_signal=context.failure_signal,
         )
 
+    summary = _label_to_summary(label, best_label, best_score)
+    focus_area, concept_hint = _label_to_focus(label, best_label)
+
     return _snapshot(
         label=label,
-        learner_summary="Logic hiện tại bỏ sót một trường hợp biên hoặc điều kiện chuyển nhánh.",
+        learner_summary=summary,
         observed_symptom=context.output_mismatch,
-        focus_area="nhánh xử lý input nhỏ, rỗng, phần tử đầu/cuối, hoặc trường hợp bằng nhau",
-        concept_hint="điều kiện biên, nhánh đặc biệt, và giá trị khởi tạo",
+        focus_area=focus_area,
+        concept_hint=concept_hint,
         failure_signal=context.failure_signal,
     )
+
+
+def _label_to_summary(label: CanonicalErrorLabel, rule_label: str | None, score: float) -> str:
+    if label == CanonicalErrorLabel.RECURSION_ERROR:
+        return "Hàm đệ quy chưa có base case hoặc chưa ghi nhớ trạng thái đã tính."
+    if label == CanonicalErrorLabel.COMPLEXITY_ERROR:
+        return "Thuật toán đang chạy quá nhiều bước lặp trên input lớn."
+    if label == CanonicalErrorLabel.MEMORY_REFERENCE_ERROR:
+        return "Có truy cập mảng hoặc giá trị rỗng ở vị trí không hợp lệ."
+    if label == CanonicalErrorLabel.LOGIC_CALCULATION_ERROR:
+        return "Phép tính hoặc điều kiện so sánh chưa đúng, dẫn đến kết quả sai."
+    if label == CanonicalErrorLabel.ALGORITHM_DESIGN_ERROR:
+        return "Cách tiếp cận thuật toán chưa phù hợp với bài toán."
+    return "Logic hiện tại bỏ sót một trường hợp biên hoặc điều kiện chuyển nhánh."
+
+
+def _label_to_focus(label: CanonicalErrorLabel, rule_label: str | None) -> tuple[str, str]:
+    mapping = {
+        CanonicalErrorLabel.RECURSION_ERROR: (
+            "điều kiện dừng và tham số truyền vào lần gọi đệ quy kế tiếp",
+            "đệ quy, trạng thái giảm dần, và base case",
+        ),
+        CanonicalErrorLabel.COMPLEXITY_ERROR: (
+            "đoạn lặp lồng nhau hoặc thao tác lặp lại trên cùng dữ liệu",
+            "độ phức tạp thời gian và số lần quét dữ liệu",
+        ),
+        CanonicalErrorLabel.MEMORY_REFERENCE_ERROR: (
+            "điểm truy cập mảng, danh sách, hoặc giá trị có thể rỗng",
+            "kiểm tra phạm vi chỉ số, giá trị rỗng, và kiểu dữ liệu tại chỗ dùng",
+        ),
+        CanonicalErrorLabel.LOGIC_CALCULATION_ERROR: (
+            "phép tính trung gian, giá trị tích lũy, hoặc biểu thức vừa được cập nhật",
+            "thứ tự cập nhật trạng thái, chỉ số hiện tại, và dữ liệu dùng để so sánh",
+        ),
+        CanonicalErrorLabel.ALGORITHM_DESIGN_ERROR: (
+            "cấu trúc dữ liệu hoặc cách tiếp cận đang dùng",
+            "độ phức tạp và cấu trúc dữ liệu phù hợp với ràng buộc input",
+        ),
+    }
+    return mapping.get(label, (
+        "nhánh xử lý input nhỏ, rỗng, phần tử đầu/cuối, hoặc trường hợp bằng nhau",
+        "điều kiện biên, nhánh đặc biệt, và giá trị khởi tạo",
+    ))
 
 
 def _is_compile(normalized_status: str, combined_error: str) -> bool:
@@ -313,18 +368,18 @@ def _is_state_index_issue(
         return True
     if any(s in topic_slugs for s in ALGORITHM_TOPICS):
         return True
+    if any(s in topic_slugs for s in MATH_TOPICS):
+        return True
     if actual_output and expected_output and any(ch.isdigit() for ch in actual_output + expected_output):
         return True
     return False
 
 
 def _primary_label(topic_slugs: list[str]) -> CanonicalErrorLabel:
-    for topics, label in (
-        (MATH_TOPICS, CanonicalErrorLabel.LOGIC_CALCULATION_ERROR),
-        (ALGORITHM_TOPICS, CanonicalErrorLabel.ALGORITHM_DESIGN_ERROR),
-    ):
-        if any(slug in topics for slug in topic_slugs):
-            return label
+    if any(slug in MATH_TOPICS for slug in topic_slugs):
+        return CanonicalErrorLabel.LOGIC_CALCULATION_ERROR
+    if any(slug in ALGORITHM_TOPICS for slug in topic_slugs):
+        return CanonicalErrorLabel.ALGORITHM_DESIGN_ERROR
     return CanonicalErrorLabel.BOUNDARY_CONDITION_ERROR
 
 
@@ -359,7 +414,7 @@ def _snapshot(
         diagnosis_label=label,
         diagnosis_display=get_diagnosis_display(label),
         diagnosis_detail=label,
-        diagnosis_detail_display=get_diagnosis_detail_display(label),
+        diagnosis_detail_display=get_diagnosis_display(label),
         learner_summary=learner_summary,
         observed_symptom=observed_symptom,
         focus_area=focus_area,

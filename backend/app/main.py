@@ -60,6 +60,7 @@ async def root() -> dict:
 
     from app.core.database import engine
     from app.services.cache import get_redis
+    from app.services.dkt_service import _model as _dkt_model
 
     db_status = "healthy"
     redis_status = "healthy"
@@ -76,6 +77,8 @@ async def root() -> dict:
     except Exception:
         redis_status = "unhealthy"
 
+    dkt_status = "healthy" if _dkt_model is not None else "unhealthy"
+
     return {
         "status": "healthy" if db_status == "healthy" else "degraded",
         "version": "1.0.0",
@@ -83,5 +86,6 @@ async def root() -> dict:
         "services": {
             "database": db_status,
             "redis": redis_status,
+            "dkt_model": dkt_status,
         },
     }
