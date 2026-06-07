@@ -24,6 +24,7 @@ import { useProblemFilters } from "@/features/problems/hooks/useProblemFilters";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { ProblemCard } from "@/features/problems/components/ProblemCard";
 import { ProblemCardSkeleton } from "@/features/problems/components/ProblemCardSkeleton";
+import RecommendSection from "@/features/problems/components/RecommendSection";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -143,6 +144,8 @@ export default function Home() {
 
   return (
     <div className="py-6 space-y-6">
+      <RecommendSection />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

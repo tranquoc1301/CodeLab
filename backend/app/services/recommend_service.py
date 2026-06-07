@@ -154,6 +154,11 @@ def _compute_fail_penalty(problem_id: int, penalized_ids: dict[int, int]) -> flo
     return min(fail_count * FAIL_PENALTY_PER_ATTEMPT, FAIL_PENALTY_CAP)
 
 
+def _get_problem_topic_labels(problem: Problem) -> list[str]:
+    """Return display-friendly topic labels for a problem."""
+    return [topic.name for topic in problem.topics if topic.name]
+
+
 async def get_recommended_problems(
     db: AsyncSession,
     user_id: int,
@@ -261,6 +266,7 @@ async def get_recommended_problems(
                 "title": p.title,
                 "slug": p.slug,
                 "difficulty": p.difficulty,
+                "topic_slugs": _get_problem_topic_labels(p),
                 "dominant_error_label": dominant,
                 "dominant_error_display": (
                     get_diagnosis_display(dominant) if dominant else "Insufficient Signal"
@@ -306,6 +312,7 @@ async def get_recommended_problems(
                     "title": p.title,
                     "slug": p.slug,
                     "difficulty": p.difficulty,
+                    "topic_slugs": _get_problem_topic_labels(p),
                     "dominant_error_label": dominant,
                     "dominant_error_display": (
                         get_diagnosis_display(dominant) if dominant else "Insufficient Signal"
