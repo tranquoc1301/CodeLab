@@ -1,6 +1,7 @@
+import math
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.problem import Problem, ProblemTopic, Topic
@@ -16,13 +17,18 @@ from app.services.hint_diagnostics import (
     is_canonical_error_label,
 )
 
+# --- Scoring hyper-parameters ---
 MASTERY_THRESHOLD = 0.6
 W_DKT_GAP = 0.5
 W_ERROR_SEV = 0.3
 W_RECENCY = 0.2
 RECENCY_WINDOW_DAYS = 30
+RECENCY_ALPHA = 2.0
 TOP_TOPICS = 5
 MAX_PER_TOPIC = 2
+FAIL_PENALTY_THRESHOLD = 5
+FAIL_PENALTY_PER_ATTEMPT = 0.05
+FAIL_PENALTY_CAP = 0.3
 
 _ERROR_SEVERITY: dict[str, float] = {
     "algorithm_design_error":   1.0,
@@ -49,6 +55,7 @@ def _compute_error_severity_score(
     topic_slug: str,
     error_summary: dict[str, dict[str, int]],
 ) -> float:
+    """Return the tanh-normalized severity score for a topic's error history."""
     topic_errors = error_summary.get(topic_slug, {})
     total = topic_errors.get("total", 0)
     if total == 0:
@@ -58,7 +65,8 @@ def _compute_error_severity_score(
         for label, count in topic_errors.items()
         if label != "total"
     )
-    return weighted / (total + 1)
+    raw = weighted / (total + 1)
+    return float(math.tanh(raw * 2))
 
 
 def _compute_recency_score(
@@ -66,15 +74,19 @@ def _compute_recency_score(
     recent_summary: dict[str, dict[str, int]],
     all_summary: dict[str, dict[str, int]],
 ) -> float:
+    """Return the Laplace-smoothed recency score for a topic."""
     recent = recent_summary.get(topic_slug, {}).get("total", 0)
     all_time = all_summary.get(topic_slug, {}).get("total", 0)
-    return recent / (recent + all_time + 1e-6)
+    return (recent + RECENCY_ALPHA) / (
+        recent + all_time + 2 * RECENCY_ALPHA
+    )
 
 
 def _dominant_error_label(
     topic_slug: str,
     error_summary: dict[str, dict[str, int]],
 ) -> str | None:
+    """Return the most frequent canonical error label for a topic."""
     topic_errors = error_summary.get(topic_slug, {})
     label_counts = {k: v for k, v in topic_errors.items() if k != "total" and v > 0}
     if not label_counts:
@@ -86,6 +98,7 @@ async def _get_recent_error_summary(
     db: AsyncSession,
     user_id: int,
 ) -> dict[str, dict[str, int]]:
+    """Return canonical error counts per topic within the recency window."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=RECENCY_WINDOW_DAYS)
     result = await db.execute(
         select(SubmissionErrorEvent)
@@ -116,6 +129,7 @@ def _build_reason(
     topics: dict[int, Topic],
     topic_id: int,
 ) -> str:
+    """Return the Vietnamese explanation string for a recommendation."""
     name = topics[topic_id].name if topic_id in topics else slug
     mastery_pct = int(mastery * 100)
     recent_count = recent_summary.get(slug, {}).get("total", 0)
@@ -134,17 +148,18 @@ def _build_reason(
     return f"Bạn chưa thành thạo topic '{name}' ({mastery_pct}%)"
 
 
+def _compute_fail_penalty(problem_id: int, penalized_ids: dict[int, int]) -> float:
+    """Return the capped repeat-failure penalty for a problem."""
+    fail_count = penalized_ids.get(problem_id, 0)
+    return min(fail_count * FAIL_PENALTY_PER_ATTEMPT, FAIL_PENALTY_CAP)
+
+
 async def get_recommended_problems(
     db: AsyncSession,
     user_id: int,
     limit: int = 10,
 ) -> list[dict]:
-    """
-    Gợi ý bài tập dựa trên 3-signal Weighted Hybrid Scoring:
-      priority = (1 - mastery) * W_DKT_GAP
-               + error_severity_score * W_ERROR_SEV
-               + recency_ratio * W_RECENCY
-    """
+    """Return weighted-hybrid problem recommendations for a user."""
     mastery = await get_topic_mastery(db, user_id)
     error_summary = await get_user_error_summary(db, user_id)
     recent_summary = await _get_recent_error_summary(db, user_id)
@@ -185,6 +200,22 @@ async def get_recommended_problems(
     )
     accepted_ids: set[int] = {row[0] for row in accepted_result.all() if row[0] is not None}
 
+    fail_result = await db.execute(
+        select(Submission.problem_id, func.count(Submission.id).label("fail_count"))
+        .where(
+            Submission.user_id == user_id,
+            Submission.status != "Accepted",
+            Submission.submission_type == "submit",
+        )
+        .group_by(Submission.problem_id)
+        .having(func.count(Submission.id) >= FAIL_PENALTY_THRESHOLD)
+    )
+    penalized_ids: dict[int, int] = {
+        row[0]: row[1]
+        for row in fail_result.all()
+        if row[0] is not None
+    }
+
     seen_ids: set[int] = set()
     candidates: list[dict] = []
 
@@ -221,10 +252,11 @@ async def get_recommended_problems(
                 continue
             if added_for_topic >= MAX_PER_TOPIC:
                 break
+            penalty = _compute_fail_penalty(p.id, penalized_ids)
             seen_ids.add(p.id)
             added_for_topic += 1
             candidates.append({
-                "_priority": priority,
+                "_priority": priority - penalty,
                 "problem_id": p.id,
                 "title": p.title,
                 "slug": p.slug,
@@ -243,6 +275,51 @@ async def get_recommended_problems(
                     topic_id,
                 ),
             })
+
+    if len(candidates) < limit:
+        seen_ids.update(c["problem_id"] for c in candidates)
+        ranked_topics = sorted(topic_priority, key=lambda item: -item[2])
+        for topic_id, slug, priority, mastery_score in ranked_topics:
+            if len(candidates) >= limit:
+                break
+            dominant = _dominant_error_label(slug, error_summary)
+            result = await db.execute(
+                select(Problem)
+                .join(ProblemTopic, Problem.id == ProblemTopic.problem_id)
+                .where(ProblemTopic.topic_id == topic_id)
+                .where(Problem.id.notin_(accepted_ids))
+                .where(Problem.id.notin_(seen_ids))
+            )
+            problems = list(result.scalars().all())
+            problems.sort(key=lambda p: _DIFFICULTY_ORDER.get(p.difficulty, 99))
+
+            for p in problems:
+                if len(candidates) >= limit:
+                    break
+                if p.id in seen_ids:
+                    continue
+                penalty = _compute_fail_penalty(p.id, penalized_ids)
+                seen_ids.add(p.id)
+                candidates.append({
+                    "_priority": (priority * 0.8) - penalty,
+                    "problem_id": p.id,
+                    "title": p.title,
+                    "slug": p.slug,
+                    "difficulty": p.difficulty,
+                    "dominant_error_label": dominant,
+                    "dominant_error_display": (
+                        get_diagnosis_display(dominant) if dominant else "Insufficient Signal"
+                    ),
+                    "reason": _build_reason(
+                        slug,
+                        mastery_score,
+                        dominant,
+                        error_summary,
+                        recent_summary,
+                        topics,
+                        topic_id,
+                    ),
+                })
 
     candidates.sort(
         key=lambda c: (-c["_priority"], _DIFFICULTY_ORDER.get(c["difficulty"], 0))
