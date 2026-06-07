@@ -21,6 +21,7 @@ import { ROUTES } from "@/app/router";
 import { useProblemCursorList } from "@/features/problems/hooks/useProblemCursorList";
 import { useTopics } from "@/features/problems/hooks/useTopics";
 import { useProblemFilters } from "@/features/problems/hooks/useProblemFilters";
+import { useRecommendations } from "@/features/problems/hooks/useRecommendations";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { ProblemCard } from "@/features/problems/components/ProblemCard";
 import { ProblemCardSkeleton } from "@/features/problems/components/ProblemCardSkeleton";
@@ -64,6 +65,10 @@ export default function Home() {
   });
 
   const { topics: availableTopics, isLoading: topicsLoading } = useTopics();
+  const { data: recommendationsData } = useRecommendations(5);
+  const recommendedProblemIds = new Set(
+    (recommendationsData?.items ?? []).map((item) => item.problem_id),
+  );
 
   // Handlers
   const showAuthRequiredPrompt = useCallback(
@@ -261,6 +266,7 @@ export default function Home() {
                 onClick={() => handleProblemClick(problem.slug)}
                 onKeyDown={(e) => handleProblemKeyDown(e, problem.slug)}
                 isAuthenticated={isAuthenticated}
+                isRecommended={recommendedProblemIds.has(problem.id)}
               />
             ))}
 

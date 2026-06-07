@@ -11,6 +11,7 @@ interface ProblemCardProps {
   onClick: () => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
   isAuthenticated: boolean;
+  isRecommended?: boolean;
   className?: string;
 }
 
@@ -20,6 +21,7 @@ export const ProblemCard = memo(
     onClick,
     onKeyDown,
     isAuthenticated,
+    isRecommended = false,
     className,
   }: ProblemCardProps) {
     const [isPressed, setIsPressed] = useState(false);
@@ -36,6 +38,7 @@ export const ProblemCard = memo(
           "bg-card/50 backdrop-blur-sm",
           "border border-border/60",
           "rounded-xl",
+          isRecommended && "border-primary/35 bg-primary/6 shadow-primary/8",
           // Smooth transitions for all properties
           "transition-all duration-200 ease-out",
           // Hover effects with elevation
@@ -92,10 +95,16 @@ export const ProblemCard = memo(
         onFocus={handleFocus}
         onBlur={handleBlur}
         className="text-left w-full group outline-none"
-        aria-label={`${problem.difficulty} difficulty: ${problem.title}${isSolved ? " (Solved)" : ""}. ${isAuthenticated ? "Press Enter to view details" : "Press Enter to log in and view"}`}
+        aria-label={`${problem.difficulty} difficulty: ${problem.title}${isSolved ? " (Solved)" : ""}${isRecommended ? " (Recommended)" : ""}. ${isAuthenticated ? "Press Enter to view details" : "Press Enter to log in and view"}`}
         aria-pressed={isPressed}
       >
         <Card className={cardClassName}>
+          {isRecommended && (
+            <div
+              className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-primary/80"
+              aria-hidden="true"
+            />
+          )}
           <CardContent className="p-0 relative">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
               <div className="flex-1 min-w-0 space-y-2">
@@ -106,9 +115,19 @@ export const ProblemCard = memo(
                   </span>
 
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-base sm:text-lg font-semibold truncate group-hover:text-primary transition-colors duration-200">
-                      {problem.title}
-                    </h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-base sm:text-lg font-semibold truncate group-hover:text-primary transition-colors duration-200">
+                        {problem.title}
+                      </h2>
+                      {isRecommended && (
+                        <Badge
+                          variant="outline"
+                          className="border-primary/30 bg-primary/8 text-xs font-medium text-primary"
+                        >
+                          Recommended
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   {/* Solved Badge with animation */}
@@ -170,6 +189,7 @@ export const ProblemCard = memo(
       prevProps.problem.is_solved === nextProps.problem.is_solved &&
       prevProps.problem.difficulty === nextProps.problem.difficulty &&
       prevProps.isAuthenticated === nextProps.isAuthenticated &&
+      prevProps.isRecommended === nextProps.isRecommended &&
       prevProps.className === nextProps.className
     );
   },
