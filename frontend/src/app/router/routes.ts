@@ -11,4 +11,9 @@ export const ROUTES = {
   problemLists: () => "/problem-lists",
   PROBLEM_LIST_DETAIL: "/problem-lists/:id",
   problemListDetail: (id: number) => `/problem-lists/${id}`,
+  ADMIN_ROOT: "/admin",
+  ADMIN_PROBLEMS: "/admin/problems",
+  ADMIN_TOPICS: "/admin/topics",
+  ADMIN_USERS: "/admin/users",
+  ADMIN_SUBMISSIONS: "/admin/submissions",
 } as const;

@@ -28,6 +28,14 @@ export const API = {
     LIST_CONTAINING_PROBLEM: (problemId: number) =>
       `/problem-lists/problems/${problemId}/problem-lists`,
     PROBLEM_REDIRECT: (slug: string | number) => `/problems/redirect/${slug}`,
+    ADMIN_STATS: "/admin/stats",
+    ADMIN_STATS_EXTENDED: "/admin/stats/extended",
+    ADMIN_PROBLEMS: "/admin/problems",
+    ADMIN_PROBLEM_DETAIL: (id: number) => `/admin/problems/${id}`,
+    ADMIN_TOPICS: "/admin/topics",
+    ADMIN_TOPIC_DETAIL: (id: number) => `/admin/topics/${id}`,
+    ADMIN_USERS: "/admin/users",
+    ADMIN_SUBMISSIONS: "/admin/submissions",
   },
   HEADERS: {
     AUTH_PREFIX: "Bearer ",

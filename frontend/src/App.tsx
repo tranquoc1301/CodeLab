@@ -4,8 +4,10 @@ import {
   Routes,
   Route,
   useLocation,
+  Navigate,
 } from "react-router-dom";
 import { Suspense, lazy, useEffect, useMemo, type ReactNode } from "react";
+import { toast } from "sonner";
 import { useAuth } from "@/app/store/auth";
 import { Header } from "@/app/layouts/Header";
 import { Footer } from "@/app/layouts/Footer";
@@ -22,6 +24,26 @@ const Profile = lazy(() => import("@/features/profile/pages/Profile"));
 const Submissions = lazy(() => import("@/features/submissions/pages/Submissions"));
 const ListDetail = lazy(() => import("@/features/problems/pages/ListDetail"));
 const ProblemLists = lazy(() => import("@/features/problems/pages/ProblemLists"));
+
+// Admin pages
+const AdminLayout = lazy(() =>
+  import("@/features/admin/pages/AdminLayout").then((m) => ({ default: m.AdminLayout })),
+);
+const OverviewPage = lazy(() =>
+  import("@/features/admin/pages/OverviewPage").then((m) => ({ default: m.OverviewPage })),
+);
+const ProblemsPage = lazy(() =>
+  import("@/features/admin/pages/ProblemsPage").then((m) => ({ default: m.ProblemsPage })),
+);
+const TopicsPage = lazy(() =>
+  import("@/features/admin/pages/TopicsPage").then((m) => ({ default: m.TopicsPage })),
+);
+const UsersPage = lazy(() =>
+  import("@/features/admin/pages/UsersPage").then((m) => ({ default: m.UsersPage })),
+);
+const SubmissionsPage = lazy(() =>
+  import("@/features/admin/pages/SubmissionsPage").then((m) => ({ default: m.SubmissionsPage })),
+);
 
 // Loading fallback for code-split components
 function RouteLoader() {
@@ -54,6 +76,36 @@ function AuthInitializer({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      toast.error("Please sign in to access the admin panel");
+    } else if (user && !user.is_admin) {
+      toast.error("Admin access required");
+    }
+  }, [isLoading, isAuthenticated, user]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to={ROUTES.LOGIN} replace state={{ from: location.pathname }} />;
+  }
+  if (!user?.is_admin) {
+    return <Navigate to={ROUTES.HOME} replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -71,7 +123,37 @@ function AppLayout() {
     () => location.pathname.startsWith("/problems/"),
     [location.pathname]
   );
+  const isAdminRoute = useMemo(
+    () => location.pathname.startsWith("/admin"),
+    [location.pathname]
+  );
   const { showAuthModal } = useAuth();
+
+  if (isAdminRoute) {
+    return (
+      <AuthInitializer>
+        <Suspense fallback={<RouteLoader />}>
+          <Routes>
+            <Route
+              element={
+                <AdminRoute>
+                  <AdminLayout />
+                </AdminRoute>
+              }
+            >
+              <Route path={ROUTES.ADMIN_ROOT} element={<OverviewPage />} />
+              <Route path={ROUTES.ADMIN_PROBLEMS} element={<ProblemsPage />} />
+              <Route path={ROUTES.ADMIN_TOPICS} element={<TopicsPage />} />
+              <Route path={ROUTES.ADMIN_USERS} element={<UsersPage />} />
+              <Route path={ROUTES.ADMIN_SUBMISSIONS} element={<SubmissionsPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to={ROUTES.ADMIN_ROOT} replace />} />
+          </Routes>
+        </Suspense>
+        {showAuthModal && <AuthModal />}
+      </AuthInitializer>
+    );
+  }
 
   return (
     <AuthInitializer>

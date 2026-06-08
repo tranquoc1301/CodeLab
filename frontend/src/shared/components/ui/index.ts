@@ -29,3 +29,33 @@ export { LoadMoreControl } from "./load-more";
 export { BackToTop } from "./back-to-top";
 export { Checkbox } from "./checkbox";
 export { SkeletonList } from "../SkeletonList";
+export {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./table";
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./alert-dialog";
+export {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "./sidebar";
