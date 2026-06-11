@@ -13,3 +13,4 @@ python-multipart
 redis>=5.0.0
 mailtrap
 torch==2.11.0
+gunicorn
