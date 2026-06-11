@@ -1,66 +1,99 @@
-"""Local code execution service for sandboxed code execution.
 
-Supports Python 3, Java, C++, and C with proper compilation,
-execution, time limits, and memory tracking via local subprocesses.
-"""
-
-import asyncio
+import base64
 import logging
-import re
-import tempfile
-import time
-from pathlib import Path
-from typing import Any
+
+import httpx
 
 from app.constants import JUDGE0_LANGUAGE_IDS
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CPU_TIME_LIMIT = 5.0
+# Judge0 status_id mapping
+STATUS_MAP: dict[int, str] = {
+    1: "In Queue",
+    2: "Processing",
+    3: "Accepted",
+    4: "Wrong Answer",
+    5: "Time Limit Exceeded",
+    6: "Output Limit Exceeded",
+    7: "Runtime Error (SIGSEGV)",
+    8: "Runtime Error (SIGXFSZ)",
+    9: "Runtime Error (SIGFPE)",
+    10: "Runtime Error (SIGABRT)",
+    11: "Runtime Error (NZEC)",
+    12: "Runtime Error (Other)",
+    13: "Internal Error",
+    14: "Exec Format Error",
+}
 
-LANG_CONFIG: dict[str, dict[str, Any]] = {
-    "python3": {
-        "compile_cmd": None,
-        "run_cmd": ["python3", "-u", "{source}"],
-        "source_file": "solution.py",
-        "timeout": 10,
-    },
-    "java": {
-        "compile_cmd": ["javac", "{source}"],
-        "run_cmd": ["java", "-cp", "{dir}", "Main"],
-        "source_file": "Main.java",
-        "timeout": 15,
-    },
-    "cpp": {
-        "compile_cmd": ["g++", "-O2", "-std=c++17", "-o", "{output}", "{source}"],
-        "run_cmd": ["{output}"],
-        "source_file": "solution.cpp",
-        "output_file": "solution",
-        "timeout": 10,
-    },
-    "c": {
-        "compile_cmd": ["gcc", "-O2", "-std=c11", "-o", "{output}", "{source}"],
-        "run_cmd": ["{output}"],
-        "source_file": "solution.c",
-        "output_file": "solution",
-        "timeout": 10,
-    },
+# Mapping from Judge0 status to our error classification
+ERROR_TYPE_MAP: dict[int, str] = {
+    4: "Wrong Answer",
+    5: "Time Limit Exceeded",
+    6: "Output Limit Exceeded",
+    7: "Runtime Error",
+    8: "Runtime Error",
+    9: "Runtime Error",
+    10: "Runtime Error",
+    11: "Runtime Error",
+    12: "Runtime Error",
+    13: "Internal Error",
+    14: "Runtime Error",
 }
 
 
-def _signal_name(returncode: int) -> str:
-    signal = -returncode
-    signal_map = {
-        6: "Runtime Error (SIGABRT)",
-        11: "Runtime Error (SIGSEGV)",
-        8: "Runtime Error (SIGFPE)",
-        4: "Runtime Error (SIGILL)",
-        9: "Runtime Error (SIGKILL)",
-        15: "Runtime Error (SIGTERM)",
-        25: "Runtime Error (SIGXFSZ)",
-        31: "Runtime Error (SIGSYS)",
-    }
-    return signal_map.get(signal, f"Runtime Error (signal {signal})")
+def _decode_base64(value: str | None) -> str | None:
+    """Decode a base64 string to UTF-8, returning None if empty."""
+    if not value:
+        return None
+    try:
+        decoded = base64.b64decode(value).decode("utf-8", errors="replace")
+        return decoded if decoded else None
+    except Exception:
+        return None
+
+
+def _parse_status(result: dict) -> tuple[str, str | None]:
+    """Extract status string and error_type from Judge0 response."""
+    status_info = result.get("status", {})
+    status_id = status_info.get("id", 0)
+    status_desc = status_info.get("description", "Unknown")
+
+    compile_output = _decode_base64(result.get("compile_output"))
+    stderr = _decode_base64(result.get("stderr"))
+    stdout = _decode_base64(result.get("stdout"))
+
+    # If status is Accepted (3), trust it - compile_output may just be warnings
+    if status_id == 3:
+        return "Accepted", None
+
+    # Check for actual compilation errors (not just warnings)
+    if compile_output and status_id != 3:
+        # Look for actual error messages, not just warnings
+        has_error = any(
+            "error:" in line.lower()
+            for line in compile_output.split("\n")
+            if line.strip()
+        )
+        if not has_error:
+            # Only warnings - treat as successful compilation
+            pass
+        else:
+            return "Compilation Error", "Compilation Error"
+
+    # Use status map for known statuses
+    if status_id in STATUS_MAP:
+        status_str = STATUS_MAP[status_id]
+        error_type = ERROR_TYPE_MAP.get(status_id)
+        return status_str, error_type
+
+    # Fallback: if we have stdout, assume success
+    if stdout and status_id == 0:
+        return "Accepted", None
+
+    # Fallback to description from Judge0
+    return status_desc, None
 
 
 async def submit_to_judge0(
@@ -70,12 +103,21 @@ async def submit_to_judge0(
     expected_output: str | None = None,
     cpu_time_limit: float | None = None,
     memory_limit: int | None = None,
-) -> dict[str, Any]:
-    """Execute code via local subprocess.
+) -> dict:
+    """Submit code to Judge0 CE API via RapidAPI and return the result.
 
-    Uses local subprocess execution for all languages. Judge0 API is not used
-    because Judge0 1.13.1's isolate sandbox requires cgroup v1, which is
-    unavailable on cgroup v2-only hosts.
+    Uses synchronous execution (wait=true) to get the result in a single request.
+
+    Args:
+        source_code: The source code to execute.
+        language: Programming language identifier (e.g., "python3", "java").
+        stdin: Standard input for the program.
+        expected_output: Expected output for comparison (handled by caller).
+        cpu_time_limit: CPU time limit in seconds (not used by Judge0 CE free tier).
+        memory_limit: Memory limit in KB (not used by Judge0 CE free tier).
+
+    Returns:
+        A dict with keys: status, stdout, stderr, compile_output, error_type, time, memory.
     """
     if language not in JUDGE0_LANGUAGE_IDS:
         return {
@@ -88,194 +130,119 @@ async def submit_to_judge0(
             "memory": None,
         }
 
-    result = await _execute_local(
-        source_code=source_code,
-        language=language,
-        stdin=stdin,
-        cpu_time_limit=cpu_time_limit,
+    settings = get_settings()
+    language_id = JUDGE0_LANGUAGE_IDS[language]
+
+    # Encode source code and stdin as base64
+    source_b64 = base64.b64encode(source_code.encode("utf-8")).decode("utf-8")
+    stdin_b64 = (
+        base64.b64encode(stdin.encode("utf-8")).decode("utf-8") if stdin else None
     )
 
-    # If execution succeeded and we have expected_output, compare outputs
-    if expected_output is not None and result.get("status") == "Accepted":
-        stdout = result.get("stdout") or ""
-        if _normalize_output(stdout) != _normalize_output(expected_output):
-            result["status"] = "Wrong Answer"
-            result["error_type"] = "Wrong Answer"
+    payload = {
+        "source_code": source_b64,
+        "language_id": language_id,
+    }
+    if stdin_b64:
+        payload["stdin"] = stdin_b64
 
-    return result
+    # Add C++17 compiler option for C++ to support structured bindings
+    if language == "cpp":
+        payload["compiler_options"] = "-std=c++17"
 
+    headers = {
+        "x-rapidapi-key": settings.RAPID_API_KEY,
+        "x-rapidapi-host": "judge0-ce.p.rapidapi.com",
+        "Content-Type": "application/json",
+    }
 
-def _normalize_output(output: str) -> str:
-    """Normalize output for comparison, handling JSON spacing differences."""
-    output = output.strip()
-    output = re.sub(r"\[\s*", "[", output)
-    output = re.sub(r"\s*\]", "]", output)
-    output = re.sub(r",\s*", ",", output)
-    output = re.sub(r"\{\s*", "{", output)
-    output = re.sub(r"\s*\}", "}", output)
-    return output
+    url = f"{settings.JUDGE0_API_URL}/submissions"
+    params = {"base64_encoded": "true", "wait": "true"}
 
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload, headers=headers, params=params)
 
-async def _execute_local(
-    source_code: str,
-    language: str,
-    stdin: str | None = None,
-    cpu_time_limit: float | None = None,
-) -> dict[str, Any]:
-    config = LANG_CONFIG.get(language)
-    if not config:
+        if response.status_code not in (200, 201):
+            logger.error(
+                "Judge0 API error: status=%d body=%s",
+                response.status_code,
+                response.text[:500],
+            )
+            return {
+                "status": "Internal Error",
+                "stdout": None,
+                "stderr": None,
+                "compile_output": None,
+                "error_type": f"Judge0 API error: HTTP {response.status_code}",
+                "time": None,
+                "memory": None,
+            }
+
+        result = response.json()
+        logger.debug("Judge0 response: status_id=%s", result.get("status", {}).get("id"))
+
+        # Decode base64 response fields
+        stdout = _decode_base64(result.get("stdout"))
+        stderr = _decode_base64(result.get("stderr"))
+        compile_output = _decode_base64(result.get("compile_output"))
+
+        # Parse status
+        status_str, error_type = _parse_status(result)
+
+        # Parse time (string like "0.015") and memory (int KB)
+        try:
+            time_sec = float(result.get("time", 0)) if result.get("time") else None
+        except (ValueError, TypeError):
+            time_sec = None
+
+        memory = result.get("memory")
+        if memory is not None:
+            try:
+                memory = int(memory)
+            except (ValueError, TypeError):
+                memory = None
+
         return {
-            "status": "Internal Error",
+            "status": status_str,
+            "stdout": stdout,
+            "stderr": stderr,
+            "compile_output": compile_output,
+            "error_type": error_type,
+            "time": time_sec,
+            "memory": memory,
+        }
+
+    except httpx.TimeoutException:
+        logger.error("Judge0 API timeout after 30s")
+        return {
+            "status": "Time Limit Exceeded",
             "stdout": None,
             "stderr": None,
             "compile_output": None,
-            "error_type": f"No execution config for: {language}",
+            "error_type": "Time Limit Exceeded",
             "time": None,
             "memory": None,
         }
-
-    timeout = cpu_time_limit or config["timeout"]
-
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_path = Path(tmpdir) / config["source_file"]
-            source_path.write_text(source_code)
-
-            compile_output = None
-            if config.get("compile_cmd"):
-                compile_cmd = [
-                    part.format(
-                        source=str(source_path),
-                        output=str(Path(tmpdir) / config.get("output_file", "a.out")),
-                        dir=tmpdir,
-                    )
-                    for part in config["compile_cmd"]
-                ]
-                try:
-                    proc = await asyncio.create_subprocess_exec(
-                        *compile_cmd,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE,
-                        cwd=tmpdir,
-                    )
-                    stdout, stderr = await proc.communicate()
-                    if proc.returncode != 0:
-                        compile_output = stderr.decode(errors="replace").strip()
-                        if not compile_output and stdout:
-                            compile_output = stdout.decode(errors="replace").strip()
-                        return {
-                            "status": "Compilation Error",
-                            "stdout": None,
-                            "stderr": None,
-                            "compile_output": compile_output[:2000],
-                            "error_type": "Compilation Error",
-                            "time": None,
-                            "memory": None,
-                        }
-                except FileNotFoundError as e:
-                    return {
-                        "status": "Internal Error",
-                        "stdout": None,
-                        "stderr": None,
-                        "compile_output": f"Compiler not found: {e}",
-                        "error_type": "Internal Error",
-                        "time": None,
-                        "memory": None,
-                    }
-
-            run_cmd = [
-                part.format(
-                    source=str(source_path),
-                    output=str(Path(tmpdir) / config.get("output_file", "a.out")),
-                    dir=tmpdir,
-                )
-                for part in config["run_cmd"]
-            ]
-
-            start_time = time.monotonic()
-            memory_kb = None
-            proc = None
-            try:
-                # Use /usr/bin/time to track memory usage
-                time_cmd = ["/usr/bin/time", "-v"] + run_cmd
-                proc = await asyncio.create_subprocess_exec(
-                    *time_cmd,
-                    stdin=asyncio.subprocess.PIPE,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=tmpdir,
-                )
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(input=(stdin or "").encode()),
-                    timeout=timeout,
-                )
-                elapsed_ms = int((time.monotonic() - start_time) * 1000)
-                stdout_str = stdout.decode(errors="replace").strip()
-                stderr_str = stderr.decode(errors="replace").strip()
-
-                # Parse memory from /usr/bin/time output (stderr contains timing info)
-                memory_kb = None
-                time_output_lines = []
-                user_stderr_lines = []
-                for line in stderr_str.split("\n"):
-                    if "Maximum resident set size" in line:
-                        match = re.search(r": (\d+)", line)
-                        if match:
-                            memory_kb = int(match.group(1))
-                    elif line.startswith(("\t", "User time", "System time", "Percent of", "Elapsed", "Average", "Major", "Minor", "Voluntary", "Involuntary", "Swaps", "File system", "Socket", "Signals", "Page size", "Exit status", "Command being timed")):
-                        time_output_lines.append(line)
-                    else:
-                        user_stderr_lines.append(line)
-
-                stderr_str = "\n".join(filter(None, user_stderr_lines)) or None
-
-                if proc.returncode is not None and proc.returncode != 0:
-                    return {
-                        "status": _signal_name(proc.returncode),
-                        "stdout": stdout_str if stdout_str else None,
-                        "stderr": stderr_str if stderr_str else None,
-                        "compile_output": compile_output,
-                        "error_type": _signal_name(proc.returncode),
-                        "time": elapsed_ms / 1000.0 if elapsed_ms else None,
-                        "memory": memory_kb,
-                    }
-
-                return {
-                    "status": "Accepted",
-                    "stdout": stdout_str if stdout_str else None,
-                    "stderr": stderr_str if stderr_str else None,
-                    "compile_output": compile_output,
-                    "error_type": None,
-                    "time": elapsed_ms / 1000.0 if elapsed_ms else None,
-                    "memory": memory_kb,
-                }
-
-            except asyncio.TimeoutError:
-                elapsed_ms = int((time.monotonic() - start_time) * 1000)
-                if proc is not None:
-                    try:
-                        proc.kill()
-                        await proc.wait()
-                    except ProcessLookupError:
-                        pass
-                return {
-                    "status": "Time Limit Exceeded",
-                    "stdout": None,
-                    "stderr": None,
-                    "compile_output": compile_output,
-                    "error_type": "Time Limit Exceeded",
-                    "time": elapsed_ms / 1000.0 if elapsed_ms else None,
-                    "memory": None,
-                }
-
-    except Exception as e:
-        logger.exception(f"Local execution failed: {e}")
+    except httpx.RequestError as e:
+        logger.error("Judge0 API request failed: %s", e)
         return {
             "status": "Internal Error",
             "stdout": None,
             "stderr": None,
             "compile_output": None,
-            "error_type": f"Execution failed: {str(e)}",
+            "error_type": f"Judge0 API request failed: {e}",
+            "time": None,
+            "memory": None,
+        }
+    except Exception as e:
+        logger.exception("Unexpected error calling Judge0 API: %s", e)
+        return {
+            "status": "Internal Error",
+            "stdout": None,
+            "stderr": None,
+            "compile_output": None,
+            "error_type": f"Unexpected error: {e}",
             "time": None,
             "memory": None,
         }

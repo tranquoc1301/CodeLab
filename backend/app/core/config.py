@@ -29,11 +29,12 @@ class Settings(BaseSettings):
     REDIS_CACHE_TTL: int = Field(
         default=60, description="Cache TTL in seconds")
 
-    # Judge0 - OPTIONAL
-    JUDGE0_URL: str = Field(
-        default="http://localhost:2358", description="Judge0 server URL"
+    # Judge0 CE API (RapidAPI)
+    RAPID_API_KEY: str = Field(..., description="RapidAPI key for Judge0 CE")
+    JUDGE0_API_URL: str = Field(
+        default="https://judge0-ce.p.rapidapi.com",
+        description="Judge0 CE API base URL",
     )
-    JUDGE0_AUTH_TOKEN: str = Field(default="", description="Judge0 API token")
 
     # LLM (OpenRouter)
     LLM_API_KEY: str = Field(default="", description="OpenRouter API key")

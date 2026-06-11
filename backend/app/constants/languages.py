@@ -1,5 +1,3 @@
-"""Supported programming languages for submissions and code snippets."""
-
 from enum import Enum
 
 
@@ -22,12 +20,12 @@ class Language(str, Enum):
         return value in cls.values()
 
 
-# Judge0 language IDs mapping
+# Judge0 CE language IDs mapping (RapidAPI)
 JUDGE0_LANGUAGE_IDS: dict[str, int] = {
-    Language.PYTHON.value: 71,  # Python 3
-    Language.JAVA.value: 62,  # Java (OpenJDK 17.0.3)
-    Language.CPP.value: 54,  # C++ (GCC 11.2.0)
-    Language.C.value: 50,  # C (GCC 11.2.0)
+    Language.PYTHON.value: 100,  # Python 3.12.5
+    Language.JAVA.value: 91,     # Java (JDK 17.0.6)
+    Language.CPP.value: 105,     # C++ (GCC 14.1.0)
+    Language.C.value: 103,       # C (GCC 14.1.0)
 }
 
 # Human-readable labels for each language
