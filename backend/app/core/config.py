@@ -25,9 +25,12 @@ class Settings(BaseSettings):
     )
 
     # Redis - REQUIRED
-    REDIS_URL: str = Field(..., description="Redis connection URL")
     REDIS_CACHE_TTL: int = Field(
         default=60, description="Cache TTL in seconds")
+
+    # Upstash Redis REST
+    UPSTASH_REDIS_REST_URL: str = Field(..., description="Upstash Redis REST URL")  
+    UPSTASH_REDIS_REST_TOKEN: str = Field(..., description="Upstash Redis REST token")
 
     # Judge0 CE API (RapidAPI)
     RAPID_API_KEY: str = Field(..., description="RapidAPI key for Judge0 CE")
