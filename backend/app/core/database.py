@@ -5,7 +5,7 @@ from app.models.base import Base
 
 settings = get_settings()
 
-engine = create_async_engine(settings.DATABASE_URL, echo=False)
+engine = create_async_engine(settings.DATABASE_URL, echo=False, connect_args={"statement_cache_size": 0})
 
 async_session = async_sessionmaker(
     engine,
@@ -22,4 +22,4 @@ async def get_db():
             await session.commit()
         except Exception:
             await session.rollback()
-            raise
+            raise   
