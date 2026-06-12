@@ -35,6 +35,9 @@ const OverviewPage = lazy(() =>
 const ProblemsPage = lazy(() =>
   import("@/features/admin/pages/ProblemsPage").then((m) => ({ default: m.ProblemsPage })),
 );
+const ProblemFormPage = lazy(() =>
+  import("@/features/admin/pages/ProblemFormPage").then((m) => ({ default: m.ProblemFormPage })),
+);
 const TopicsPage = lazy(() =>
   import("@/features/admin/pages/TopicsPage").then((m) => ({ default: m.TopicsPage })),
 );
@@ -143,6 +146,8 @@ function AppLayout() {
             >
               <Route path={ROUTES.ADMIN_ROOT} element={<OverviewPage />} />
               <Route path={ROUTES.ADMIN_PROBLEMS} element={<ProblemsPage />} />
+              <Route path={ROUTES.ADMIN_PROBLEM_CREATE} element={<ProblemFormPage />} />
+              <Route path={ROUTES.ADMIN_PROBLEM_EDIT} element={<ProblemFormPage />} />
               <Route path={ROUTES.ADMIN_TOPICS} element={<TopicsPage />} />
               <Route path={ROUTES.ADMIN_USERS} element={<UsersPage />} />
               <Route path={ROUTES.ADMIN_SUBMISSIONS} element={<SubmissionsPage />} />

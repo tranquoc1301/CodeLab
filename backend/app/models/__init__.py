@@ -11,7 +11,6 @@ from app.models.problem import (
     Problem,
     ProblemConstraint,
     ProblemHint,
-    ProblemSolution,
     ProblemTopic,
     Topic,
 )
@@ -26,7 +25,6 @@ __all__ = [
     "ProblemHint",
     "ProblemList",
     "ProblemListItem",
-    "ProblemSolution",
     "ProblemTopic",
     "Submission",
     "SubmissionErrorEvent",

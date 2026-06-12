@@ -21,7 +21,6 @@ from app.models import (
     ProblemHint,
     ProblemList,
     ProblemListItem,
-    ProblemSolution,
     ProblemTopic,
     Submission,
     SubmissionTestResult,

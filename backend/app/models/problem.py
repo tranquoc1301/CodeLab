@@ -110,12 +110,6 @@ class Problem(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
-    solution: Mapped["ProblemSolution | None"] = relationship(
-        back_populates="problem",
-        cascade="all, delete-orphan",
-        uselist=False,
-        lazy="selectin",
-    )
     submissions: Mapped[list["Submission"]] = relationship(
         back_populates="problem",
         lazy="dynamic",
@@ -239,18 +233,3 @@ class CodeSnippet(Base):
 
     problem: Mapped["Problem"] = relationship(back_populates="code_snippets")
 
-
-class ProblemSolution(Base):
-    __tablename__ = "problem_solutions"
-
-    id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, autoincrement=True)
-    problem_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("problems.id", ondelete="CASCADE"),
-        unique=True,
-        nullable=False,
-    )
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-
-    problem: Mapped["Problem"] = relationship(back_populates="solution")

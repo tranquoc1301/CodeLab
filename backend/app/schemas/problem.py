@@ -110,25 +110,6 @@ class ProblemFollowUpResponse(ProblemFollowUpBase):
 
     model_config = {"from_attributes": True}
 
-
-# --- Solutions ---
-
-
-class ProblemSolutionBase(BaseModel):
-    content: str
-
-
-class ProblemSolutionCreate(ProblemSolutionBase):
-    pass
-
-
-class ProblemSolutionResponse(ProblemSolutionBase):
-    id: int
-    problem_id: int
-
-    model_config = {"from_attributes": True}
-
-
 # --- Problems ---
 
 
@@ -175,7 +156,6 @@ class ProblemResponse(BaseModel):
     hints: list[ProblemHintResponse] = []
     follow_ups: list[ProblemFollowUpResponse] = []
     code_snippets: list[CodeSnippetResponse] = []
-    solution: ProblemSolutionResponse | None = None
     created_at: datetime
     updated_at: datetime
 

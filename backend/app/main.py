@@ -78,7 +78,7 @@ async def root() -> dict:
         redis_status = "unhealthy"
 
     dkt_status = "healthy" if _dkt_model is not None else "unhealthy"
-
+    print("CORS_ORIGINS:", settings.CORS_ORIGINS)
     return {
         "status": "healthy" if db_status == "healthy" else "degraded",
         "version": "1.0.0",

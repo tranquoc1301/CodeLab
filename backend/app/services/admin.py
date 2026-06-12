@@ -7,7 +7,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.problem import Problem, ProblemTopic, Topic
+from app.models.problem import (
+    CodeSnippet,
+    Example,
+    Problem,
+    ProblemConstraint,
+    ProblemHint,
+    ProblemTopic,
+    Topic,
+)
 from app.models.submission import Submission
 from app.models.submission_error_event import SubmissionErrorEvent
 from app.models.user import User
@@ -25,7 +33,13 @@ from app.schemas.admin import (
     AdminUserItem,
     DistributionItem,
 )
-from app.schemas.problem import TopicResponse
+from app.schemas.problem import (
+    CodeSnippetResponse,
+    ExampleResponse,
+    ProblemConstraintResponse,
+    ProblemHintResponse,
+    TopicResponse,
+)
 from app.services.hint_diagnostics import CanonicalErrorLabel, DIAGNOSIS_LABELS
 
 
@@ -119,10 +133,16 @@ async def get_problem_admin(
 ) -> Optional[AdminProblemDetail]:
     result = await db.execute(
         select(Problem)
-        .options(selectinload(Problem.topics))
+        .options(
+            selectinload(Problem.topics),
+            selectinload(Problem.examples),
+            selectinload(Problem.constraints),
+            selectinload(Problem.hints),
+            selectinload(Problem.code_snippets),
+        )
         .where(Problem.id == problem_id)
     )
-    problem = result.scalar_one_or_none()
+    problem = result.unique().scalar_one_or_none()
     if problem is None:
         return None
     return AdminProblemDetail(
@@ -135,6 +155,39 @@ async def get_problem_admin(
         description=problem.description,
         topics=[
             TopicResponse(id=t.id, name=t.name, slug=t.slug) for t in problem.topics
+        ],
+        examples=[
+            ExampleResponse(
+                id=e.id,
+                example_num=e.example_num,
+                example_text=e.example_text,
+                images=e.images or [],
+            )
+            for e in problem.examples
+        ],
+        constraints=[
+            ProblemConstraintResponse(
+                id=c.id,
+                sort_order=c.sort_order,
+                constraint_text=c.constraint_text,
+            )
+            for c in problem.constraints
+        ],
+        hints=[
+            ProblemHintResponse(
+                id=h.id,
+                hint_num=h.hint_num,
+                hint_text=h.hint_text,
+            )
+            for h in problem.hints
+        ],
+        code_snippets=[
+            CodeSnippetResponse(
+                id=cs.id,
+                language=cs.language,
+                code=cs.code,
+            )
+            for cs in problem.code_snippets
         ],
         created_at=problem.created_at,
         updated_at=problem.updated_at,
@@ -163,13 +216,45 @@ async def create_problem_admin(
         topics = await _resolve_topics(db, data.topics)
         problem.topics = topics
 
+    for ex in data.examples:
+        example = Example(
+            problem_id=problem.id,
+            example_num=ex.example_num,
+            example_text=ex.example_text,
+            images=ex.images,
+        )
+        db.add(example)
+
+    for con in data.constraints:
+        constraint = ProblemConstraint(
+            problem_id=problem.id,
+            sort_order=con.sort_order,
+            constraint_text=con.constraint_text,
+        )
+        db.add(constraint)
+
+    for h in data.hints:
+        hint = ProblemHint(
+            problem_id=problem.id,
+            hint_num=h.hint_num,
+            hint_text=h.hint_text,
+        )
+        db.add(hint)
+
+    for sn in data.code_snippets:
+        snippet = CodeSnippet(
+            problem_id=problem.id,
+            language=sn.language,
+            code=sn.code,
+        )
+        db.add(snippet)
+
     try:
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
         raise ValueError("Failed to create problem (conflict)") from exc
     await db.refresh(problem)
-    # re-load with topics
     return await get_problem_admin(db, problem.id)  # type: ignore[return-value]
 
 
@@ -178,20 +263,89 @@ async def update_problem_admin(
 ) -> Optional[AdminProblemDetail]:
     result = await db.execute(
         select(Problem)
-        .options(selectinload(Problem.topics))
+        .options(
+            selectinload(Problem.topics),
+            selectinload(Problem.examples),
+            selectinload(Problem.constraints),
+            selectinload(Problem.hints),
+            selectinload(Problem.code_snippets),
+        )
         .where(Problem.id == problem_id)
     )
-    problem = result.scalar_one_or_none()
+    problem = result.unique().scalar_one_or_none()
     if problem is None:
         return None
 
     payload = data.model_dump(exclude_unset=True)
+
+    # Handle topics
     if "topics" in payload:
         topic_names = payload.pop("topics")
         if topic_names is not None:
             problem.topics = await _resolve_topics(db, topic_names)
-    for field, value in payload.items():
-        setattr(problem, field, value)
+
+    # Handle sub-entities: replace all if provided
+    if "examples" in payload:
+        examples_data = payload.pop("examples")
+        if examples_data is not None:
+            for ex in problem.examples:
+                await db.delete(ex)
+            await db.flush()
+            for ex in examples_data:
+                example = Example(
+                    problem_id=problem.id,
+                    example_num=ex["example_num"],
+                    example_text=ex["example_text"],
+                    images=ex.get("images", []),
+                )
+                db.add(example)
+
+    if "constraints" in payload:
+        constraints_data = payload.pop("constraints")
+        if constraints_data is not None:
+            for con in problem.constraints:
+                await db.delete(con)
+            await db.flush()
+            for con in constraints_data:
+                constraint = ProblemConstraint(
+                    problem_id=problem.id,
+                    sort_order=con["sort_order"],
+                    constraint_text=con["constraint_text"],
+                )
+                db.add(constraint)
+
+    if "hints" in payload:
+        hints_data = payload.pop("hints")
+        if hints_data is not None:
+            for h in problem.hints:
+                await db.delete(h)
+            await db.flush()
+            for h in hints_data:
+                hint = ProblemHint(
+                    problem_id=problem.id,
+                    hint_num=h["hint_num"],
+                    hint_text=h["hint_text"],
+                )
+                db.add(hint)
+
+    if "code_snippets" in payload:
+        snippets_data = payload.pop("code_snippets")
+        if snippets_data is not None:
+            for sn in problem.code_snippets:
+                await db.delete(sn)
+            await db.flush()
+            for sn in snippets_data:
+                snippet = CodeSnippet(
+                    problem_id=problem.id,
+                    language=sn["language"],
+                    code=sn["code"],
+                )
+                db.add(snippet)
+
+    # Update basic fields
+    for field in ("title", "slug", "difficulty", "description"):
+        if field in payload:
+            setattr(problem, field, payload[field])
 
     try:
         await db.commit()

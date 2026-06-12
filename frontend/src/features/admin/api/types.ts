@@ -6,6 +6,31 @@ export interface AdminTopicRef {
   slug: string;
 }
 
+export interface AdminExample {
+  id?: number;
+  example_num: number;
+  example_text: string;
+  images: string[];
+}
+
+export interface AdminConstraint {
+  id?: number;
+  sort_order: number;
+  constraint_text: string;
+}
+
+export interface AdminHint {
+  id?: number;
+  hint_num: number;
+  hint_text: string;
+}
+
+export interface AdminCodeSnippet {
+  id?: number;
+  language: string;
+  code: string;
+}
+
 export interface AdminProblemListItem {
   id: number;
   problem_id: number;
@@ -27,6 +52,10 @@ export interface AdminProblemDetail {
   difficulty: "Easy" | "Medium" | "Hard" | string;
   description: string | null;
   topics: AdminTopicRef[];
+  examples: AdminExample[];
+  constraints: AdminConstraint[];
+  hints: AdminHint[];
+  code_snippets: AdminCodeSnippet[];
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +68,10 @@ export interface AdminProblemCreate {
   difficulty: "Easy" | "Medium" | "Hard";
   description?: string | null;
   topics: string[];
+  examples: AdminExample[];
+  constraints: AdminConstraint[];
+  hints: AdminHint[];
+  code_snippets: AdminCodeSnippet[];
 }
 
 export interface AdminProblemUpdate {
@@ -47,6 +80,10 @@ export interface AdminProblemUpdate {
   difficulty?: "Easy" | "Medium" | "Hard";
   description?: string | null;
   topics?: string[];
+  examples?: AdminExample[];
+  constraints?: AdminConstraint[];
+  hints?: AdminHint[];
+  code_snippets?: AdminCodeSnippet[];
 }
 
 export interface AdminTopicItem {

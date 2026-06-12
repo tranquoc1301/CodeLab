@@ -5,7 +5,17 @@ from typing import Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, Field
 
-from app.schemas.problem import TopicResponse
+from app.schemas.problem import (
+    CodeSnippetCreate,
+    CodeSnippetResponse,
+    ExampleCreate,
+    ExampleResponse,
+    ProblemConstraintCreate,
+    ProblemConstraintResponse,
+    ProblemHintCreate,
+    ProblemHintResponse,
+    TopicResponse,
+)
 
 T = TypeVar("T")
 
@@ -32,6 +42,10 @@ class AdminProblemBase(BaseModel):
     difficulty: str = Field(..., pattern="^(Easy|Medium|Hard)$")
     description: Optional[str] = None
     topics: List[str] = Field(default_factory=list)
+    examples: List[ExampleCreate] = Field(default_factory=list)
+    constraints: List[ProblemConstraintCreate] = Field(default_factory=list)
+    hints: List[ProblemHintCreate] = Field(default_factory=list)
+    code_snippets: List[CodeSnippetCreate] = Field(default_factory=list)
 
 
 class AdminProblemCreate(AdminProblemBase):
@@ -44,6 +58,10 @@ class AdminProblemUpdate(BaseModel):
     difficulty: Optional[str] = Field(default=None, pattern="^(Easy|Medium|Hard)$")
     description: Optional[str] = None
     topics: Optional[List[str]] = None
+    examples: Optional[List[ExampleCreate]] = None
+    constraints: Optional[List[ProblemConstraintCreate]] = None
+    hints: Optional[List[ProblemHintCreate]] = None
+    code_snippets: Optional[List[CodeSnippetCreate]] = None
 
 
 class AdminProblemListItem(BaseModel):
@@ -69,6 +87,10 @@ class AdminProblemDetail(BaseModel):
     difficulty: str
     description: Optional[str] = None
     topics: List[TopicResponse] = Field(default_factory=list)
+    examples: List[ExampleResponse] = Field(default_factory=list)
+    constraints: List[ProblemConstraintResponse] = Field(default_factory=list)
+    hints: List[ProblemHintResponse] = Field(default_factory=list)
+    code_snippets: List[CodeSnippetResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

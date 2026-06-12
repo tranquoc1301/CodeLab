@@ -1,9 +1,8 @@
+import json
 from functools import lru_cache
 
 from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
-
-
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
@@ -21,9 +20,9 @@ class Settings(BaseSettings):
 
     # CORS - REQUIRED
     CORS_ORIGINS: list[str] = Field(
-        default=["http://localhost:5173"], description="Allowed CORS origins"
+        default=["http://localhost:5173"],
+        description="Allowed CORS origins",
     )
-
     # Redis - REQUIRED
     REDIS_CACHE_TTL: int = Field(
         default=60, description="Cache TTL in seconds")
@@ -81,6 +80,23 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
     )
+    
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("["):
+                try:
+                    parsed = json.loads(v)
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed]
+                except json.JSONDecodeError:
+                    pass
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
 
 @lru_cache
