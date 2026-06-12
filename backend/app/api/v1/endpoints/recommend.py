@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
 from app.models.user import User
 from app.models.problem import Topic
+from app.models.submission import Submission
 from app.services.dkt_service import get_topic_mastery
 from app.services.error_profile import get_user_error_summary
 from app.services.recommend_service import get_recommended_problems
@@ -63,7 +64,26 @@ async def recommend_problems(
     Gợi ý bài tập dựa trên:
     - Phân tích lỗi sai (error profile) của user
     - Mức độ thành thạo từng topic (DKT model)
+
+    Trả về danh sách rỗng kèm message hướng dẫn nếu user chưa có submission nào,
+    thay vì chạy toàn bộ pipeline DKT/error-profile không cần thiết.
     """
+    # Cold-start guard: skip the full pipeline for users with no submissions
+    count_result = await db.execute(
+        select(func.count(Submission.id))
+        .where(Submission.user_id == current_user.id)
+        .where(Submission.submission_type == "submit")
+    )
+    submission_count = count_result.scalar_one()
+
+    if submission_count == 0:
+        return {
+            "user_id": current_user.id,
+            "recommendations": [],
+            "total": 0,
+            "message": "Hãy làm một vài bài để nhận gợi ý cá nhân hóa.",
+        }
+
     problems = await get_recommended_problems(db, current_user.id, limit)
     return {
         "user_id": current_user.id,

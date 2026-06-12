@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.submission import Submission
-from app.models.problem import Problem
+from app.models.problem import Problem, Topic
 from app.ml.topic_skill_mapping import get_dkt_skill_for_topic
 from app.services.cache import get_cached, set_cached, invalidate_cache
 
@@ -40,11 +40,19 @@ MODEL_PATH = Path(__file__).parent.parent / "ml" / "dkt_best.pt"
 logger = logging.getLogger(__name__)
 
 # inverse map: DKT skill name → set of CodeLab topic IDs
-DKT_SKILL_TO_TOPIC_IDS: dict[str, set[int]] = {}
-for _tid in range(1, 73):  # CodeLab topics are 1-indexed, 1..72
-    _skill = get_dkt_skill_for_topic(_tid)
-    if _skill is not None:
-        DKT_SKILL_TO_TOPIC_IDS.setdefault(_skill, set()).add(_tid)
+# NOTE: populated lazily via _get_dkt_skill_to_topic_ids() to avoid relying
+# on a hard-coded topic range at import time.
+_DKT_SKILL_TO_TOPIC_IDS_CACHE: dict[str, set[int]] | None = None
+
+
+def _build_dkt_skill_to_topic_ids(topic_ids: list[int]) -> dict[str, set[int]]:
+    """Build inverse map from a dynamic list of topic IDs."""
+    mapping: dict[str, set[int]] = {}
+    for tid in topic_ids:
+        skill = get_dkt_skill_for_topic(tid)
+        if skill is not None:
+            mapping.setdefault(skill, set()).add(tid)
+    return mapping
 
 
 # ─── model ──────────────────────────────────────────────────────────
@@ -128,14 +136,16 @@ async def get_topic_mastery(
     Steps
     -----
     1. Check Redis cache first.
-    2. Fetch user's submissions (oldest first) with their problem topics.
-    3. Build a DKT interaction sequence using **Codeforces skill IDs**.
+    2. Query all topic IDs dynamically from the database.
+    3. Fetch user's submissions (oldest first) with their problem topics.
+    4. Build a DKT interaction sequence using **Codeforces skill IDs**.
        - Each problem may have *multiple* topics → one entry per topic.
        - Topics with no DKT mapping are skipped (no ``0`` fallback).
-    4. Run the LSTM → mastery per DKT skill.
-    5. Propagate each DKT skill mastery back to **all** CodeLab topics that
+       - skill_id >= NUM_SKILLS is rejected to prevent embedding overflow.
+    5. Run the LSTM → mastery per DKT skill.
+    6. Propagate each DKT skill mastery back to **all** CodeLab topics that
        map to it.  Unmapped topics receive ``0.0``.
-    6. Store result in Redis cache.
+    7. Store result in Redis cache.
     """
     cache_key = f"{MASTERY_CACHE_PREFIX}:{user_id}"
 
@@ -145,6 +155,16 @@ async def get_topic_mastery(
         # JSON keys are strings; convert back to int
         return {int(k): v for k, v in cached.items()}
 
+    # Query topic IDs dynamically – avoids hard-coding the 1..72 range
+    topic_id_result = await db.execute(select(Topic.id))
+    all_topic_ids: list[int] = [row[0] for row in topic_id_result.all()]
+
+    # Build inverse map from current topic IDs
+    dkt_skill_to_topic_ids = _build_dkt_skill_to_topic_ids(all_topic_ids)
+
+    # Default: every CodeLab topic starts at 0.0
+    mastery_by_topic: dict[int, float] = {tid: 0.0 for tid in all_topic_ids}
+
     result = await db.execute(
         select(Submission, Problem)
         .join(Problem, Submission.problem_id == Problem.id)
@@ -152,11 +172,6 @@ async def get_topic_mastery(
         .order_by(Submission.created_at.asc())
     )
     rows = result.all()
-
-    # Default: every CodeLab topic starts at 0.0
-    mastery_by_topic: dict[int, float] = {
-        tid: 0.0 for tid in range(1, 73)
-    }
 
     if not rows:
         await set_cached(cache_key, {str(k): v for k, v in mastery_by_topic.items()}, ttl=MASTERY_CACHE_TTL)
@@ -184,6 +199,15 @@ async def get_topic_mastery(
                     skill_name,
                 )
                 continue
+            # Guard: reject out-of-range skill_id to prevent embedding index overflow
+            if skill_id >= NUM_SKILLS:
+                logger.warning(
+                    "DKT: skill_id=%s for skill '%s' >= NUM_SKILLS=%s – skipped",
+                    skill_id,
+                    skill_name,
+                    NUM_SKILLS,
+                )
+                continue
             # Token encoding: skill_id + correct * NUM_SKILLS
             tokens.append(skill_id + correct * NUM_SKILLS)
 
@@ -205,7 +229,7 @@ async def get_topic_mastery(
     # Propagate: each DKT skill mastery → all CodeLab topics that map to it
     for skill_name, dkt_idx in SKILL2ID.items():
         score = dkt_mastery[dkt_idx] if dkt_idx < len(dkt_mastery) else 0.0
-        for topic_id in DKT_SKILL_TO_TOPIC_IDS.get(skill_name, ()):
+        for topic_id in dkt_skill_to_topic_ids.get(skill_name, ()):
             mastery_by_topic[topic_id] = score
 
     # Store in cache (keys must be str for JSON)

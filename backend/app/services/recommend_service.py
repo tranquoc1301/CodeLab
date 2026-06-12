@@ -74,9 +74,16 @@ def _compute_recency_score(
     recent_summary: dict[str, dict[str, int]],
     all_summary: dict[str, dict[str, int]],
 ) -> float:
-    """Return the Laplace-smoothed recency score for a topic."""
+    """Return the recency score for a topic.
+
+    Returns 0.0 when there is no error signal at all for the topic,
+    instead of Laplace-smoothed 0.5, to avoid inflating priority for
+    topics the user has never encountered errors on.
+    """
     recent = recent_summary.get(topic_slug, {}).get("total", 0)
     all_time = all_summary.get(topic_slug, {}).get("total", 0)
+    if recent == 0 and all_time == 0:
+        return 0.0
     return (recent + RECENCY_ALPHA) / (
         recent + all_time + 2 * RECENCY_ALPHA
     )
@@ -282,9 +289,13 @@ async def get_recommended_problems(
                 ),
             })
 
+    # Fill up to `limit` using remaining topics that already passed the
+    # has_signal filter (top_topics), cycling through them in priority order.
+    # Using top_topics (not the raw topic_priority) keeps the fill consistent
+    # with the main selection and avoids surfacing topics with no user signal.
     if len(candidates) < limit:
         seen_ids.update(c["problem_id"] for c in candidates)
-        ranked_topics = sorted(topic_priority, key=lambda item: -item[2])
+        ranked_topics = sorted(top_topics, key=lambda item: -item[2])
         for topic_id, slug, priority, mastery_score in ranked_topics:
             if len(candidates) >= limit:
                 break
