@@ -49,7 +49,6 @@ async def get_problem_navigation(
     current_frontend_id: int,
 ) -> dict:
     """Get prev/next problem info for navigation buttons."""
-    # Previous problem: highest frontend_id below current
     prev_query = (
         select(Problem.frontend_id, Problem.title, Problem.slug)
         .where(Problem.frontend_id < current_frontend_id)
@@ -59,7 +58,6 @@ async def get_problem_navigation(
     prev_result = await db.execute(prev_query)
     prev_row = prev_result.first()
 
-    # Next problem: lowest frontend_id above current
     next_query = (
         select(Problem.frontend_id, Problem.title, Problem.slug)
         .where(Problem.frontend_id > current_frontend_id)
@@ -109,7 +107,6 @@ async def get_problems_paginated(
         user_id=user_id,
     )
 
-    # Don't use cache for user-specific requests
     use_cache = not cursor and not search and not user_id
 
     if use_cache:
@@ -121,7 +118,6 @@ async def get_problems_paginated(
 
     query = select(Problem).options(selectinload(Problem.topics))
 
-    # Search filter - case-insensitive title match
     if search:
         query = query.where(Problem.title.ilike(f"%{search}%"))
 
@@ -158,7 +154,6 @@ async def get_problems_paginated(
     if has_next and problems:
         next_cursor = _build_next_cursor(problems[-1], order_col, sort_by)
 
-    # Query solved status if user_id provided
     solved_problem_ids: set[int] = set()
     if user_id:
         solved_query = (
@@ -170,7 +165,6 @@ async def get_problems_paginated(
         result = await db.execute(solved_query)
         solved_problem_ids = {row[0] for row in result.all()}
 
-    # Build response with is_solved status
     items = []
     for p in problems:
         item = ProblemListItem.model_validate(p)
@@ -184,7 +178,6 @@ async def get_problems_paginated(
         total_count=total_count if not cursor else None,
     )
 
-    # Only cache non-user-specific requests
     if use_cache:
         await set_cached(cache_key, response.model_dump(mode="json"))
 
@@ -223,9 +216,7 @@ async def get_problem_by_slug(db: AsyncSession, slug: str) -> Problem | None:
             selectinload(Problem.examples),
             selectinload(Problem.constraints),
             selectinload(Problem.hints),
-            selectinload(Problem.follow_ups),
             selectinload(Problem.code_snippets),
-            selectinload(Problem.solution),
         )
         .where(Problem.slug == slug),
     )
@@ -240,7 +231,6 @@ async def get_problem_by_id(db: AsyncSession, problem_id: int) -> Problem | None
 
 async def get_all_topics(db: AsyncSession) -> list[Topic]:
     """Get all topics ordered by name."""
-    # Check cache first
     cache_key = generate_cache_key("topics:all", {})
     cached = await get_cached(cache_key)
     if cached:
@@ -249,12 +239,11 @@ async def get_all_topics(db: AsyncSession) -> list[Topic]:
     result = await db.execute(select(Topic).order_by(Topic.name))
     topics = list(result.scalars().all())
 
-    # Cache the result
     try:
         cache_data = {
             "items": [{"id": t.id, "name": t.name, "slug": t.slug} for t in topics]
         }
-        await set_cached(cache_key, cache_data, ttl=3600)  # 1 hour TTL
+        await set_cached(cache_key, cache_data, ttl=3600)
     except Exception:
         pass
 

@@ -93,23 +93,6 @@ class ProblemHintResponse(ProblemHintBase):
     model_config = {"from_attributes": True}
 
 
-# --- Follow-ups ---
-
-
-class ProblemFollowUpBase(BaseModel):
-    sort_order: int = 0
-    follow_up_text: str
-
-
-class ProblemFollowUpCreate(ProblemFollowUpBase):
-    pass
-
-
-class ProblemFollowUpResponse(ProblemFollowUpBase):
-    id: int
-
-    model_config = {"from_attributes": True}
-
 # --- Problems ---
 
 
@@ -124,9 +107,7 @@ class ProblemCreate(BaseModel):
     examples: list[ExampleCreate] = []
     constraints: list[ProblemConstraintCreate] = []
     hints: list[ProblemHintCreate] = []
-    follow_ups: list[ProblemFollowUpCreate] = []
     code_snippets: list[CodeSnippetCreate] = []
-    solution: str | None = None
 
 
 class ProblemSummary(BaseModel):
@@ -154,7 +135,6 @@ class ProblemResponse(BaseModel):
     examples: list[ExampleResponse] = []
     constraints: list[ProblemConstraintResponse] = []
     hints: list[ProblemHintResponse] = []
-    follow_ups: list[ProblemFollowUpResponse] = []
     code_snippets: list[CodeSnippetResponse] = []
     created_at: datetime
     updated_at: datetime
