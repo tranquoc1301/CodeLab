@@ -6,7 +6,7 @@ export const API = {
     PROBLEMS: "/problems/",
     PROBLEMS_PAGINATED: "/problems/paginated",
     TOPICS: "/problems/topics",
-    PROBLEM_BY_SLUG: (slug: string) => `/problems/by-slug/${slug}`,
+    PROBLEM_BY_SLUG: (slug: string) => `/problems/${slug}`,
     PROBLEM_NAVIGATION: (slug: string) => `/problems/navigation/${slug}`,
     SUBMISSIONS: "/submissions/",
     SUBMISSIONS_EVALUATE: "/submissions/evaluate",

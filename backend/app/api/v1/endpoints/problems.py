@@ -70,39 +70,6 @@ async def list_topics(
     return await problem_service.get_all_topics(db)
 
 
-@router.get("/", response_model=list[ProblemListResponse])
-async def list_problems(
-    difficulty: str | None = Query(None, description="Filter by difficulty"),
-    topic: str | None = Query(None, description="Filter by topic slug"),
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
-) -> list[Problem]:
-    """List problems with offset-based pagination."""
-    return await problem_service.get_problems_list(
-        db=db,
-        difficulty=difficulty,
-        topic=topic,
-        limit=limit,
-        offset=offset,
-    )
-
-
-@router.get("/by-slug/{slug}", response_model=ProblemResponse)
-async def get_problem_by_slug(
-    slug: str,
-    db: AsyncSession = Depends(get_db),
-) -> Problem:
-    """Get a single problem by its slug."""
-    problem = await problem_service.get_problem_by_slug(db, slug)
-    if not problem:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Problem not found",
-        )
-    return problem
-
-
 @router.get("/navigation/{slug}", response_model=dict)
 async def get_problem_navigation_info(
     slug: str,
@@ -131,6 +98,39 @@ async def redirect_id_to_slug(
             detail="Problem not found",
         )
     return {"slug": problem.slug}
+
+
+@router.get("/", response_model=list[ProblemListResponse])
+async def list_problems(
+    difficulty: str | None = Query(None, description="Filter by difficulty"),
+    topic: str | None = Query(None, description="Filter by topic slug"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+) -> list[Problem]:
+    """List problems with offset-based pagination."""
+    return await problem_service.get_problems_list(
+        db=db,
+        difficulty=difficulty,
+        topic=topic,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/{slug}", response_model=ProblemResponse)
+async def get_problem_by_slug(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+) -> Problem:
+    """Get a single problem by its slug."""
+    problem = await problem_service.get_problem_by_slug(db, slug)
+    if not problem:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Problem not found",
+        )
+    return problem
 
 
 @router.post("/", response_model=ProblemResponse, status_code=status.HTTP_201_CREATED)
