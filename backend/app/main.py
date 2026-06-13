@@ -18,6 +18,12 @@ from app.services.cache import close_redis
 logging.basicConfig(level=logging.INFO)
 settings = get_settings()
 
+ALLOWED_ORIGINS = [
+    "https://code-lab-indol-pi.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -33,7 +39,7 @@ app = FastAPI(title="Coding Platform API", version="1.0.0", lifespan=lifespan)
 # CORS must be added FIRST (outermost middleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS or ["http://localhost:5173"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,7 +84,7 @@ async def root() -> dict:
         redis_status = "unhealthy"
 
     dkt_status = "healthy" if _dkt_model is not None else "unhealthy"
-    print("CORS_ORIGINS:", settings.CORS_ORIGINS)
+    print("CORS_ORIGINS:", ALLOWED_ORIGINS)
     return {
         "status": "healthy" if db_status == "healthy" else "degraded",
         "version": "1.0.0",
