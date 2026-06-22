@@ -6,6 +6,11 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
+    # Environment
+    ENVIRONMENT: str = Field(
+        default="development", description="Environment (development, staging, production)"
+    )
+
     # Database - REQUIRED
     DATABASE_URL: str = Field(..., description="PostgreSQL connection URL")
 

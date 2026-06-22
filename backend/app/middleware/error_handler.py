@@ -6,19 +6,23 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 logger = logging.getLogger(__name__)
 
 
-async def error_handler_middleware(request: Request, call_next):
+class ErrorHandlerMiddleware(BaseHTTPMiddleware):
     """Catch and format all unhandled exceptions."""
-    try:
-        return await call_next(request)
-    except HTTPException:
-        # Let FastAPI handle HTTPException (404, 401, etc.)
-        raise
-    except Exception as exc:
-        return await handle_exception(request, exc)
+
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> JSONResponse:
+        try:
+            return await call_next(request)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            return await handle_exception(request, exc)
 
 
 async def handle_exception(request: Request, exc: Exception) -> JSONResponse:

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import (
     create_access_token,
@@ -29,8 +30,9 @@ from app.services.cache import get_redis
 from app.services.otp import OTPService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+settings = get_settings()
 
-oauth2Scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2Scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 async def _check_verify_rate_limit(
@@ -78,12 +80,13 @@ async def login(
     access_token = create_access_token(data={"sub": user.username})
 
     # Set HTTP-only cookie for cookie-based auth
+    is_production = settings.ENVIRONMENT == "production"
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,  # Set to True in production with HTTPS
-        samesite="none",  # Adjust based on frontend domain
+        secure=is_production,  # Only require HTTPS in production
+        samesite="none" if is_production else "lax",
         max_age=86400,  # 24 hours
     )
 

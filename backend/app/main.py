@@ -9,20 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.middleware import (
+    ErrorHandlerMiddleware,
     LoggingMiddleware,
     RequestIDMiddleware,
-    error_handler_middleware,
 )
 from app.services.cache import close_redis
 
 logging.basicConfig(level=logging.INFO)
 settings = get_settings()
 
-ALLOWED_ORIGINS = [
-    "https://code-lab-indol-pi.vercel.app",
-    "http://localhost:5173",
-    "http://localhost:3000",
-]
+ALLOWED_ORIGINS = settings.CORS_ORIGINS
 
 
 @asynccontextmanager
@@ -36,7 +32,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Coding Platform API", version="1.0.0", lifespan=lifespan)
 
-# CORS must be added FIRST (outermost middleware)
+# Other middleware
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(LoggingMiddleware)
+
+# Error handler (innermost - closest to endpoint, catches exceptions before they propagate)
+app.add_middleware(ErrorHandlerMiddleware)
+
+# CORS must be added LAST (outermost middleware - runs first on request)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -45,13 +48,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
-
-# Other middleware
-app.add_middleware(RequestIDMiddleware)
-app.add_middleware(LoggingMiddleware)
-
-# Error handler (innermost - runs first)
-app.middleware("http")(error_handler_middleware)
 
 # Routes
 app.include_router(api_router, prefix="/api")
