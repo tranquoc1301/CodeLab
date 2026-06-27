@@ -338,8 +338,11 @@ def _is_recursion(normalized_status: str, combined_error: str) -> bool:
 
 
 def _is_runtime(normalized_status: str, combined_error: str) -> bool:
-    del combined_error
-    return _has_runtime(normalized_status)
+    if _has_runtime(normalized_status):
+        return True
+    # Fallback: some judges report runtime errors without "runtime" in status
+    runtime_fallback = ("sigsegv", "sigfpe", "sigbus", "signal", "core dump", "killed")
+    return any(marker in combined_error.lower() for marker in runtime_fallback)
 
 
 def _is_wrong_answer(normalized_status: str) -> bool:

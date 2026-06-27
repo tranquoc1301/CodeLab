@@ -107,6 +107,8 @@ def _extract_response_content(data: dict) -> str:
     content = message.get("content", "")
     if isinstance(content, str):
         return content.strip()
+    if isinstance(content, dict):
+        return json.dumps(content, ensure_ascii=False)
     if isinstance(content, list):
         text_parts = [
             part.get("text", "")

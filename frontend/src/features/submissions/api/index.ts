@@ -5,6 +5,6 @@ import type { Submission, HintResponse } from "@/shared/types";
 export const submissionsApi = {
   getAll: (params: { limit: number; offset: number }) =>
     api.get<Submission[]>(API.ENDPOINTS.SUBMISSIONS, { params }),
-  getHint: (submissionId: number) =>
-    api.post<HintResponse>(`/submissions/${submissionId}/hint`),
+  getHint: (submissionId: number, signal?: AbortSignal) =>
+    api.post<HintResponse>(`/submissions/${submissionId}/hint`, undefined, { signal }),
 };

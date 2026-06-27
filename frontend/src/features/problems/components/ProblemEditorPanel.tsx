@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useCallback } from "react";
+import { memo, useState, useEffect, useCallback, useRef } from "react";
 import { FileCode, Minimize2 } from "lucide-react";
 import CodeEditor from "@/features/editor/components/CodeEditor";
 import { ConsolePanel } from "@/features/problems/components/ConsolePanel";
@@ -50,16 +50,22 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
     setHintError(null);
   }, [submissionId]);
 
+  const abortRef = useRef<AbortController | null>(null);
+
   const fetchHint = useCallback(async () => {
     if (isHintExhausted || !submissionId) {
       return;
     }
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setIsLoadingHint(true);
     setHintError(null);
 
     try {
-      const response = await submissionsApi.getHint(submissionId);
+      const response = await submissionsApi.getHint(submissionId, controller.signal);
       const data = response.data;
 
       if (data.items.length > 0) {
@@ -68,6 +74,7 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
       setHintLevel(data.level);
       setIsHintExhausted(data.level >= 3);
     } catch (error: unknown) {
+      if (controller.signal.aborted) return;
       const msg =
         error && typeof error === "object" && "response" in error
           ? (error as { response: { data?: { detail?: string } } }).response?.data
@@ -78,6 +85,10 @@ export const ProblemEditorPanel = memo(function ProblemEditorPanel({
       setIsLoadingHint(false);
     }
   }, [submissionId, isHintExhausted]);
+
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
 
   const consoleHeightPercent = "var(--console-height, 45%)";
 

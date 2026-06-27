@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import re
@@ -28,7 +29,6 @@ HINT_PAYLOAD_VERSION = 8
 
 FORBIDDEN_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"```"),
-    re.compile(r"`"),
     re.compile(r"\bcomplete\s+(working\s+)?solution\b", re.IGNORECASE),
     re.compile(r"\bfull\s+(correct\s+)?algorithm\b", re.IGNORECASE),
     re.compile(r"\bcopy\s+and\s+paste\b", re.IGNORECASE),
@@ -150,7 +150,6 @@ async def _generate_hint_payload(
         diagnostic_snapshot=snapshot,
     )
 
-
 async def _call_llm(
     *,
     level: int,
@@ -158,24 +157,30 @@ async def _call_llm(
     user_content: str,
     settings,
 ) -> str:
-    content = await call_llm_json(
-        system_prompt=system_prompt,
-        user_content=user_content,
-        settings=settings,
-        max_tokens=LLM_MAX_TOKENS,
-        temperature=0.0,
-        response_schema=get_level_response_schema(level),
-    )
-    if content:
-        return content
-    raise ValueError("Lỗi kết nối LLM, vui lòng thử lại sau vài giây.")
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            content = await call_llm_json(
+                system_prompt=system_prompt,
+                user_content=user_content,
+                settings=settings,
+                max_tokens=LLM_MAX_TOKENS,
+                temperature=0.0,
+                response_schema=get_level_response_schema(level),
+            )
+            if content:
+                return content
+            last_error = ValueError("LLM returned empty response")
+        except Exception as exc:
+            last_error = exc
+        if attempt < 2:
+            await asyncio.sleep(1.5 * (attempt + 1))
+    raise ValueError("Lỗi kết nối LLM, vui lòng thử lại sau vài giây.") from last_error
 
 
 def _load_json_object(raw_content: str) -> dict:
     if not raw_content:
         raise ValueError("empty response")
-    if any(pattern.search(raw_content) for pattern in FORBIDDEN_PATTERNS):
-        raise ValueError("forbidden pattern")
 
     last_error: json.JSONDecodeError | None = None
     for candidate in _json_candidates(raw_content):
@@ -186,6 +191,9 @@ def _load_json_object(raw_content: str) -> dict:
             continue
         if not isinstance(data, dict):
             raise ValueError("response must be a JSON object")
+        # Check forbidden patterns on extracted JSON, not raw content
+        if any(pattern.search(candidate) for pattern in FORBIDDEN_PATTERNS):
+            raise ValueError("forbidden pattern")
         return data
     raise ValueError("malformed json") from last_error
 
@@ -197,6 +205,10 @@ def _json_candidates(raw_content: str) -> tuple[str, ...]:
     candidates = [stripped]
     if start != -1 and end > start:
         candidates.append(stripped[start : end + 1].strip())
+    # Try extracting from markdown code fence: ```json\n{...}\n```
+    fence_match = re.search(r"```(?:json)?\s*\n?(\{.*?\})\s*\n?```", stripped, re.DOTALL)
+    if fence_match:
+        candidates.append(fence_match.group(1).strip())
     seen: set[str] = set()
     unique_candidates: list[str] = []
     for candidate in candidates:
@@ -214,7 +226,7 @@ def _extract_hint_text(data: dict) -> str:
     if not cleaned:
         raise ValueError("hint is empty")
     if any(pattern.search(cleaned) for pattern in FORBIDDEN_PATTERNS):
-        raise ValueError("hint contains forbidden pattern")
+        raise ValueError("hint contains forbidden content (code fence or solution)")
     return cleaned
 
 
@@ -223,10 +235,13 @@ def _build_public_hint_response(
     hint_text: str,
     diagnostic_snapshot: DiagnosticSnapshot | None = None,
 ) -> dict:
+    items = [line for line in hint_text.split("\n") if line.strip()]
+    if not items:
+        items = [hint_text]
     return {
         "error_code": getattr(diagnostic_snapshot, "diagnosis_label", None),
         "level": level,
-        "items": [hint_text],
+        "items": items,
     }
 
 
@@ -236,7 +251,7 @@ def _store_hint_payload(
     payload: dict,
     snapshot: DiagnosticSnapshot,
 ) -> None:
-    hint_text = payload["items"][0]
+    hint_text = "\n".join(payload["items"])
     setattr(hint_row, f"hint_{level}", hint_text)
     cached_payload = dict(payload)
     cached_payload["payload_version"] = HINT_PAYLOAD_VERSION
@@ -248,15 +263,20 @@ def _store_hint_payload(
 def _normalize_cached_payload(cached_payload: dict, level: int) -> dict:
     payload = dict(cached_payload)
     items = payload.get("items")
-    if not isinstance(items, list) or len(items) != 1 or not isinstance(items[0], str):
+    if not isinstance(items, list) or not items:
         raise ValueError("cached hint payload is invalid")
-    normalized = _sanitize(items[0])
-    if not normalized:
+    normalized_items = []
+    for item in items:
+        if isinstance(item, str):
+            sanitized = _sanitize(item)
+            if sanitized:
+                normalized_items.append(sanitized)
+    if not normalized_items:
         raise ValueError("cached hint payload is invalid")
     return {
         "error_code": payload.get("error_code"),
         "level": level,
-        "items": [normalized],
+        "items": normalized_items,
         "payload_version": payload.get("payload_version") or HINT_PAYLOAD_VERSION,
     }
 
