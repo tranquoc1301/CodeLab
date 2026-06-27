@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, TrendingUp } from "lucide-react";
 import { useAuth } from "@/app/store/auth";
 import { profileApi } from "@/features/profile/api";
+import { DifficultyCard } from "@/features/profile/components/DifficultyCard";
+import { SkillsCard } from "@/features/profile/components/SkillsCard";
 import {
   Card,
   CardContent,
@@ -19,6 +21,14 @@ export default function Profile() {
     queryKey: ["profile", "errorProfile", user?.id],
     queryFn: () =>
       profileApi.getErrorProfile().then((response) => response.data),
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60,
+  });
+
+  const statsQuery = useQuery({
+    queryKey: ["profile", "stats", user?.id],
+    queryFn: () =>
+      profileApi.getStats().then((response) => response.data),
     enabled: isAuthenticated,
     staleTime: 1000 * 60,
   });
@@ -81,6 +91,14 @@ export default function Profile() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Stats ── */}
+      {statsQuery.data && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <DifficultyCard data={statsQuery.data} />
+          <SkillsCard skills={statsQuery.data.skills} />
+        </div>
+      )}
 
       <section className="space-y-4">
         <div>
@@ -253,72 +271,54 @@ function ErrorProfileDashboard({ data }: { data: ErrorProfileResponse }) {
 
       {/* ── Topics ── */}
       <Card className="border-border/70">
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-3">
           <CardTitle className="text-base">
             {COPY.PROFILE.ERROR_PROFILE_TOP_TOPICS}
           </CardTitle>
-          <CardDescription>
-            Topics where your errors appear most frequently.
-          </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="divide-y">
+          <div className="space-y-4">
             {top_topics.map((topic) => {
-              const recentRate =
+              const ratio =
                 topic.all_time_count > 0
-                  ? Math.round(
-                      (topic.recent_count / topic.all_time_count) * 100,
-                    )
+                  ? (topic.recent_count / topic.all_time_count) * 100
                   : 0;
+              const activeLabels = topic.top_error_labels.filter(
+                (l) => l.recent_count > 0,
+              );
 
               return (
-                <div key={topic.slug} className="py-3 first:pt-0 last:pb-0">
-                  {/* Topic header */}
-                  <div className="mb-2 flex items-baseline justify-between">
-                    <span className="text-sm font-medium">{topic.slug}</span>
-                    <div className="flex items-center gap-3 text-xs tabular-nums text-muted-foreground">
-                      {recentRate > 33 && (
-                        <span className="text-foreground/60">
-                          {recentRate}% recent
-                        </span>
-                      )}
-                      <span>
-                        {topic.recent_count} / {topic.all_time_count}
-                      </span>
-                    </div>
+                <div key={topic.slug}>
+                  {/* Topic row */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold">{topic.slug}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {topic.recent_count}/{topic.all_time_count}
+                    </span>
                   </div>
 
-                  {/* Error label breakdown */}
-                  {topic.top_error_labels.length > 0 && (
-                    <div className="space-y-1.5">
-                      {topic.top_error_labels.map((label) => {
-                        const barWidth =
-                          topic.all_time_count > 0
-                            ? (label.all_time_count / topic.all_time_count) *
-                              100
-                            : 0;
-                        return (
-                          <div
-                            key={`${topic.slug}-${label.code}`}
-                            className="flex items-center justify-between text-xs"
-                          >
-                            <span className="text-foreground/70">
-                              {label.display_name}
-                            </span>
-                            <div className="flex items-center gap-3">
-                              <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
-                                <div
-                                  className="h-full rounded-full bg-muted-foreground/40"
-                                  style={{ width: `${barWidth}%` }}
-                                />
-                              </div>
-                              <span className="tabular-nums text-muted-foreground/60 min-w-[2.5rem] text-right">
-                                {label.recent_count}/{label.all_time_count}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                  {/* Progress bar */}
+                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-foreground/25"
+                      style={{ width: `${Math.max(ratio, 2)}%` }}
+                    />
+                  </div>
+
+                  {/* Error tags */}
+                  {activeLabels.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {activeLabels.map((label) => (
+                        <span
+                          key={`${topic.slug}-${label.code}`}
+                          className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground"
+                        >
+                          {label.display_name}
+                          <span className="tabular-nums text-muted-foreground/60">
+                            {label.recent_count}/{label.all_time_count}
+                          </span>
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>

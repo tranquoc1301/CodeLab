@@ -34,3 +34,22 @@ export interface ErrorProfileResponse {
   top_error_labels: ErrorProfileLabelStat[];
   top_topics: ErrorProfileTopicCard[];
 }
+
+export interface DifficultyStats {
+  solved: number;
+  total: number;
+}
+
+export interface SkillStat {
+  slug: string;
+  count: number;
+}
+
+export interface ProfileStatsResponse {
+  easy: DifficultyStats;
+  medium: DifficultyStats;
+  hard: DifficultyStats;
+  total_solved: number;
+  total_problems: number;
+  skills: SkillStat[];
+}
