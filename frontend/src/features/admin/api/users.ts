@@ -1,7 +1,7 @@
 import api from "@/shared/api";
 import { API } from "@/shared/config";
 
-import type { AdminUserItem } from "./types";
+import type { AdminUserItem, AdminUserUpdate } from "./types";
 
 export interface AdminUserListParams {
   search?: string;
@@ -21,4 +21,6 @@ export const adminUsersApi = {
       params: Object.keys(query).length > 0 ? query : undefined,
     });
   },
+  update: (id: number, data: AdminUserUpdate) =>
+    api.patch<AdminUserItem>(API.ENDPOINTS.ADMIN_USER_DETAIL(id), data),
 };

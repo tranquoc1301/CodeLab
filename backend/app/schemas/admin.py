@@ -12,6 +12,8 @@ from app.schemas.problem import (
     ExampleResponse,
     ProblemConstraintCreate,
     ProblemConstraintResponse,
+    ProblemDriverCreate,
+    ProblemDriverResponse,
     ProblemHintCreate,
     ProblemHintResponse,
     TopicResponse,
@@ -46,6 +48,7 @@ class AdminProblemBase(BaseModel):
     constraints: List[ProblemConstraintCreate] = Field(default_factory=list)
     hints: List[ProblemHintCreate] = Field(default_factory=list)
     code_snippets: List[CodeSnippetCreate] = Field(default_factory=list)
+    problem_drivers: List[ProblemDriverCreate] = Field(default_factory=list)
 
 
 class AdminProblemCreate(AdminProblemBase):
@@ -62,6 +65,7 @@ class AdminProblemUpdate(BaseModel):
     constraints: Optional[List[ProblemConstraintCreate]] = None
     hints: Optional[List[ProblemHintCreate]] = None
     code_snippets: Optional[List[CodeSnippetCreate]] = None
+    problem_drivers: Optional[List[ProblemDriverCreate]] = None
 
 
 class AdminProblemListItem(BaseModel):
@@ -91,6 +95,7 @@ class AdminProblemDetail(BaseModel):
     constraints: List[ProblemConstraintResponse] = Field(default_factory=list)
     hints: List[ProblemHintResponse] = Field(default_factory=list)
     code_snippets: List[CodeSnippetResponse] = Field(default_factory=list)
+    problem_drivers: List[ProblemDriverResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -134,6 +139,11 @@ class AdminUserItem(BaseModel):
     submission_count: int = 0
 
     model_config = {"from_attributes": True}
+
+
+class AdminUserUpdate(BaseModel):
+    is_admin: Optional[bool] = None
+    is_active: Optional[bool] = None
 
 
 # --- Admin Submission ---

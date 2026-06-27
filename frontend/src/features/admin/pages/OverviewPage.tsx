@@ -44,7 +44,6 @@ interface StatCard {
   label: string;
   value: number;
   icon: LucideIcon;
-  accent: string;
   href: string;
 }
 
@@ -72,28 +71,24 @@ export function OverviewPage() {
         label: "Problems",
         value: data?.problems ?? 0,
         icon: Code2,
-        accent: "from-blue-500/15 to-blue-500/0 text-blue-600 dark:text-blue-400",
         href: ROUTES.ADMIN_PROBLEMS,
       },
       {
         label: "Topics",
         value: data?.topics ?? 0,
         icon: Tag,
-        accent: "from-purple-500/15 to-purple-500/0 text-purple-600 dark:text-purple-400",
         href: ROUTES.ADMIN_TOPICS,
       },
       {
         label: "Users",
         value: data?.users ?? 0,
         icon: Users,
-        accent: "from-emerald-500/15 to-emerald-500/0 text-emerald-600 dark:text-emerald-400",
         href: ROUTES.ADMIN_USERS,
       },
       {
         label: "Submissions",
         value: data?.submissions ?? 0,
         icon: FileCode,
-        accent: "from-amber-500/15 to-amber-500/0 text-amber-600 dark:text-amber-400",
         href: ROUTES.ADMIN_SUBMISSIONS,
       },
     ],
@@ -160,17 +155,13 @@ export function OverviewPage() {
           const Icon = card.icon;
           return (
             <Link key={card.label} to={card.href} className="group">
-              <Card className="relative overflow-hidden transition-colors group-hover:border-primary/40">
-                <div
-                  className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.accent}`}
-                  aria-hidden
-                />
-                <CardContent className="relative flex items-center gap-4 p-5">
+              <Card className="transition-colors group-hover:border-primary/40">
+                <CardContent className="flex items-center gap-4 p-5">
                   <div
-                    className="flex h-11 w-11 items-center justify-center rounded-lg bg-background/80 ring-1 ring-border"
+                    className="flex h-11 w-11 items-center justify-center rounded-lg bg-muted text-muted-foreground"
                     aria-hidden
                   >
-                    <Icon className={`h-5 w-5 ${card.accent.split(" ").slice(-2).join(" ")}`} />
+                    <Icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -195,7 +186,7 @@ export function OverviewPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
               <CheckCircle2 className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
@@ -212,7 +203,7 @@ export function OverviewPage() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
               <Users className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
@@ -234,7 +225,7 @@ export function OverviewPage() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
               <ShieldCheck className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
@@ -269,8 +260,8 @@ export function OverviewPage() {
             ) : (data?.difficulty_distribution ?? []).every((d) => d.value === 0) ? (
               <EmptyChart label="No problems yet" />
             ) : (
-              <div className="h-[220px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[220px] w-full">
+                <ResponsiveContainer width="100%" height={220} minWidth={0}>
                   <PieChart>
                     <Pie
                       data={data?.difficulty_distribution ?? []}
@@ -288,14 +279,7 @@ export function OverviewPage() {
                         />
                       ))}
                     </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        background: "hsl(var(--popover))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: 8,
-                        fontSize: 12,
-                      }}
-                    />
+                    <Tooltip content={<ChartTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="mt-2 flex flex-wrap justify-center gap-3 text-xs">
@@ -328,7 +312,7 @@ export function OverviewPage() {
               <EmptyChart label="No submissions yet" />
             ) : (
               <div className="h-[220px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={220} minWidth={0}>
                   <BarChart
                     data={data?.status_distribution ?? []}
                     layout="vertical"
@@ -353,12 +337,7 @@ export function OverviewPage() {
                     />
                     <Tooltip
                       cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
-                      contentStyle={{
-                        background: "hsl(var(--popover))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: 8,
-                        fontSize: 12,
-                      }}
+                      content={<ChartTooltip />}
                     />
                     <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                       {(data?.status_distribution ?? []).map((entry) => (
@@ -391,7 +370,7 @@ export function OverviewPage() {
             <EmptyChart label="No error events recorded yet" />
           ) : (
             <div className="h-[180px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={180} minWidth={0}>
                 <BarChart
                   data={data?.error_label_distribution ?? []}
                   layout="vertical"
@@ -416,12 +395,7 @@ export function OverviewPage() {
                   />
                   <Tooltip
                     cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
-                    contentStyle={{
-                      background: "hsl(var(--popover))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
+                    content={<ChartTooltip />}
                   />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                     {(data?.error_label_distribution ?? []).map((entry) => (
@@ -628,6 +602,24 @@ function EmptyChart({ label }: { label: string }) {
   return (
     <div className="flex h-[220px] items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
       {label}
+    </div>
+  );
+}
+
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color?: string }>; label?: string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
+      {label && <p className="mb-1 font-medium">{label}</p>}
+      {payload.map((item, i) => (
+        <p key={i} className="flex items-center gap-2">
+          {item.color && (
+            <span className="h-2 w-2 rounded-full" style={{ background: item.color }} />
+          )}
+          <span className="text-muted-foreground">{item.name}:</span>
+          <span className="font-medium">{item.value}</span>
+        </p>
+      ))}
     </div>
   );
 }

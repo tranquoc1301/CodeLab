@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { FileCode, Filter } from "lucide-react";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -35,9 +35,10 @@ export function SubmissionsPage() {
   const [status, setStatus] = useState<string>("all");
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
+  const handleStatusChange = (value: string) => {
+    setStatus(value);
     setPage(1);
-  }, [status]);
+  };
 
   const params = useMemo(
     () => ({
@@ -209,7 +210,7 @@ export function SubmissionsPage() {
             </div>
             <div className="flex items-center gap-2">
               <FileCode className="h-4 w-4 text-muted-foreground" />
-              <Select value={status} onValueChange={setStatus}>
+              <Select value={status} onValueChange={handleStatusChange}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue />
                 </SelectTrigger>

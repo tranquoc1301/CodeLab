@@ -25,6 +25,7 @@ from app.schemas.admin import (
     AdminTopicItem,
     AdminTopicUpdate,
     AdminUserItem,
+    AdminUserUpdate,
 )
 from app.services import admin as admin_service
 
@@ -196,6 +197,23 @@ async def list_users(
     return await admin_service.list_users_admin(
         db=db, search=search, is_active=is_active
     )
+
+
+@router.patch("/users/{user_id}", response_model=AdminUserItem)
+async def update_user(
+    user_id: int,
+    data: AdminUserUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin_user),
+) -> AdminUserItem:
+    try:
+        return await admin_service.update_user_admin(
+            db=db, user_id=user_id, data=data, admin_user_id=admin.id
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        )
 
 
 # --- Submissions (read-only) ---

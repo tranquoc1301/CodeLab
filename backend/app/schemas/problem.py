@@ -38,6 +38,26 @@ class CodeSnippetResponse(CodeSnippetBase):
     model_config = {"from_attributes": True}
 
 
+# --- Problem Drivers ---
+
+
+class ProblemDriverBase(BaseModel):
+    language: str
+    prefix_code: str = ""
+    driver_code: str
+
+
+class ProblemDriverCreate(ProblemDriverBase):
+    pass
+
+
+class ProblemDriverResponse(ProblemDriverBase):
+    id: int
+    judge0_language_id: int | None = None
+
+    model_config = {"from_attributes": True}
+
+
 # --- Examples ---
 
 

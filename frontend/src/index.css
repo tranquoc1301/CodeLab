@@ -145,7 +145,7 @@
   /* Border & input */
   --border: 0 0% 20%;
   --input: 0 0% 20%;
-  --ring: 0 0% 50%;
+  --ring: 0 0% 30%;
 
   /* Glassmorphism - Dark mode */
   --glass-bg: rgba(0, 0, 0, 0.6);

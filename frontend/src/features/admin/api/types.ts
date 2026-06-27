@@ -31,6 +31,14 @@ export interface AdminCodeSnippet {
   code: string;
 }
 
+export interface AdminProblemDriver {
+  id?: number;
+  language: string;
+  prefix_code: string;
+  driver_code: string;
+  judge0_language_id?: number | null;
+}
+
 export interface AdminProblemListItem {
   id: number;
   problem_id: number;
@@ -56,6 +64,7 @@ export interface AdminProblemDetail {
   constraints: AdminConstraint[];
   hints: AdminHint[];
   code_snippets: AdminCodeSnippet[];
+  problem_drivers: AdminProblemDriver[];
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +81,7 @@ export interface AdminProblemCreate {
   constraints: AdminConstraint[];
   hints: AdminHint[];
   code_snippets: AdminCodeSnippet[];
+  problem_drivers: AdminProblemDriver[];
 }
 
 export interface AdminProblemUpdate {
@@ -84,6 +94,7 @@ export interface AdminProblemUpdate {
   constraints?: AdminConstraint[];
   hints?: AdminHint[];
   code_snippets?: AdminCodeSnippet[];
+  problem_drivers?: AdminProblemDriver[];
 }
 
 export interface AdminTopicItem {
@@ -113,6 +124,11 @@ export interface AdminUserItem {
   created_at: string;
   updated_at: string;
   submission_count: number;
+}
+
+export interface AdminUserUpdate {
+  is_admin?: boolean;
+  is_active?: boolean;
 }
 
 export interface AdminSubmissionItem {

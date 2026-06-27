@@ -12,6 +12,7 @@ from app.models.problem import (
     Example,
     Problem,
     ProblemConstraint,
+    ProblemDriver,
     ProblemHint,
     ProblemTopic,
     Topic,
@@ -31,12 +32,15 @@ from app.schemas.admin import (
     AdminTopicItem,
     AdminTopicUpdate,
     AdminUserItem,
+    AdminUserUpdate,
     DistributionItem,
 )
+from app.constants.languages import JUDGE0_LANGUAGE_IDS
 from app.schemas.problem import (
     CodeSnippetResponse,
     ExampleResponse,
     ProblemConstraintResponse,
+    ProblemDriverResponse,
     ProblemHintResponse,
     TopicResponse,
 )
@@ -139,6 +143,7 @@ async def get_problem_admin(
             selectinload(Problem.constraints),
             selectinload(Problem.hints),
             selectinload(Problem.code_snippets),
+            selectinload(Problem.drivers),
         )
         .where(Problem.id == problem_id)
     )
@@ -188,6 +193,16 @@ async def get_problem_admin(
                 code=cs.code,
             )
             for cs in problem.code_snippets
+        ],
+        problem_drivers=[
+            ProblemDriverResponse(
+                id=d.id,
+                language=d.language,
+                prefix_code=d.prefix_code,
+                driver_code=d.driver_code,
+                judge0_language_id=d.judge0_language_id,
+            )
+            for d in problem.drivers
         ],
         created_at=problem.created_at,
         updated_at=problem.updated_at,
@@ -249,6 +264,16 @@ async def create_problem_admin(
         )
         db.add(snippet)
 
+    for drv in data.problem_drivers:
+        driver = ProblemDriver(
+            problem_id=problem.id,
+            language=drv.language,
+            prefix_code=drv.prefix_code,
+            driver_code=drv.driver_code,
+            judge0_language_id=JUDGE0_LANGUAGE_IDS.get(drv.language),
+        )
+        db.add(driver)
+
     try:
         await db.commit()
     except IntegrityError as exc:
@@ -269,6 +294,7 @@ async def update_problem_admin(
             selectinload(Problem.constraints),
             selectinload(Problem.hints),
             selectinload(Problem.code_snippets),
+            selectinload(Problem.drivers),
         )
         .where(Problem.id == problem_id)
     )
@@ -341,6 +367,22 @@ async def update_problem_admin(
                     code=sn["code"],
                 )
                 db.add(snippet)
+
+    if "problem_drivers" in payload:
+        drivers_data = payload.pop("problem_drivers")
+        if drivers_data is not None:
+            for d in problem.drivers:
+                await db.delete(d)
+            await db.flush()
+            for drv in drivers_data:
+                driver = ProblemDriver(
+                    problem_id=problem.id,
+                    language=drv["language"],
+                    prefix_code=drv.get("prefix_code", ""),
+                    driver_code=drv["driver_code"],
+                    judge0_language_id=JUDGE0_LANGUAGE_IDS.get(drv["language"]),
+                )
+                db.add(driver)
 
     # Update basic fields
     for field in ("title", "slug", "difficulty", "description"):
@@ -522,6 +564,45 @@ async def list_users_admin(
         )
         for row in rows
     ]
+
+
+async def update_user_admin(
+    db: AsyncSession, user_id: int, data: AdminUserUpdate, admin_user_id: int
+) -> AdminUserItem:
+    """Update a user's role or active status."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise ValueError("User not found")
+
+    if data.is_admin is not None:
+        if user_id == admin_user_id and not data.is_admin:
+            raise ValueError("Cannot remove your own admin status")
+        user.is_admin = data.is_admin
+
+    if data.is_active is not None:
+        if user_id == admin_user_id and not data.is_active:
+            raise ValueError("Cannot deactivate your own account")
+        user.is_active = data.is_active
+
+    await db.commit()
+    await db.refresh(user)
+
+    count_result = await db.execute(
+        select(func.count(Submission.id)).where(Submission.user_id == user.id)
+    )
+    submission_count = count_result.scalar() or 0
+
+    return AdminUserItem(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        is_active=user.is_active,
+        is_admin=user.is_admin,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+        submission_count=submission_count,
+    )
 
 
 # --- Submissions (read-only) ---

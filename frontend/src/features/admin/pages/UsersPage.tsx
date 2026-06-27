@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { Users as UsersIcon, ShieldCheck, ShieldOff } from "lucide-react";
-
-import { Badge } from "@/shared/components/ui/badge";
+import { useCallback, useMemo, useState } from "react";
+import { Users as UsersIcon } from "lucide-react";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -10,24 +9,34 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { extractAdminErrorMessage, normalizeAdminUser } from "@/features/admin/api/types";
-import { useAdminUsers } from "@/features/admin/hooks/useAdminUsers";
+import { useAdminUsers, useUpdateAdminUser } from "@/features/admin/hooks/useAdminUsers";
 import {
   AdminDataTable,
   type AdminColumn,
 } from "@/features/admin/components/AdminDataTable";
 import { AdminSearchInput } from "@/features/admin/components/AdminSearchInput";
 import type { AdminUserItem } from "@/features/admin/api/types";
+import { useAuth } from "@/app/store/auth";
+import { cn } from "@/shared/utils/utils";
 
 const PAGE_SIZE = 20;
 
 export function UsersPage() {
+  const { user: currentUser } = useAuth();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [page, setPage] = useState(1);
+  const updateUser = useUpdateAdminUser();
 
-  useEffect(() => {
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
     setPage(1);
-  }, [search, activeFilter]);
+  };
+
+  const handleFilterChange = (value: "all" | "active" | "inactive") => {
+    setActiveFilter(value);
+    setPage(1);
+  };
 
   const params = useMemo(() => {
     const is_active = activeFilter === "all" ? undefined : activeFilter === "active";
@@ -43,11 +52,50 @@ export function UsersPage() {
     [data],
   );
 
-  // simple client-side pagination because endpoint returns full list
   const total = users.length;
   const start = (page - 1) * PAGE_SIZE;
   const paged = users.slice(start, start + PAGE_SIZE);
   const hasNext = start + paged.length < total;
+
+  const handleRoleChange = useCallback(
+    (userId: number, value: string) => {
+      updateUser.mutate(
+        { id: userId, data: { is_admin: value === "admin" } },
+        {
+          onSuccess: () => {
+            toast.success("Role updated successfully");
+          },
+          onError: (err) => {
+            toast.error(extractAdminErrorMessage(err, "Failed to update role"));
+            refetch();
+          },
+        },
+      );
+    },
+    [updateUser, refetch],
+  );
+
+  const handleStatusToggle = useCallback(
+    (userId: number, currentActive: boolean) => {
+      updateUser.mutate(
+        { id: userId, data: { is_active: !currentActive } },
+        {
+          onSuccess: () => {
+            toast.success(
+              `User ${!currentActive ? "activated" : "deactivated"} successfully`,
+            );
+          },
+          onError: (err) => {
+            toast.error(
+              extractAdminErrorMessage(err, "Failed to update status"),
+            );
+            refetch();
+          },
+        },
+      );
+    },
+    [updateUser, refetch],
+  );
 
   const columns: AdminColumn<AdminUserItem>[] = useMemo(
     () => [
@@ -69,35 +117,65 @@ export function UsersPage() {
       {
         key: "role",
         header: "Role",
-        className: "w-32",
-        render: (row) =>
-          row.is_admin ? (
-            <Badge variant="default" className="gap-1">
-              <ShieldCheck className="h-3 w-3" />
-              Admin
-            </Badge>
-          ) : (
-            <Badge variant="secondary" className="gap-1">
-              <ShieldOff className="h-3 w-3" />
-              Member
-            </Badge>
-          ),
+        className: "w-[120px]",
+        render: (row) => {
+          const isSelf = row.id === currentUser?.id;
+          return (
+            <Select
+              value={row.is_admin ? "admin" : "member"}
+              onValueChange={(v) => handleRoleChange(row.id, v)}
+              disabled={isSelf || updateUser.isPending}
+            >
+              <SelectTrigger
+                className={cn(
+                  "h-8 w-full text-xs",
+                  row.is_admin && "border-primary/50 bg-primary/5",
+                )}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper" sideOffset={4}>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="member">Member</SelectItem>
+              </SelectContent>
+            </Select>
+          );
+        },
       },
       {
         key: "status",
         header: "Status",
-        className: "w-28",
-        render: (row) =>
-          row.is_active ? (
-            <Badge variant="success">Active</Badge>
-          ) : (
-            <Badge variant="outline">Inactive</Badge>
-          ),
+        className: "w-[100px]",
+        render: (row) => {
+          const isSelf = row.id === currentUser?.id;
+          return (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isSelf && !updateUser.isPending) {
+                  handleStatusToggle(row.id, row.is_active);
+                }
+              }}
+              disabled={isSelf || updateUser.isPending}
+              className={cn(
+                "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
+                row.is_active
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80",
+                isSelf ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+              )}
+            >
+              {row.is_active ? "Active" : "Inactive"}
+            </button>
+          );
+        },
       },
       {
         key: "submissions",
         header: "Submissions",
-        className: "w-32 text-right",
+        className: "w-[100px] text-right",
         cellClassName: "text-right",
         render: (row) => (
           <span className="text-sm text-muted-foreground">
@@ -108,7 +186,7 @@ export function UsersPage() {
       {
         key: "joined",
         header: "Joined",
-        className: "w-36",
+        className: "w-[100px]",
         render: (row) => (
           <span className="text-xs text-muted-foreground">
             {new Date(row.created_at).toLocaleDateString()}
@@ -116,7 +194,7 @@ export function UsersPage() {
         ),
       },
     ],
-    [],
+    [currentUser?.id, updateUser.isPending, handleRoleChange, handleStatusToggle],
   );
 
   return (
@@ -124,7 +202,7 @@ export function UsersPage() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
         <p className="text-sm text-muted-foreground">
-          Read-only directory of all registered users.
+          Manage user roles and account status.
         </p>
       </div>
 
@@ -157,7 +235,7 @@ export function UsersPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <AdminSearchInput
               value={search}
-              onChange={setSearch}
+              onChange={handleSearchChange}
               placeholder="Search by username or email..."
             />
             <div className="flex items-center gap-2">
@@ -165,7 +243,7 @@ export function UsersPage() {
               <Select
                 value={activeFilter}
                 onValueChange={(v) =>
-                  setActiveFilter(v as "all" | "active" | "inactive")
+                  handleFilterChange(v as "all" | "active" | "inactive")
                 }
               >
                 <SelectTrigger className="w-[140px]">

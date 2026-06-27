@@ -12,6 +12,7 @@ import {
   X,
   ChevronDown,
   Bookmark,
+  Shield,
 } from "lucide-react";
 import { useAuth } from "@/app/store/auth";
 import { useThemeStore } from "@/app/store/theme";
@@ -55,13 +56,16 @@ export function Header() {
   const [activeMenuIndex, setActiveMenuIndex] = useState(-1);
   const isProblemDetailPage = location.pathname.startsWith(PROBLEM_PATH_PREFIX);
 
-  const userMenuItems = useMemo(
-    () => [
+  const userMenuItems = useMemo(() => {
+    const items = [
       { label: COPY.NAV.PROFILE, to: ROUTES.PROFILE },
       { label: COPY.NAV.PROBLEM_LISTS, to: ROUTES.PROBLEM_LISTS },
-    ],
-    [],
-  );
+    ];
+    if (user?.is_admin) {
+      items.push({ label: COPY.NAV.ADMIN_DASHBOARD, to: ROUTES.ADMIN_ROOT });
+    }
+    return items;
+  }, [user?.is_admin]);
 
   // Close user menu on click outside
   useEffect(() => {
@@ -256,27 +260,41 @@ export function Header() {
                         {user?.email}
                       </p>
                     </div>
-                    {userMenuItems.map((item, index) => (
-                      <Link
-                        key={item.to}
-                        to={item.to}
-                        className={cn(
-                          "flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-accent transition-colors",
-                          activeMenuIndex === index && "bg-accent",
-                        )}
-                        role="menuitem"
-                        aria-current={currentPath === item.to ? "page" : undefined}
-                        onClick={() => {
-                          setUserMenuOpen(false);
-                          setActiveMenuIndex(-1);
-                        }}
-                        onMouseEnter={() => setActiveMenuIndex(index)}
-                        onMouseLeave={() => setActiveMenuIndex(-1)}
-                      >
-                        <User className="h-4 w-4" />
-                        {item.label}
-                      </Link>
-                    ))}
+                    {userMenuItems.map((item, index) => {
+                      const isAdminItem = item.to === ROUTES.ADMIN_ROOT;
+                      const prevItem = index > 0 ? userMenuItems[index - 1] : null;
+                      const showSeparator = isAdminItem && prevItem && prevItem.to !== ROUTES.ADMIN_ROOT;
+
+                      return (
+                        <div key={item.to}>
+                          {showSeparator && (
+                            <div className="my-1 border-t border-border" />
+                          )}
+                          <Link
+                            to={item.to}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-accent transition-colors",
+                              activeMenuIndex === index && "bg-accent",
+                            )}
+                            role="menuitem"
+                            aria-current={currentPath === item.to ? "page" : undefined}
+                            onClick={() => {
+                              setUserMenuOpen(false);
+                              setActiveMenuIndex(-1);
+                            }}
+                            onMouseEnter={() => setActiveMenuIndex(index)}
+                            onMouseLeave={() => setActiveMenuIndex(-1)}
+                          >
+                            {isAdminItem ? (
+                              <Shield className="h-4 w-4" />
+                            ) : (
+                              <User className="h-4 w-4" />
+                            )}
+                            {item.label}
+                          </Link>
+                        </div>
+                      );
+                    })}
                     <button
                       type="button"
                       onClick={handleLogout}

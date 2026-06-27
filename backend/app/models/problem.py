@@ -110,6 +110,11 @@ class Problem(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    drivers: Mapped[list["ProblemDriver"]] = relationship(
+        back_populates="problem",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
     submissions: Mapped[list["Submission"]] = relationship(
         back_populates="problem",
         lazy="dynamic",
@@ -232,4 +237,31 @@ class CodeSnippet(Base):
     )
 
     problem: Mapped["Problem"] = relationship(back_populates="code_snippets")
+
+
+class ProblemDriver(Base):
+    __tablename__ = "problem_drivers"
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
+    problem_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("problems.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    language: Mapped[str] = mapped_column(String(30), nullable=False)
+    prefix_code: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    driver_code: Mapped[str] = mapped_column(Text, nullable=False)
+    judge0_language_id: Mapped[int | None] = mapped_column(
+        Integer, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "problem_id",
+            "language",
+            name="uq_problem_drivers_problem_lang",
+        ),
+    )
+
+    problem: Mapped["Problem"] = relationship(back_populates="drivers")
 

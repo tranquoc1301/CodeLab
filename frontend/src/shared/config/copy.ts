@@ -12,6 +12,7 @@ export const COPY = {
     REGISTER: "Register",
     MENU: "Menu",
     PROBLEM_LISTS: "My Lists",
+    ADMIN_DASHBOARD: "Admin Dashboard",
   },
 
   HOME: {

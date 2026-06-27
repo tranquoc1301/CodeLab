@@ -35,6 +35,7 @@ export const API = {
     ADMIN_TOPICS: "/admin/topics",
     ADMIN_TOPIC_DETAIL: (id: number) => `/admin/topics/${id}`,
     ADMIN_USERS: "/admin/users",
+    ADMIN_USER_DETAIL: (id: number) => `/admin/users/${id}`,
     ADMIN_SUBMISSIONS: "/admin/submissions",
   },
   HEADERS: {
