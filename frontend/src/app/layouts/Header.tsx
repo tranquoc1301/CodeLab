@@ -43,6 +43,8 @@ function ThemeToggle() {
   );
 }
 
+type MenuItem = { label: string; to: string };
+
 export function Header() {
   const { isAuthenticated, user, logout } =
     useAuth();
@@ -57,7 +59,7 @@ export function Header() {
   const isProblemDetailPage = location.pathname.startsWith(PROBLEM_PATH_PREFIX);
 
   const userMenuItems = useMemo(() => {
-    const items = [
+    const items: MenuItem[] = [
       { label: COPY.NAV.PROFILE, to: ROUTES.PROFILE },
       { label: COPY.NAV.PROBLEM_LISTS, to: ROUTES.PROBLEM_LISTS },
     ];
