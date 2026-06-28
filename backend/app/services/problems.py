@@ -230,24 +230,23 @@ async def get_problem_by_id(db: AsyncSession, problem_id: int) -> Problem | None
 
 
 async def get_all_topics(db: AsyncSession) -> list[Topic]:
-    """Get all topics ordered by name."""
+    """Get all topics ordered by name, with Redis-backed caching."""
     cache_key = generate_cache_key("topics:all", {})
     cached = await get_cached(cache_key)
-    if cached:
+    if cached is not None:
         return [Topic(**t) for t in cached["items"]]
 
-    result = await db.execute(select(Topic).order_by(Topic.name))
-    topics = list(result.scalars().all())
-
     try:
-        cache_data = {
-            "items": [{"id": t.id, "name": t.name, "slug": t.slug} for t in topics]
-        }
-        await set_cached(cache_key, cache_data, ttl=3600)
+        result = await db.execute(select(Topic).order_by(Topic.name))
+        topics = list(result.scalars().all())
+        await set_cached(
+            cache_key,
+            {"items": [{"id": t.id, "name": t.name, "slug": t.slug} for t in topics]},
+            ttl=3600,
+        )
+        return topics
     except Exception:
-        pass
-
-    return topics
+        return []
 
 
 async def invalidate_problem_cache(prefix: str = "problems:*") -> None:

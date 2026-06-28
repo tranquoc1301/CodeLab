@@ -235,7 +235,7 @@ def _build_public_hint_response(
     hint_text: str,
     diagnostic_snapshot: DiagnosticSnapshot | None = None,
 ) -> dict:
-    items = [line for line in hint_text.split("\n") if line.strip()]
+    items = _split_hint_items(hint_text)
     if not items:
         items = [hint_text]
     return {
@@ -309,6 +309,15 @@ def _sanitize(value: str) -> str:
     if len(collapsed) > FIELD_MAX_LENGTH:
         collapsed = collapsed[:FIELD_MAX_LENGTH].rstrip()
     return collapsed
+
+
+def _split_hint_items(text: str) -> list[str]:
+    items = [line.strip() for line in text.split("\n") if line.strip()]
+    if len(items) >= 2:
+        return items
+    # Fallback: split on Vietnamese sentence terminators when LLM returns one paragraph
+    parts = [part.strip() for part in re.split(r"(?<=[\.!?])\s+", text.strip()) if part.strip()]
+    return parts or [text.strip()]
 
 
 def _unsupported_hint_message(snapshot: DiagnosticSnapshot) -> str:
