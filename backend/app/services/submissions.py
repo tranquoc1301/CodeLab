@@ -211,11 +211,13 @@ def _map_submission_to_response(
     test_case_results: list[dict] | None = None,
 ) -> SubmissionResponse:
     """Map submission and problem_slug to SubmissionResponse."""
+    problem_title = submission.problem.title if submission.problem else None
     return SubmissionResponse(
         id=submission.id,
         user_id=submission.user_id,
         problem_id=submission.problem_id,
         problem_slug=problem_slug,
+        problem_title=problem_title,
         source_code=submission.source_code,
         language=submission.language,
         status=submission.status,

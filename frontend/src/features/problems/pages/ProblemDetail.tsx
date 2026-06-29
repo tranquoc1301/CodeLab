@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useCallback, useRef, useTransition } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   BookOpen,
   Maximize2,
@@ -22,6 +22,7 @@ import { COPY } from "@/shared/config";
 import { useProblemDetail } from "@/features/problems/hooks";
 import { ROUTES } from "@/app/router";
 import { getCodeTemplate } from "@/shared/config/code";
+import api from "@/shared/api";
 import type { SubmissionResult } from "@/shared/types";
 
 // Extracted sub-components
@@ -65,6 +66,19 @@ export default function ProblemDetail() {
     resetVerdict,
   } = useCodeExecution();
 
+  // Read submission ID from URL query param
+  const [searchParams, setSearchParams] = useSearchParams();
+  const submissionIdParam = searchParams.get("submission");
+  const initialSubmissionId = submissionIdParam ? parseInt(submissionIdParam, 10) : null;
+
+  // Fetch submission by ID when navigating from submissions list
+  const { data: submissionFromUrl } = useQuery({
+    queryKey: ["submission", initialSubmissionId],
+    queryFn: () => api.get<SubmissionResult>(`/submissions/${initialSubmissionId}`).then(res => res.data),
+    enabled: initialSubmissionId !== null && isAuthenticated && !isNaN(initialSubmissionId),
+    staleTime: 0,
+  });
+
   // Reset verdict when problem changes
   const previousProblemIdRef = useRef<number | undefined>(undefined);
   useEffect(() => {
@@ -76,6 +90,8 @@ export default function ProblemDetail() {
 
   // Tab state for left panel (exposed via ref to avoid setState in effect)
   const [leftTab, setLeftTab] = useState<"description" | "submissions">("description");
+
+  const [, startTransition] = useTransition();
 
   // Submission detail state
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionResult | null>(null);
@@ -94,6 +110,18 @@ export default function ProblemDetail() {
     setSelectedSubmission(null);
   }, []);
 
+  // Auto-select submission from URL query param
+  useEffect(() => {
+    if (submissionFromUrl && initialSubmissionId) {
+      startTransition(() => {
+        setSelectedSubmission(submissionFromUrl);
+        setLeftTab("submissions");
+        // Clear query param to avoid re-selection on refresh
+        setSearchParams({}, { replace: true });
+      });
+    }
+  }, [submissionFromUrl, initialSubmissionId, setSearchParams, startTransition]);
+
   // Query client for query invalidation
   const queryClient = useQueryClient();
 
@@ -101,10 +129,11 @@ export default function ProblemDetail() {
   useEffect(() => {
     if (verdict && !isSubmitting && verdict.status && verdict.submission_type === "submit") {
       queryClient.invalidateQueries({ queryKey: ["submissions", "problem", problem?.id] });
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      handleSwitchToSubmissionsTab();
+      startTransition(() => {
+        handleSwitchToSubmissionsTab();
+      });
     }
-  }, [verdict, isSubmitting, problem?.id, queryClient, handleSwitchToSubmissionsTab]);
+  }, [verdict, isSubmitting, problem?.id, queryClient, handleSwitchToSubmissionsTab, startTransition]);
 
   const {
     splitRef,
@@ -302,6 +331,7 @@ export default function ProblemDetail() {
                 ) : (
                   <SubmissionList
                     problemId={problem.id}
+                    selectedSubmissionId={selectedSubmission?.id}
                     onSelectSubmission={handleSelectSubmission}
                   />
                 )}

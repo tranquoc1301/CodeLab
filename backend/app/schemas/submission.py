@@ -107,6 +107,7 @@ class SubmissionResponse(BaseModel):
     user_id: int
     problem_id: int | None
     problem_slug: str | None
+    problem_title: str | None = Field(default=None, description="Problem title")
     source_code: str
     language: str
     status: str | None

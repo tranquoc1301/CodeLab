@@ -1,11 +1,13 @@
 import { memo } from "react";
 import { Link } from "react-router-dom";
 import { FileCode, ExternalLink } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ROUTES } from "@/app/router";
 import { StatusBadge } from "./StatusBadge";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
-import type { Submission } from "@/shared/types";
+import api from "@/shared/api";
+import type { Submission, SubmissionResult } from "@/shared/types";
 
 interface SubmissionCardProps {
   submission: Submission;
@@ -14,6 +16,16 @@ interface SubmissionCardProps {
 export const SubmissionCard = memo(function SubmissionCard({
   submission,
 }: SubmissionCardProps) {
+  const queryClient = useQueryClient();
+
+  const prefetch = () => {
+    if (!submission.problem_slug) return;
+    queryClient.prefetchQuery({
+      queryKey: ["submission", submission.id],
+      queryFn: () => api.get<SubmissionResult>(`/submissions/${submission.id}`).then(res => res.data),
+      staleTime: 60_000,
+    });
+  };
   return (
     <Card className="p-4 card-hover animate-fade-in">
       <CardContent className="p-0">
@@ -58,8 +70,10 @@ export const SubmissionCard = memo(function SubmissionCard({
             {submission.problem_slug && (
               <Button variant="ghost" size="icon-sm" asChild>
                 <Link
-                  to={ROUTES.problemDetail(submission.problem_slug)}
-                  aria-label="View problem"
+                  to={ROUTES.problemDetailWithSubmission(submission.problem_slug, submission.id)}
+                  aria-label="View submission"
+                  onMouseEnter={prefetch}
+                  onFocus={prefetch}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Link>

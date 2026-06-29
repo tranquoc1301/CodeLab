@@ -10,6 +10,7 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 
 interface SubmissionListProps {
   problemId: number;
+  selectedSubmissionId?: number | null;
   onSelectSubmission: (submission: SubmissionResult) => void;
 }
 
@@ -31,6 +32,7 @@ function formatRelativeTime(dateString: string): string {
 
 export const SubmissionList = memo(function SubmissionList({
   problemId,
+  selectedSubmissionId,
   onSelectSubmission,
 }: SubmissionListProps) {
   const queryClient = useQueryClient();
@@ -92,13 +94,20 @@ export const SubmissionList = memo(function SubmissionList({
         {submissions.map((submission) => {
           const statusConfig = getStatusConfig(submission.status);
           const StatusIcon = statusConfig.icon;
+          const isSelected = submission.id === selectedSubmissionId;
 
           return (
             <button
               key={submission.id}
               type="button"
               onClick={() => onSelectSubmission(submission)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors text-left border-b border-border/40"
+              aria-selected={isSelected}
+              data-state={isSelected ? "selected" : "unselected"}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-border/40 transition-all duration-150 ${
+                isSelected
+                  ? "bg-muted text-foreground border-l-2 border-l-primary shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent border-l-2 border-l-transparent"
+              }`}
             >
               {/* Status badge */}
               <span

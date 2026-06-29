@@ -2,6 +2,7 @@ export const ROUTES = {
   HOME: "/",
   PROBLEM_DETAIL: "/problems/:slug",
   problemDetail: (slug: string) => `/problems/${slug}`,
+  problemDetailWithSubmission: (slug: string, submissionId: number) => `/problems/${slug}?submission=${submissionId}`,
   SUBMISSIONS: "/submissions",
   LOGIN: "/login",
   REGISTER: "/register",

@@ -40,21 +40,12 @@ export interface VerdictResult {
   test_case_results: TestCaseResult[];
 }
 
-export interface TestCaseResult {
-  index: number;
-  status: string;
-  input: string;
-  stdout: string;
-  stderr: string;
-  expected_output: string;
-  error_message: string | null;
-}
-
 export interface SubmissionResult {
   id: number;
   user_id: number;
   problem_id: number | null;
   problem_slug: string | null;
+  problem_title: string | null;
   source_code: string;
   language: string;
   status: SubmissionStatus;
