@@ -18,6 +18,7 @@ export interface TestCaseResult {
   stdout: string;
   stderr: string;
   error_message: string | null;
+  expected_output?: string | null;
   time_ms: number | null;
   memory_kb: number | null;
 }

@@ -6,7 +6,7 @@ interface TestCaseData {
   status: string;
   input?: string;
   stdout?: string;
-  expected_output?: string;
+  expected_output?: string | null;
   error_message?: string | null;
   time_ms?: number | null;
   memory_kb?: number | null;
