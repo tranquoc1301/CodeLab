@@ -16,7 +16,7 @@ from app.schemas.problem import (
 from app.services.cache import (
     generate_cache_key,
     get_cached,
-    invalidate_cache,
+    invalidate_cache_pattern,
     set_cached,
 )
 from app.services.cursor import decode_cursor, encode_cursor, parse_sort_params
@@ -251,7 +251,7 @@ async def get_all_topics(db: AsyncSession) -> list[Topic]:
 
 async def invalidate_problem_cache(prefix: str = "problems:*") -> None:
     """Invalidate all problem-related cached responses."""
-    await invalidate_cache(prefix)
+    await invalidate_cache_pattern(prefix)
 
 
 def _apply_cursor_filter(query, cursor_data: dict, order_col: str, descending: bool):

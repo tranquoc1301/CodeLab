@@ -52,20 +52,27 @@ async def set_cached(key: str, data: dict, ttl: int | None = None) -> None:
         pass
 
 
-async def invalidate_cache(pattern: str) -> None:
-    """Delete all keys matching a glob pattern."""
+async def invalidate_cache_pattern(prefix: str) -> None:
+    """Delete all keys matching a glob pattern (O(n) SCAN)."""
     try:
         client = get_redis()
-        # Upstash REST hỗ trợ SCAN
         cursor = 0
         keys = []
         while True:
-            cursor, batch = await client.scan(cursor, match=pattern, count=100)
+            cursor, batch = await client.scan(cursor, match=prefix, count=100)
             keys.extend(batch)
             if cursor == 0:
                 break
         if keys:
             await client.delete(*keys)
+    except Exception:
+        pass
+
+
+async def delete_cached(key: str) -> None:
+    try:
+        client = get_redis()
+        await client.delete(key)
     except Exception:
         pass
 

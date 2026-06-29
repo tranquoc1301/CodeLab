@@ -1,12 +1,15 @@
+import logging
 import math
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.problem import Problem, ProblemTopic, Topic
 from app.models.submission import Submission
 from app.models.submission_error_event import SubmissionErrorEvent
+from app.schemas.problem import TopicResponse
 from app.services.dkt_service import get_topic_mastery
 from app.services.error_profile import (
     canonical_error_summary_template,
@@ -17,8 +20,10 @@ from app.services.hint_diagnostics import (
     is_canonical_error_label,
 )
 
+logger = logging.getLogger(__name__)
+
+
 # --- Scoring hyper-parameters ---
-MASTERY_THRESHOLD = 0.6
 W_DKT_GAP = 0.5
 W_ERROR_SEV = 0.3
 W_RECENCY = 0.2
@@ -26,10 +31,6 @@ RECENCY_WINDOW_DAYS = 30
 RECENCY_ALPHA = 2.0
 TOP_TOPICS = 5
 MAX_PER_TOPIC = 2
-FAIL_PENALTY_THRESHOLD = 5
-FAIL_PENALTY_PER_ATTEMPT = 0.05
-FAIL_PENALTY_CAP = 0.3
-
 _ERROR_SEVERITY: dict[str, float] = {
     "algorithm_design_error":   1.0,
     "complexity_error":         0.8,
@@ -37,15 +38,6 @@ _ERROR_SEVERITY: dict[str, float] = {
     "logic_calculation_error":  0.6,
     "memory_reference_error":   0.5,
     "boundary_condition_error": 0.4,
-}
-
-_ERROR_DIFFICULTY_BIAS: dict[str, list[str]] = {
-    "complexity_error":         ["Easy", "Medium"],
-    "recursion_error":          ["Easy", "Medium"],
-    "boundary_condition_error": ["Easy"],
-    "memory_reference_error":   ["Easy", "Medium"],
-    "logic_calculation_error":  ["Easy", "Medium"],
-    "algorithm_design_error":   ["Medium", "Hard"],
 }
 
 _DIFFICULTY_ORDER: dict[str, int] = {"Easy": 0, "Medium": 1, "Hard": 2}
@@ -133,7 +125,7 @@ def _build_reason(
     dominant: str | None,
     error_summary: dict[str, dict[str, int]],
     recent_summary: dict[str, dict[str, int]],
-    topics: dict[int, Topic],
+    topics: dict[int, TopicResponse],
     topic_id: int,
 ) -> str:
     """Return the Vietnamese explanation string for a recommendation."""
@@ -155,12 +147,6 @@ def _build_reason(
     return f"Bạn chưa thành thạo topic '{name}' ({mastery_pct}%)"
 
 
-def _compute_fail_penalty(problem_id: int, penalized_ids: dict[int, int]) -> float:
-    """Return the capped repeat-failure penalty for a problem."""
-    fail_count = penalized_ids.get(problem_id, 0)
-    return min(fail_count * FAIL_PENALTY_PER_ATTEMPT, FAIL_PENALTY_CAP)
-
-
 def _get_problem_topic_labels(problem: Problem) -> list[str]:
     """Return display-friendly topic labels for a problem."""
     return [topic.name for topic in problem.topics if topic.name]
@@ -176,8 +162,11 @@ async def get_recommended_problems(
     error_summary = await get_user_error_summary(db, user_id)
     recent_summary = await _get_recent_error_summary(db, user_id)
 
-    topic_result = await db.execute(select(Topic))
-    topics: dict[int, Topic] = {t.id: t for t in topic_result.scalars().all()}
+    topic_result = await db.execute(select(Topic.id, Topic.slug, Topic.name))
+    topics: dict[int, TopicResponse] = {
+        t["id"]: TopicResponse(id=t["id"], name=t["name"], slug=t["slug"])
+        for t in topic_result.mappings().all()
+    }
 
     topic_priority: list[tuple[int, str, float, float]] = []
     for topic_id, mastery_score in mastery.items():
@@ -212,50 +201,30 @@ async def get_recommended_problems(
     )
     accepted_ids: set[int] = {row[0] for row in accepted_result.all() if row[0] is not None}
 
-    fail_result = await db.execute(
-        select(Submission.problem_id, func.count(Submission.id).label("fail_count"))
-        .where(
-            Submission.user_id == user_id,
-            Submission.status != "Accepted",
-            Submission.submission_type == "submit",
-        )
-        .group_by(Submission.problem_id)
-        .having(func.count(Submission.id) >= FAIL_PENALTY_THRESHOLD)
-    )
-    penalized_ids: dict[int, int] = {
-        row[0]: row[1]
-        for row in fail_result.all()
-        if row[0] is not None
-    }
+    # Single query for all candidate problems across top topics.
+    top_topic_ids = {t[0] for t in top_topics}
 
     seen_ids: set[int] = set()
     candidates: list[dict] = []
 
+    result = await db.execute(
+        select(Problem)
+        .join(ProblemTopic, Problem.id == ProblemTopic.problem_id)
+        .options(selectinload(Problem.topics))
+        .where(ProblemTopic.topic_id.in_(top_topic_ids))
+    )
+    topic_to_problems: dict[int, list[Problem]] = {tid: [] for tid in top_topic_ids}
+    for p in result.scalars().unique().all():
+        if p.id in accepted_ids or p.id in seen_ids:
+            continue
+        for t in p.topics:
+            if t.id in topic_to_problems:
+                topic_to_problems[t.id].append(p)
+                break
+
     for topic_id, slug, priority, mastery_score in top_topics:
         dominant = _dominant_error_label(slug, error_summary)
-        allowed_difficulties = (
-            _ERROR_DIFFICULTY_BIAS.get(dominant) if dominant else None
-        )
-
-        base_query = (
-            select(Problem)
-            .join(ProblemTopic, Problem.id == ProblemTopic.problem_id)
-            .where(ProblemTopic.topic_id == topic_id)
-            .where(Problem.id.notin_(accepted_ids))
-        )
-
-        if allowed_difficulties:
-            query = base_query.where(Problem.difficulty.in_(allowed_difficulties))
-        else:
-            query = base_query
-
-        result = await db.execute(query)
-        problems = list(result.scalars().all())
-
-        if not problems and allowed_difficulties:
-            result = await db.execute(base_query)
-            problems = list(result.scalars().all())
-
+        problems = topic_to_problems.get(topic_id, [])
         problems.sort(key=lambda p: _DIFFICULTY_ORDER.get(p.difficulty, 99))
 
         added_for_topic = 0
@@ -264,11 +233,10 @@ async def get_recommended_problems(
                 continue
             if added_for_topic >= MAX_PER_TOPIC:
                 break
-            penalty = _compute_fail_penalty(p.id, penalized_ids)
             seen_ids.add(p.id)
             added_for_topic += 1
             candidates.append({
-                "_priority": priority - penalty,
+                "_priority": priority,
                 "problem_id": p.id,
                 "title": p.title,
                 "slug": p.slug,
@@ -289,60 +257,59 @@ async def get_recommended_problems(
                 ),
             })
 
-    # Fill up to `limit` using remaining topics that already passed the
-    # has_signal filter (top_topics), cycling through them in priority order.
-    # Using top_topics (not the raw topic_priority) keeps the fill consistent
-    # with the main selection and avoids surfacing topics with no user signal.
+    # Fill up to `limit`.
     if len(candidates) < limit:
-        seen_ids.update(c["problem_id"] for c in candidates)
+        result = await db.execute(
+            select(Problem)
+            .join(ProblemTopic, Problem.id == ProblemTopic.problem_id)
+            .options(selectinload(Problem.topics))
+            .where(ProblemTopic.topic_id.in_(top_topic_ids))
+            .where(Problem.id.notin_(seen_ids))
+        )
         ranked_topics = sorted(top_topics, key=lambda item: -item[2])
-        for topic_id, slug, priority, mastery_score in ranked_topics:
+        topic_priority_map2: dict[int, tuple[str, float, float]] = {
+            tid: (slug, priority, mastery_score)
+            for tid, slug, priority, mastery_score in ranked_topics
+        }
+        for p in result.scalars().unique().all():
+            if p.id in seen_ids or p.id in accepted_ids:
+                continue
+            topic_id = next(
+                (t.id for t in p.topics if t.id in topic_priority_map2),
+                None,
+            )
+            if topic_id is None:
+                continue
+            slug, priority, mastery_score = topic_priority_map2[topic_id]
+            dominant = _dominant_error_label(slug, error_summary)
+            seen_ids.add(p.id)
+            candidates.append({
+                "_priority": priority * 0.8,
+                "problem_id": p.id,
+                "title": p.title,
+                "slug": p.slug,
+                "difficulty": p.difficulty,
+                "topic_slugs": _get_problem_topic_labels(p),
+                "dominant_error_label": dominant,
+                "dominant_error_display": (
+                    get_diagnosis_display(dominant) if dominant else "Insufficient Signal"
+                ),
+                "reason": _build_reason(
+                    slug,
+                    mastery_score,
+                    dominant,
+                    error_summary,
+                    recent_summary,
+                    topics,
+                    topic_id,
+                ),
+            })
             if len(candidates) >= limit:
                 break
-            dominant = _dominant_error_label(slug, error_summary)
-            result = await db.execute(
-                select(Problem)
-                .join(ProblemTopic, Problem.id == ProblemTopic.problem_id)
-                .where(ProblemTopic.topic_id == topic_id)
-                .where(Problem.id.notin_(accepted_ids))
-                .where(Problem.id.notin_(seen_ids))
-            )
-            problems = list(result.scalars().all())
-            problems.sort(key=lambda p: _DIFFICULTY_ORDER.get(p.difficulty, 99))
-
-            for p in problems:
-                if len(candidates) >= limit:
-                    break
-                if p.id in seen_ids:
-                    continue
-                penalty = _compute_fail_penalty(p.id, penalized_ids)
-                seen_ids.add(p.id)
-                candidates.append({
-                    "_priority": (priority * 0.8) - penalty,
-                    "problem_id": p.id,
-                    "title": p.title,
-                    "slug": p.slug,
-                    "difficulty": p.difficulty,
-                    "topic_slugs": _get_problem_topic_labels(p),
-                    "dominant_error_label": dominant,
-                    "dominant_error_display": (
-                        get_diagnosis_display(dominant) if dominant else "Insufficient Signal"
-                    ),
-                    "reason": _build_reason(
-                        slug,
-                        mastery_score,
-                        dominant,
-                        error_summary,
-                        recent_summary,
-                        topics,
-                        topic_id,
-                    ),
-                })
 
     candidates.sort(
         key=lambda c: (-c["_priority"], _DIFFICULTY_ORDER.get(c["difficulty"], 0))
     )
-
     for c in candidates:
         c.pop("_priority", None)
 

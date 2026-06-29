@@ -66,8 +66,9 @@ export default function Home() {
 
   const { topics: availableTopics, isLoading: topicsLoading } = useTopics();
   const { data: recommendationsData } = useRecommendations(5);
-  const recommendedProblemIds = new Set(
-    (recommendationsData?.items ?? []).map((item) => item.problem_id),
+  const recommendedProblemIds = useMemo(
+    () => new Set((recommendationsData?.items ?? []).map((item) => item.problem_id)),
+    [recommendationsData],
   );
 
   // Handlers
@@ -259,7 +260,7 @@ export default function Home() {
           ? Array.from({ length: 5 }).map((_, i) => (
               <ProblemCardSkeleton key={i} />
             ))
-            : problems.map((problem) => (
+          : problems.map((problem) => (
               <ProblemCard
                 key={problem.id}
                 problem={problem}

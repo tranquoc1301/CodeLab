@@ -7,13 +7,18 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.submission import Submission
 from app.models.problem import Problem, Topic
 from app.ml.topic_skill_mapping import get_dkt_skill_for_topic
-from app.services.cache import get_cached, set_cached, invalidate_cache
+from app.services.cache import get_cached, set_cached
 
 MASTERY_CACHE_TTL = 300  # 5 minutes
+
+# Cap interaction sequence length to avoid CPU spikes on very active users.
+# DKT is autoregressive: only the last N interactions matter for inference.
+MAX_INTERACTION_HISTORY = 200
 MASTERY_CACHE_PREFIX = "dkt:mastery"
 
 # ─── vocabulary ─────────────────────────────────────────────────────
@@ -21,27 +26,21 @@ _VOCAB_PATH = Path(__file__).parent.parent / "ml" / "skill2id.json"
 with open(_VOCAB_PATH) as _f:
     _VOCAB: dict[str, int] = json.load(_f)
 
-# skill name → int encoding (excludes "*special" which is the pad token)
-SKILL2ID: dict[str, int] = {
-    k: v for k, v in _VOCAB.items() if k != "*special"
-}
-SPECIAL_ID: int = _VOCAB["*special"]
+# skill name → int encoding
+SKILL2ID: dict[str, int] = dict(_VOCAB)
 
-# number of *actual* DKT skills (used for model architecture)
-# Must match the checkpoint: 36 skills → embedding 2*36+1=73, fc output 36
-NUM_SKILLS: int = 36
+# Must match the checkpoint: 37 skills → embedding 2*37=74, fc output 37
+NUM_SKILLS: int = len(SKILL2ID)
 
-EMBED_DIM = 64
+EMBED_DIM = 128
 HIDDEN = 128
 NUM_LAYERS = 1
-DROPOUT = 0.3
+DROPOUT = 0.1
 MODEL_PATH = Path(__file__).parent.parent / "ml" / "dkt_best.pt"
 
 logger = logging.getLogger(__name__)
 
 # inverse map: DKT skill name → set of CodeLab topic IDs
-# NOTE: populated lazily via _get_dkt_skill_to_topic_ids() to avoid relying
-# on a hard-coded topic range at import time.
 _DKT_SKILL_TO_TOPIC_IDS_CACHE: dict[str, set[int]] | None = None
 
 
@@ -67,31 +66,27 @@ class DKTModel(nn.Module):
         dropout: float,
     ):
         super().__init__()
-        # 2 * num_skills: correct=0 and correct=1 for each skill
-        # +1: special/pad token
-        self.embedding = nn.Embedding(
-            2 * num_skills + 1,
-            embed_dim,
-            padding_idx=2 * num_skills,
-        )
-        self.lstm = nn.LSTM(
+        self.num_c = num_skills
+        # Same layer names as the pyKT checkpoint so load_state_dict works directly.
+        self.interaction_emb = nn.Embedding(num_skills * 2, embed_dim)
+        self.lstm_layer = nn.LSTM(
             embed_dim,
             hidden_size,
             num_layers,
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0.0,
         )
-        self.dropout = nn.Dropout(dropout)
-        self.fc = nn.Linear(hidden_size, num_skills)
+        self.dropout_layer = nn.Dropout(dropout)
+        self.out_layer = nn.Linear(hidden_size, num_skills)
 
     def forward(self, x: torch.Tensor, lengths: torch.Tensor) -> torch.Tensor:
-        emb = self.embedding(x)
+        emb = self.interaction_emb(x)
         packed = pack_padded_sequence(
             emb, lengths.cpu(), batch_first=True, enforce_sorted=False,
         )
-        out, _ = self.lstm(packed)
+        out, _ = self.lstm_layer(packed)
         out, _ = pad_packed_sequence(out, batch_first=True)
-        return torch.sigmoid(self.fc(self.dropout(out)))
+        return torch.sigmoid(self.out_layer(self.dropout_layer(out)))  # pyright: ignore[reportPrivateImportUsage]
 
 
 # ─── singleton ──────────────────────────────────────────────────────
@@ -131,22 +126,7 @@ async def get_topic_mastery(
     db: AsyncSession,
     user_id: int,
 ) -> dict[int, float]:
-    """Return ``{topic_id: mastery_score (0.0 – 1.0)}`` for the user.
-
-    Steps
-    -----
-    1. Check Redis cache first.
-    2. Query all topic IDs dynamically from the database.
-    3. Fetch user's submissions (oldest first) with their problem topics.
-    4. Build a DKT interaction sequence using **Codeforces skill IDs**.
-       - Each problem may have *multiple* topics → one entry per topic.
-       - Topics with no DKT mapping are skipped (no ``0`` fallback).
-       - skill_id >= NUM_SKILLS is rejected to prevent embedding overflow.
-    5. Run the LSTM → mastery per DKT skill.
-    6. Propagate each DKT skill mastery back to **all** CodeLab topics that
-       map to it.  Unmapped topics receive ``0.0``.
-    7. Store result in Redis cache.
-    """
+    """Return ``{topic_id: mastery_score (0.0 – 1.0)}`` for the user."""
     cache_key = f"{MASTERY_CACHE_PREFIX}:{user_id}"
 
     # Try cache first
@@ -155,7 +135,7 @@ async def get_topic_mastery(
         # JSON keys are strings; convert back to int
         return {int(k): v for k, v in cached.items()}
 
-    # Query topic IDs dynamically – avoids hard-coding the 1..72 range
+    # Query topic IDs dynamically
     topic_id_result = await db.execute(select(Topic.id))
     all_topic_ids: list[int] = [row[0] for row in topic_id_result.all()]
 
@@ -166,9 +146,10 @@ async def get_topic_mastery(
     mastery_by_topic: dict[int, float] = {tid: 0.0 for tid in all_topic_ids}
 
     result = await db.execute(
-        select(Submission, Problem)
-        .join(Problem, Submission.problem_id == Problem.id)
-        .where(Submission.user_id == user_id)
+            select(Submission, Problem)
+            .join(Problem, Submission.problem_id == Problem.id)
+            .options(selectinload(Problem.topics))
+            .where(Submission.user_id == user_id)
         .order_by(Submission.created_at.asc())
     )
     rows = result.all()
@@ -199,20 +180,14 @@ async def get_topic_mastery(
                     skill_name,
                 )
                 continue
-            # Guard: reject out-of-range skill_id to prevent embedding index overflow
-            if skill_id >= NUM_SKILLS:
-                logger.warning(
-                    "DKT: skill_id=%s for skill '%s' >= NUM_SKILLS=%s – skipped",
-                    skill_id,
-                    skill_name,
-                    NUM_SKILLS,
-                )
-                continue
             # Token encoding: skill_id + correct * NUM_SKILLS
             tokens.append(skill_id + correct * NUM_SKILLS)
 
     if not tokens:
         return mastery_by_topic
+
+    # Keep only the most recent interactions; DKT inference is O(T) on sequence length.
+    tokens = tokens[-MAX_INTERACTION_HISTORY:]
 
     # Run inference
     device = get_torch_device()

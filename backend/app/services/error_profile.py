@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -335,24 +335,27 @@ def canonical_error_summary_template() -> dict[str, int]:
     return summary
 
 
-async def get_user_error_summary(db: AsyncSession, user_id: int) -> dict[str, dict[str, int]]:
+async def get_user_error_summary(
+    db: AsyncSession,
+    user_id: int,
+) -> dict[str, dict[str, int]]:
     result = await db.execute(
-        select(SubmissionErrorEvent)
+        select(
+            SubmissionErrorEvent.error_label,
+            SubmissionErrorEvent.topic_slugs,
+            func.count(SubmissionErrorEvent.id).label("cnt"),
+        )
         .where(SubmissionErrorEvent.user_id == user_id)
-        .order_by(SubmissionErrorEvent.submission_created_at.desc())
+        .group_by(SubmissionErrorEvent.error_label, SubmissionErrorEvent.topic_slugs)
     )
-    events = result.scalars().all()
-
     summary: dict[str, dict[str, int]] = {}
-    for event in events:
-        if not is_canonical_error_label(event.error_label):
+    for error_label, topic_slugs, cnt in result.all():
+        if not is_canonical_error_label(error_label):
             continue
-        topic_slugs = event.topic_slugs or ["unknown"]
-        for topic_slug in topic_slugs:
+        for topic_slug in (topic_slugs or ["unknown"]):
             topic = topic_slug or "unknown"
             if topic not in summary:
                 summary[topic] = canonical_error_summary_template()
-            summary[topic][event.error_label] += 1
-            summary[topic]["total"] += 1
-
+            summary[topic][error_label] += cnt
+            summary[topic]["total"] += cnt
     return summary
