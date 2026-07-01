@@ -160,6 +160,7 @@ async def get_problems_paginated(
             select(Submission.problem_id)
             .where(Submission.user_id == user_id)
             .where(Submission.status == "Accepted")
+            .where(Submission.submission_type == "submit")
             .distinct()
         )
         result = await db.execute(solved_query)

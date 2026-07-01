@@ -15,9 +15,6 @@ from app.ml.topic_skill_mapping import get_dkt_skill_for_topic
 from app.services.cache import get_cached, set_cached
 
 MASTERY_CACHE_TTL = 300  # 5 minutes
-
-# Cap interaction sequence length to avoid CPU spikes on very active users.
-# DKT is autoregressive: only the last N interactions matter for inference.
 MAX_INTERACTION_HISTORY = 200
 MASTERY_CACHE_PREFIX = "dkt:mastery"
 
@@ -39,10 +36,6 @@ DROPOUT = 0.1
 MODEL_PATH = Path(__file__).parent.parent / "ml" / "dkt_best.pt"
 
 logger = logging.getLogger(__name__)
-
-# inverse map: DKT skill name → set of CodeLab topic IDs
-_DKT_SKILL_TO_TOPIC_IDS_CACHE: dict[str, set[int]] | None = None
-
 
 def _build_dkt_skill_to_topic_ids(topic_ids: list[int]) -> dict[str, set[int]]:
     """Build inverse map from a dynamic list of topic IDs."""
@@ -86,7 +79,7 @@ class DKTModel(nn.Module):
         )
         out, _ = self.lstm_layer(packed)
         out, _ = pad_packed_sequence(out, batch_first=True)
-        return torch.sigmoid(self.out_layer(self.dropout_layer(out)))  # pyright: ignore[reportPrivateImportUsage]
+        return torch.sigmoid(self.out_layer(self.dropout_layer(out)))
 
 
 # ─── singleton ──────────────────────────────────────────────────────
@@ -146,10 +139,10 @@ async def get_topic_mastery(
     mastery_by_topic: dict[int, float] = {tid: 0.0 for tid in all_topic_ids}
 
     result = await db.execute(
-            select(Submission, Problem)
-            .join(Problem, Submission.problem_id == Problem.id)
-            .options(selectinload(Problem.topics))
-            .where(Submission.user_id == user_id)
+        select(Submission, Problem)
+        .join(Problem, Submission.problem_id == Problem.id)
+        .options(selectinload(Problem.topics))
+        .where(Submission.user_id == user_id)
         .order_by(Submission.created_at.asc())
     )
     rows = result.all()
@@ -184,6 +177,7 @@ async def get_topic_mastery(
             tokens.append(skill_id + correct * NUM_SKILLS)
 
     if not tokens:
+        await set_cached(cache_key, {str(k): v for k, v in mastery_by_topic.items()}, ttl=MASTERY_CACHE_TTL)
         return mastery_by_topic
 
     # Keep only the most recent interactions; DKT inference is O(T) on sequence length.
