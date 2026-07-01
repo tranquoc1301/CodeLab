@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from app.services.hint_diagnostics import DiagnosticSnapshot
@@ -13,58 +15,58 @@ class HintLevelSpec:
 
 
 SYSTEM_PROMPT = """\
-You are a programming tutor for the online judge platform CodeLab.
+Bạn là một gia sư lập trình cho nền tảng chấm điểm trực tuyến CodeLab.
 
-## Task
-Generate exactly ONE hint for a student who submitted incorrect code.
-The hint MUST be written entirely in Vietnamese (Tiếng Việt).
+## Nhiệm vụ
+Hãy tạo ra ĐÚNG MỘT gợi ý cho học sinh vừa nộp một bài không đúng.
+Toàn bộ nội dung gợi ý PHẢI viết bằng tiếng Việt.
 
-## Output
-Return exactly one JSON object with a single key "hint".
-The "hint" value is a string containing exactly 3 sentences separated by \\n.
+## Định dạng trả về
+Trả về ĐÚNG một đối tượng JSON với duy nhất khóa "hint".
+Giá trị của "hint" là một chuỗi gồm ĐÚNG 3 câu, ngăn cách nhau bằng ký tự "\n".
 
-## Constraints
-- Use ONLY the provided context. Do not invent hidden tests, hidden constraints, or any information outside the context.
-- Never use Markdown fences, backticks, or any text outside the JSON.
-- Write in natural, clear, easy-to-understand Vietnamese.
-- Follow the 3-level progression strictly:
-  Level 1 → recognize symptoms
-  Level 2 → narrow down the region
-  Level 3 → pinpoint the fix
+## Ràng buộc
+- Chỉ dùng ngữ cảnh được cung cấp. Không bịa thêm hidden tests, hidden constraints, hay thông tin ngoài ngữ cảnh.
+- Không dùng markdown fences, backticks hoặc bất kỳ đoạn văn bản nào ngoài JSON.
+- Viết tự nhiên, rõ ràng, dễ hiểu bằng tiếng Việt.
+- Tuân thủ đúng 3 mức tiến dần:
+  Level 1 → nhận diện triệu chứng
+  Level 2 → thu hẹp vùng code nghi ngờ
+  Level 3 → chỉ ra lỗi cụ thể và hướng sửa chính xác
 """
 
 HINT_LEVEL_SPECS: dict[int, HintLevelSpec] = {
     1: HintLevelSpec(
         level=1,
-        objective="Help the student recognize what is going wrong and classify the error type.",
+        objective="Giúp học sinh nhận ra điều gì đang sai và xác định nhóm lỗi chính.",
         rules=(
-            "Write 3 clear sentences, each conveying one idea:",
-            "1. Describe the visible symptom in the output or runtime behavior.",
-            "2. Classify the error at a high level (logic, boundary, state, algorithm).",
-            "3. Prompt the student to re-examine their reasoning or the process that produced the result.",
-            "DO NOT suggest a concrete fix. DO NOT mention variable names or code expressions.",
+            "Viết đúng 3 câu, mỗi câu thể hiện một ý:",
+            "1. Mô tả triệu chứng lỗi nhìn thấy được từ output hoặc hành vi chạy chương trình.",
+            "2. Phân loại lỗi ở mức khái quát: logic, biên, thứ tự cập nhật trạng thái, hoặc thuật toán.",
+            "3. Khuyến học sinh kiểm tra lại phần suy luận hoặc luồng xử lý từ input sang output.",
+            "KHÔNG gợi ý cách sửa cụ thể, KHÔNG nhắc tên biến hoặc biểu thức cụ thể trong code.",
         ),
     ),
     2: HintLevelSpec(
         level=2,
-        objective="Help the student locate the exact region in their code that needs inspection.",
+        objective="Giúp học sinh định vị vùng code cần tập trung kiểm tra.",
         rules=(
-            "Write 3 clear sentences, each conveying one idea:",
-            "1. Point to the suspicious code block: function name, loop, or conditional block that likely contains the bug. Do NOT reference specific lines or detailed expressions.",
-            "2. Describe the type of discrepancy that may exist in that block (wrong logic, wrong condition, wrong update order).",
-            "3. Give a general inspection direction within that block without stating the fix.",
-            "MUST mention a function or block name (e.g., 'in function threeSum', 'in the while loop') but DO NOT reference specific variables or expressions.",
+            "Viết đúng 3 câu, mỗi câu thể hiện một ý:",
+            "1. Chỉ đến khối code nghi ngờ: tên hàm, vòng lặp, hoặc nhánh điều kiện có khả năng chứa lỗi. Không nhắc dòng cụ thể hay biểu thức chi tiết.",
+            "2. Mô tả loại sai lệch có thể tồn tại ở vùng đó: biến chỉ số, điều kiện so sánh, hay thứ tự cập nhật.",
+            "3. Đưa hướng kiểm tra khái quát trong vùng đó mà không tiết lộ cách sửa.",
+            "BẮT BUỘC nhắc tên một hàm hoặc khối (ví dụ: 'hàm ...', 'vòng lặp while'), nhưng KHÔNG nhắc tên biến cụ thể.",
         ),
     ),
     3: HintLevelSpec(
         level=3,
-        objective="Pinpoint the exact error and propose a concrete fix in the current code.",
+        objective="Chỉ ra lỗi cụ thể và đề xuất cách sửa chính xác trong code hiện tại.",
         rules=(
-            "Write 3 clear sentences, each conveying one idea:",
-            "1. State the specific expression, condition, or operation that is wrong.",
-            "2. Propose a concrete fix (e.g., change 'sum == 0' to 'sum < 0').",
-            "3. Explain why this fix makes the result match the expected output.",
-            "You may reference variable names, expressions, and specific values. Do NOT paste a full code block.",
+            "Viết đúng 3 câu, mỗi câu thể hiện một ý:",
+            "1. Nêu biểu thức, điều kiện hoặc thao tác đang sai.",
+            "2. Đề xuất cách sửa cụ thể.",
+            "3. Giải thích vì sao cách sửa đó sẽ khớp kết quả mong đợi.",
+            "Có thể nhắc tên biến, biểu thức, hoặc giá trị cụ thể. KHÔNG dán đoạn code hoàn chỉnh.",
         ),
     ),
 }
@@ -110,7 +112,7 @@ def get_level_response_schema(level: int) -> dict:
         "properties": {
             "hint": {
                 "type": "string",
-                "description": f"Hint text for level {level}, written in Vietnamese, containing exactly 3 sentences separated by \\n.",
+                "description": f"Gợi ý level {level}, viết bằng tiếng Việt, gồm đúng 3 câu ngăn cách bằng ký tự '\n'.",
                 "minLength": 20,
                 "maxLength": MAX_FIELD_LENGTH,
             },
@@ -135,46 +137,41 @@ def _build_context_lines(
 ) -> list[str]:
     lines: list[str] = []
 
-    # ── Submission info ──────────────────────────────────────────
-    lines.append(f"Verdict: {verdict.get('status', 'Unknown')}")
-    lines.append(f"Language: {language}")
+    lines.append(f"Kết quả: {verdict.get('status', 'Unknown')}")
+    lines.append(f"Ngôn ngữ: {language}")
     if include_error_context:
-        lines.append(f"Diagnosis: {diagnostic_snapshot.diagnosis_detail_display}")
+        lines.append(f"Phân loại lỗi: {diagnostic_snapshot.diagnosis_detail_display}")
 
-    # ── Problem + code ───────────────────────────────────────────
     lines.append("")
-    lines.append(f"[Problem]\n{_truncate(problem_description, 600)}")
-    lines.append(f"[Student code]\n{_truncate(source_code, 2200)}")
+    lines.append(f"[Đề bài]\n{_truncate(problem_description, 600)}")
+    lines.append(f"[Bài học sinh]\n{_truncate(source_code, 2200)}")
 
-    # ── Diagnostic snapshot ──────────────────────────────────────
     lines.append("")
-    lines.append("[Diagnostic snapshot]")
-    lines.append(f"  Summary:       {diagnostic_snapshot.learner_summary}")
-    lines.append(f"  Symptom:       {diagnostic_snapshot.observed_symptom}")
-    lines.append(f"  Focus area:    {diagnostic_snapshot.focus_area}")
-    lines.append(f"  Concept hint:  {diagnostic_snapshot.concept_hint}")
-    lines.append(f"  Failure signal: {diagnostic_snapshot.failure_signal}")
+    lines.append("[Thông tin chẩn đoán]")
+    lines.append(f"  Tóm tắt:       {diagnostic_snapshot.learner_summary}")
+    lines.append(f"  Triệu chứng:   {diagnostic_snapshot.observed_symptom}")
+    lines.append(f"  Vùng nghi ngờ: {diagnostic_snapshot.focus_area}")
+    lines.append(f"  Khái niệm:     {diagnostic_snapshot.concept_hint}")
+    lines.append(f"  Tín hiệu lỗi:  {diagnostic_snapshot.failure_signal}")
 
-    # ── Error details (only if present) ──────────────────────────
     error_lines = []
     for label, value in (
-        ("Stderr",          _truncate(verdict.get("stderr"), 350)),
-        ("Error message",   _truncate(verdict.get("error_message"), 200)),
-        ("Failing input",   _truncate(verdict.get("stdin"), 220)),
-        ("Actual output",   _truncate(verdict.get("stdout"), 220)),
-        ("Expected output", _truncate(verdict.get("expected_output"), 220)),
+        ("Thông báo lỗi", _truncate(verdict.get("stderr"), 350)),
+        ("Lỗi", _truncate(verdict.get("error_message"), 200)),
+        ("Input test", _truncate(verdict.get("stdin"), 220)),
+        ("Output thực tế", _truncate(verdict.get("stdout"), 220)),
+        ("Output mong đợi", _truncate(verdict.get("expected_output"), 220)),
     ):
         if value.strip():
             error_lines.append(f"  {label}: {value}")
     if error_lines:
         lines.append("")
-        lines.append("[Error details]")
+        lines.append("[Chi tiết lỗi]")
         lines.extend(error_lines)
 
-    # ── Previous hints ───────────────────────────────────────────
     if previous_hints:
         lines.append("")
-        lines.append("[Previous hints]")
+        lines.append("[Gợi ý trước]")
         for index, hint in enumerate(previous_hints, start=1):
             lines.append(f"  Level {index}: {_truncate(hint, 240)}")
 
@@ -183,21 +180,21 @@ def _build_context_lines(
 
 def _build_instruction_lines(spec: HintLevelSpec) -> list[str]:
     return [
-        "--- TASK ---",
+        "--- NHIỆM VỤ ---",
         f"Level: {spec.level}",
-        f"Goal:  {spec.objective}",
+        f"Mục tiêu: {spec.objective}",
         "",
-        "--- RULES ---",
+        "--- QUY TẮC ---",
         *[f"  {rule}" for rule in spec.rules],
         "",
-        "--- FORMAT ---",
-        "  Write exactly 3 sentences, each on its own line separated by \\n.",
-        "  Do NOT use Markdown, backticks, or numbered lists.",
-        "  Each sentence must be concise, clear, and natural in Vietnamese.",
-        "  The entire hint text MUST be in Vietnamese.",
+        "--- ĐỊNH DẠNG TRẢ VỀ ---",
+        "  Viết đúng 3 câu, mỗi câu trên 1 dòng, ngăn cách bằng ký tự '\n'.",
+        "  Không dùng Markdown, backticks, hay danh sách có số thứ tự.",
+        "  Mỗi câu phải ngắn gọn, rõ ràng, tự nhiên bằng tiếng Việt.",
+        "  Toàn bộ nội dung gợi ý PHẢI bằng tiếng Việt.",
         "",
-        "--- RESPONSE ---",
-        '{"hint":"Câu 1.\\nCâu 2.\\nCâu 3."}',
+        "--- VÍ DỤ PHẢN HỒI ---",
+        '{"hint":"Câu 1.\nCâu 2.\nCâu 3."}',
     ]
 
 

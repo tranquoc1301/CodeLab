@@ -187,13 +187,16 @@ def _load_json_object(raw_content: str) -> dict:
         try:
             data = json.loads(candidate)
         except json.JSONDecodeError as exc:
-            last_error = exc
-            continue
+            try:
+                data, _ = json.JSONDecoder().raw_decode(candidate)
+            except json.JSONDecodeError:
+                last_error = exc
+                continue
         if not isinstance(data, dict):
             raise ValueError("response must be a JSON object")
-        # Check forbidden patterns on extracted JSON, not raw content
         if any(pattern.search(candidate) for pattern in FORBIDDEN_PATTERNS):
             raise ValueError("forbidden pattern")
+        return data
         return data
     raise ValueError("malformed json") from last_error
 

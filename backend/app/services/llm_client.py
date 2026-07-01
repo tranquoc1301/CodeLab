@@ -3,6 +3,7 @@ import logging
 
 import httpx
 
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -17,30 +18,40 @@ async def call_llm_json(
     response_schema: dict | None = None,
 ) -> str:
     if not settings.LLM_API_KEY:
-        logger.warning("LLM_API_KEY not configured, returning empty response")
+        logger.warning("Gemini API key not configured, returning empty response")
         return ""
+
+    model = settings.LLM_MODEL
+    url = f"{settings.LLM_BASE_URL}/models/{model}:generateContent"
+
+    payload = {
+        "contents": [
+            {"role": "user", "parts": [{"text": user_content}]}
+        ],
+        "systemInstruction": {"parts": [{"text": system_prompt}]},
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+            "responseMimeType": "application/json",
+        },
+    }
+
+    schema = _build_response_schema(response_schema)
+    if schema:
+        payload["generationConfig"]["responseSchema"] = schema
 
     try:
         async with httpx.AsyncClient(timeout=settings.LLM_TIMEOUT) as client:
             response = await client.post(
-                f"{settings.LLM_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.LLM_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json=_build_request_payload(
-                    model=settings.LLM_MODEL,
-                    system_prompt=system_prompt,
-                    user_content=user_content,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    response_schema=response_schema,
-                ),
+                url,
+                params={"key": settings.LLM_API_KEY},
+                headers={"Content-Type": "application/json"},
+                json=payload,
             )
             response.raise_for_status()
             return _extract_response_content(response.json())
     except httpx.TimeoutException:
-        logger.warning("LLM request timed out")
+        logger.warning("Gemini request timed out")
         return ""
     except httpx.HTTPStatusError as exc:
         status = exc.response.status_code
@@ -49,73 +60,46 @@ async def call_llm_json(
             body = exc.response.json().get("error", {}).get("message", "")
         except Exception:
             pass
-        logger.error("LLM HTTP error: %s body=%s", status, body)
+        logger.error("Gemini HTTP error: %s body=%s", status, body)
         return ""
     except Exception:
-        logger.exception("Unexpected error calling LLM")
+        logger.exception("Unexpected error calling Gemini")
         return ""
 
 
-def _build_request_payload(
-    *,
-    model: str,
-    system_prompt: str,
-    user_content: str,
-    max_tokens: int,
-    temperature: float,
-    response_schema: dict | None,
-) -> dict:
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_content},
-        ],
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        "response_format": _build_response_format(response_schema),
-    }
-    if response_schema:
-        payload["plugins"] = [{"id": "response-healing"}]
-    return payload
-
-
-def _build_response_format(response_schema: dict | None) -> dict:
+def _build_response_schema(response_schema: dict | None) -> dict | None:
     if not response_schema:
-        return {"type": "json_object"}
+        return None
+
+    properties = response_schema.get("properties")
+    if not properties:
+        return None
+
+    required = response_schema.get("required", [])
+
     return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "hint_response",
-            "strict": True,
-            "schema": response_schema,
-        },
+        "type": "object",
+        "properties": properties,
+        "required": required,
     }
 
 
 def _extract_response_content(data: dict) -> str:
-    choices = data.get("choices", [])
-    if not choices:
-        logger.warning("LLM returned empty choices")
+    candidates = data.get("candidates", [])
+    if not candidates:
+        logger.warning("Gemini returned empty candidates")
         return ""
 
-    message = choices[0].get("message", {})
-    parsed = message.get("parsed")
-    if isinstance(parsed, dict):
-        return json.dumps(parsed, ensure_ascii=False)
+    candidate = candidates[0]
+    content = candidate.get("content", {})
+    parts = content.get("parts", [])
 
-    content = message.get("content", "")
-    if isinstance(content, str):
-        return content.strip()
-    if isinstance(content, dict):
-        return json.dumps(content, ensure_ascii=False)
-    if isinstance(content, list):
-        text_parts = [
-            part.get("text", "")
-            for part in content
-            if isinstance(part, dict) and isinstance(part.get("text"), str)
-        ]
-        return "".join(text_parts).strip()
+    text_parts = []
+    for part in parts:
+        if isinstance(part, dict) and isinstance(part.get("text"), str):
+            text_parts.append(part["text"])
 
-    logger.warning("LLM returned unsupported content format")
-    return ""
+    joined = "".join(text_parts).strip()
+    if not joined:
+        logger.warning("Gemini returned empty text")
+    return joined

@@ -43,10 +43,10 @@ class Settings(BaseSettings):
         description="Judge0 CE API base URL",
     )
 
-    # LLM (OpenRouter)
-    LLM_API_KEY: str = Field(default="", description="OpenRouter API key")
-    LLM_MODEL: str = Field(default="openai/gpt-4o-mini", description="LLM model identifier")
-    LLM_BASE_URL: str = Field(... ,description="LLM API base URL")
+    # LLM (Google AI Studio / Gemini)
+    LLM_API_KEY: str = Field(default="", description="Gemini API key")
+    LLM_MODEL: str = Field(default="gemini-3.1-flash-lite", description="Gemini model identifier")
+    LLM_BASE_URL: str = Field(default="https://generativelanguage.googleapis.com/v1beta", description="Gemini API base URL")
     LLM_TIMEOUT: int = Field(default=30, description="LLM request timeout in seconds")
 
     # Mailtrap Email - REQUIRED

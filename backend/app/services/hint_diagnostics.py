@@ -15,15 +15,15 @@ class CanonicalErrorLabel(str, Enum):
 
 
 DIAGNOSIS_LABELS: dict[CanonicalErrorLabel, str] = {
-    CanonicalErrorLabel.LOGIC_CALCULATION_ERROR: "Logic & Calculation Error",
-    CanonicalErrorLabel.COMPLEXITY_ERROR: "Complexity & TLE Error",
-    CanonicalErrorLabel.MEMORY_REFERENCE_ERROR: "Memory & Reference Error",
-    CanonicalErrorLabel.RECURSION_ERROR: "Recursion Error",
-    CanonicalErrorLabel.ALGORITHM_DESIGN_ERROR: "Algorithm Design Error",
-    CanonicalErrorLabel.BOUNDARY_CONDITION_ERROR: "Boundary & Edge Case Error",
+    CanonicalErrorLabel.LOGIC_CALCULATION_ERROR: "Lỗi tính toán / logic",
+    CanonicalErrorLabel.COMPLEXITY_ERROR: "Lỗi độ phức tạp / quá thời gian",
+    CanonicalErrorLabel.MEMORY_REFERENCE_ERROR: "Lỗi truy cập bộ nhớ / kiểu dữ liệu",
+    CanonicalErrorLabel.RECURSION_ERROR: "Lỗi đệ quy",
+    CanonicalErrorLabel.ALGORITHM_DESIGN_ERROR: "Lỗi cách tiếp cận thuật toán",
+    CanonicalErrorLabel.BOUNDARY_CONDITION_ERROR: "Lỗi biên / trường hợp đặc biệt",
 }
 
-UNKNOWN_DIAGNOSIS_DISPLAY = "Insufficient Signal"
+UNKNOWN_DIAGNOSIS_DISPLAY = "Chưa đủ tín hiệu phân loại"
 CANONICAL_ERROR_LABELS: tuple[CanonicalErrorLabel, ...] = tuple(CanonicalErrorLabel)
 SUPPORTED_HINT_LABELS: frozenset[str] = frozenset(label.value for label in CANONICAL_ERROR_LABELS)
 
